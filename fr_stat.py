@@ -1,3 +1,5 @@
+import json
+
 import requests
 from collections import Counter
 from flask import Flask, jsonify, render_template
@@ -38,7 +40,7 @@ class Jira:
         payload = {
             "jql": jql_query,
             "maxResults": 100,  # Limit results
-            "fields": ["summary", "status", "fixVersions", "labels"]  # Fields to fetch
+            "fields": ["summary", "status", "fixVersions", "labels", "issuelinks"]  # Fields to fetch
         }
         response = requests.post(JIRA_SEARCH, json=payload, headers=headers)
         result_data = []
@@ -54,16 +56,27 @@ class Jira:
                         self.get_classes(label.lower())
                         for label in issue['fields']['labels']
                         if self.get_classes(label.lower()) not in ["buildissue", "internal_dev", "internla_dev"]
-                    ]
+                    ],
+                    "linked_features": self.extract_linked_features(issue['fields'].get("issuelinks", []))
+
 
                 })
-                # print(f"{issue['key']} {issue['fields']['summary']} "
-                #       f"{issue['fields']['status']['name']} "
-                #       f"Labels: {issue['fields']['labels']}, "
-                #       )
         else:
             print(f"Error: {response.status_code}, {response.text}")
         return result_data
+
+    def extract_linked_features(self, links):
+        result = []
+        for link in links:
+            issue_data = link.get("inwardIssue") or link.get("outwardIssue")
+            if issue_data:
+                fields = issue_data.get("fields", {})
+                issuetype = fields.get("issuetype", {})
+                if issuetype.get("id") == "10400":  # Only Feature type
+                    key = issue_data.get("key")
+                    if key:
+                        result.append(f"https://jira-vira.volvocars.biz/browse/{key}")
+        return result
 
     def get_statistics(self):
         all_classes = [cls for issue in self.list_issues() for cls in issue["classes"]]

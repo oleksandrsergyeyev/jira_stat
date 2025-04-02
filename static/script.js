@@ -38,15 +38,15 @@ async function renderChart() {
             maintainAspectRatio: false,
             scales: {
                 y: {
-        beginAtZero: true,
-        ticks: {
-            font: { size: 16 },
-            stepSize: 1,               // ✅ Force whole number steps
-            callback: function(value) {
-                return Number.isInteger(value) ? value : null;  // ✅ Hide non-integer ticks
+                    beginAtZero: true,
+                    ticks: {
+                        font: { size: 16 },
+                        stepSize: 1,
+                        callback: function(value) {
+                            return Number.isInteger(value) ? value : null;
+                        }
                     }
-                }
-            },
+                },
                 x: {
                     ticks: { font: { size: 14 } }
                 }
@@ -66,6 +66,16 @@ async function renderTable() {
     tbody.innerHTML = "";
 
     issues.forEach(issue => {
+        // ✅ Display clickable links with the issue key as text
+        const linksHtml = (issue.linked_features || []).map(link => {
+            try {
+                const key = link.split("/").pop();  // Extract key from URL
+                return `<a href="${link}" target="_blank">${key}</a>`;
+            } catch (e) {
+                return "";
+            }
+        }).join(" ");
+
         const row = document.createElement("tr");
         row.innerHTML = `
             <td><a href="https://jira-vira.volvocars.biz/browse/${issue.key}" target="_blank">${issue.key}</a></td>
@@ -75,20 +85,14 @@ async function renderTable() {
             <td class="${issue.classes.length === 0 ? 'no-class' : ''}">
                 ${(Array.isArray(issue.classes) && issue.classes.length > 0) ? issue.classes.join(", ") : ""}
             </td>
+            <td>${linksHtml}</td> <!-- ✅ Linked Features column -->
         `;
         tbody.appendChild(row);
     });
+
     document.getElementById("sortClasses").addEventListener("click", sortTableByClass);
 }
 
-// Load everything on page load
-renderChart();
-renderTable();
-
-document.getElementById("refresh").addEventListener("click", () => {
-    renderChart();
-    renderTable();
-});
 
 function sortTableByClass() {
     currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
@@ -96,19 +100,27 @@ function sortTableByClass() {
     const tbody = document.querySelector("#issueTable tbody");
     const rows = Array.from(tbody.querySelectorAll("tr"));
 
+    // ✅ Update column index (Classes is now index 4)
     rows.sort((a, b) => {
-        const aClass = a.cells[3].innerText.toLowerCase();  // Classes column
-        const bClass = b.cells[3].innerText.toLowerCase();
+        const aClass = a.cells[4].innerText.toLowerCase();
+        const bClass = b.cells[4].innerText.toLowerCase();
 
         if (aClass < bClass) return currentSortOrder === 'asc' ? -1 : 1;
         if (aClass > bClass) return currentSortOrder === 'asc' ? 1 : -1;
         return 0;
     });
 
-    // Re-append sorted rows
     rows.forEach(row => tbody.appendChild(row));
 
-    // Optional: Update arrow direction in header
     document.getElementById("sortClasses").innerText =
         `Classes ${currentSortOrder === 'asc' ? '▲' : '▼'}`;
 }
+
+// Load on page load
+renderChart();
+renderTable();
+
+document.getElementById("refresh").addEventListener("click", () => {
+    renderChart();
+    renderTable();
+});
