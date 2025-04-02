@@ -1,8 +1,10 @@
 import requests
 from collections import Counter
 from flask import Flask, jsonify, render_template
-import json
+import os
+from dotenv import load_dotenv
 
+load_dotenv()  # Load .env into environment variables
 
 app = Flask(__name__)
 
@@ -12,7 +14,7 @@ JIRA_SEARCH = f"{JIRA_BASE_URL}/search"
 JIRA_ISSUE = f"{JIRA_BASE_URL}/issue"
 
 # Personal Access Token
-JIRA_TOKEN = "Replace with your actual token"
+JIRA_TOKEN = os.getenv("JIRA_TOKEN")
 
 headers = {
     "Authorization": f"Bearer {JIRA_TOKEN}",
@@ -55,10 +57,10 @@ class Jira:
                     ]
 
                 })
-                print(f"{issue['key']} {issue['fields']['summary']} "
-                      f"{issue['fields']['status']['name']} "
-                      f"Labels: {issue['fields']['labels']}, "
-                      )
+                # print(f"{issue['key']} {issue['fields']['summary']} "
+                #       f"{issue['fields']['status']['name']} "
+                #       f"Labels: {issue['fields']['labels']}, "
+                #       )
         else:
             print(f"Error: {response.status_code}, {response.text}")
         return result_data
@@ -104,5 +106,5 @@ def issue_data():
 
 
 if __name__ == "__main__":
-    app.run(host="localhost", port=80, debug=True)
+    app.run(host="10.246.141.1", port=8080, debug=True)
 

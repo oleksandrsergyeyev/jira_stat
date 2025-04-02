@@ -1,3 +1,5 @@
+let currentSortOrder = 'asc';  // toggle between 'asc' and 'desc'
+
 async function fetchData() {
     const response = await fetch("/stats");
     return await response.json();
@@ -23,7 +25,7 @@ async function renderChart() {
         data: {
             labels: labels,
             datasets: [{
-                label: "Label Count",
+                label: "Class Count",
                 data: counts,
                 backgroundColor: "rgba(75, 192, 192, 0.5)",
                 borderColor: "rgba(75, 192, 192, 1)",
@@ -76,6 +78,7 @@ async function renderTable() {
         `;
         tbody.appendChild(row);
     });
+    document.getElementById("sortClasses").addEventListener("click", sortTableByClass);
 }
 
 // Load everything on page load
@@ -86,3 +89,26 @@ document.getElementById("refresh").addEventListener("click", () => {
     renderChart();
     renderTable();
 });
+
+function sortTableByClass() {
+    currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+
+    const tbody = document.querySelector("#issueTable tbody");
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+
+    rows.sort((a, b) => {
+        const aClass = a.cells[3].innerText.toLowerCase();  // Classes column
+        const bClass = b.cells[3].innerText.toLowerCase();
+
+        if (aClass < bClass) return currentSortOrder === 'asc' ? -1 : 1;
+        if (aClass > bClass) return currentSortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    // Re-append sorted rows
+    rows.forEach(row => tbody.appendChild(row));
+
+    // Optional: Update arrow direction in header
+    document.getElementById("sortClasses").innerText =
+        `Classes ${currentSortOrder === 'asc' ? '▲' : '▼'}`;
+}
