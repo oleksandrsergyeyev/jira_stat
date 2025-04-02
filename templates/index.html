@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jira Fault Report Statistics</title>
+
+    <!-- Load External CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+    <!-- Load Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <h1>JIRA INFRA TEAM - Jira Fault Report Statistics</h1>
+    <canvas id="statsChart"></canvas>  <!-- Chart will be drawn here -->
+    <button id="refresh">Refresh Data</button>
+
+    <!-- Load external JavaScript file -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>
