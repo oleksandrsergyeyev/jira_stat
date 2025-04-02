@@ -1,56 +1,88 @@
-// Function to fetch Jira statistics from Flask backend
 async function fetchData() {
-    try {
-        const response = await fetch("/stats");  // API endpoint from Flask
-        if (!response.ok) throw new Error("Failed to fetch data");
-        return await response.json();
-    } catch (error) {
-        console.error("Error fetching data:", error);
-        alert("Failed to load data. Check the backend.");
-        return {};
-    }
+    const response = await fetch("/stats");
+    return await response.json();
 }
 
-// Function to render the Chart.js bar chart
-async function renderChart() {
-    const stats = await fetchData();  // Fetch data from Flask API
-    const labels = Object.keys(stats);  // Get label names
-    const counts = Object.values(stats);  // Get label counts
+async function fetchIssues() {
+    const response = await fetch("/issue_data");
+    return await response.json();
+}
 
-    // Destroy previous chart instance if it exists (to avoid duplicates)
+async function renderChart() {
+    const stats = await fetchData();
+    const labels = Object.keys(stats);
+    const counts = Object.values(stats);
+
     if (window.myChart) {
         window.myChart.destroy();
     }
 
-    // Get chart canvas context
     const ctx = document.getElementById("statsChart").getContext("2d");
-
-    // Create the bar chart using Chart.js
     window.myChart = new Chart(ctx, {
-        type: "bar",  // Bar chart type
+        type: "bar",
         data: {
-            labels: labels,  // X-axis labels
+            labels: labels,
             datasets: [{
                 label: "Label Count",
-                data: counts,  // Y-axis data
-                backgroundColor: "rgba(75, 192, 192, 0.5)",  // Bar color
-                borderColor: "rgba(75, 192, 192, 1)",  // Bar border color
-                borderWidth: 1
+                data: counts,
+                backgroundColor: "rgba(75, 192, 192, 0.5)",
+                borderColor: "rgba(75, 192, 192, 1)",
+                borderWidth: 1,
+                barThickness: 40
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             scales: {
-                y: { beginAtZero: true }  // Y-axis starts at 0
+                y: {
+        beginAtZero: true,
+        ticks: {
+            font: { size: 16 },
+            stepSize: 1,               // ✅ Force whole number steps
+            callback: function(value) {
+                return Number.isInteger(value) ? value : null;  // ✅ Hide non-integer ticks
+                    }
+                }
+            },
+                x: {
+                    ticks: { font: { size: 14 } }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { font: { size: 18 } }
+                }
             }
         }
     });
 }
 
-// Initial chart render on page load
-renderChart();
+async function renderTable() {
+    const issues = await fetchIssues();
+    const tbody = document.querySelector("#issueTable tbody");
+    tbody.innerHTML = "";
 
-// Add event listener to refresh button
+    issues.forEach(issue => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td><a href="https://jira-vira.volvocars.biz/browse/${issue.key}" target="_blank">${issue.key}</a></td>
+            <td>${issue.summary}</td>
+            <td>${issue.status.name || issue.status}</td>
+            <td class="hide-labels">${(Array.isArray(issue.labels) ? issue.labels.join(", ") : "")}</td>
+            <td class="${issue.classes.length === 0 ? 'no-class' : ''}">
+                ${(Array.isArray(issue.classes) && issue.classes.length > 0) ? issue.classes.join(", ") : ""}
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Load everything on page load
+renderChart();
+renderTable();
+
 document.getElementById("refresh").addEventListener("click", () => {
     renderChart();
+    renderTable();
 });

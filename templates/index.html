@@ -3,21 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jira Fault Report Statistics</title>
+    <title>Jira Fault Report Dashboard</title>
 
     <!-- Load External CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-
     <!-- Load Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-    <h1>JIRA INFRA TEAM - Jira Fault Report Statistics</h1>
-    <canvas id="statsChart"></canvas>  <!-- Chart will be drawn here -->
-    <button id="refresh">Refresh Data</button>
+    <h1>Jira Fault Report Dashboard</h1>
 
-    <!-- Load external JavaScript file -->
+    <!-- Container for chart + table -->
+    <div class="dashboard-container">
+        <!-- Chart Section -->
+        <div class="chart-section">
+            <canvas id="statsChart"></canvas>
+            <button id="refresh">Refresh Data</button>
+        </div>
+
+        <!-- Table Section -->
+        <div class="table-section">
+<!--            <h2>Issue List</h2>-->
+            <table id="issueTable">
+                <thead>
+                    <tr>
+                        <th>Jira ID</th>
+                        <th>Summary</th>
+                        <th>Status</th>
+                         <th class="hide-labels">Labels</th>
+                        <th>Classes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- JS will populate -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Load custom JS -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 
 </body>

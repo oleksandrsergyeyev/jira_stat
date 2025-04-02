@@ -47,7 +47,13 @@ class Jira:
                     "key": issue['key'],
                     "summary": issue['fields']['summary'],
                     "status": issue['fields']['status'],
-                    "labels": (self.get_classes(label.lower()) for label in issue['fields']['labels'])
+                    "labels": [label.lower() for label in issue['fields']['labels']],
+                    "classes": [
+                        self.get_classes(label.lower())
+                        for label in issue['fields']['labels']
+                        if self.get_classes(label.lower()) not in ["buildissue", "internal_dev", "internla_dev"]
+                    ]
+
                 })
                 print(f"{issue['key']} {issue['fields']['summary']} "
                       f"{issue['fields']['status']['name']} "
@@ -58,13 +64,9 @@ class Jira:
         return result_data
 
     def get_statistics(self):
-        all_labels = [label for issue in self.list_issues() for label in issue["labels"]]
-        label_counts = Counter(all_labels)
-
-        # Filter out unnecessary labels
-        filtered_counts = {label: count for label, count in label_counts.items() if
-                           label not in ["internal_dev", "buildissue", "internla_dev"]}
-        return filtered_counts
+        all_classes = [cls for issue in self.list_issues() for cls in issue["classes"]]
+        class_counts = Counter(all_classes)
+        return class_counts
 
     def show_statistic(self):
         # Flatten all labels into a single list
@@ -94,6 +96,13 @@ def stats():
     data = jira.get_statistics()
     return jsonify(data)  # Returns JSON data for visualization
 
+@app.route("/issue_data")
+def issue_data():
+    jira = Jira()
+    issues = jira.list_issues()
+    return jsonify(issues)
+
+
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=80, debug=True)
+    app.run(host="localhost", port=80, debug=True)
 
