@@ -1,8 +1,6 @@
-import json
-
 import requests
 from collections import Counter
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 import os
 from dotenv import load_dotenv
 
@@ -29,11 +27,11 @@ class Jira:
         self.jira_token = JIRA_TOKEN
         self.headers = headers
 
-    def list_issues(self):
+    def list_issues(self, fix_version):
         jql_query = (
             'type = "Fault Report" AND '
             '"Leading Work Group" = "ART - BCRC - BSW TFW" AND '
-            'fixVersion = PI_25w10'
+            f'fixVersion = {fix_version} '
             ' AND (labels = "BuildIssue" AND labels = "Internal_Dev")'
         )
 
@@ -78,8 +76,8 @@ class Jira:
                         result.append(f"https://jira-vira.volvocars.biz/browse/{key}")
         return result
 
-    def get_statistics(self):
-        all_classes = [cls for issue in self.list_issues() for cls in issue["classes"]]
+    def get_statistics(self, fix_version):
+        all_classes = [cls for issue in self.list_issues(fix_version) for cls in issue["classes"]]
         class_counts = Counter(all_classes)
         return class_counts
 
@@ -104,18 +102,19 @@ class Jira:
 def home():
     return render_template("index.html")  # Serves the frontend
 
-@app.route("/stats")
-def stats():
-    jira = Jira()
-    # data = jira.show_statistic()
-    data = jira.get_statistics()
-    return jsonify(data)  # Returns JSON data for visualization
-
 @app.route("/issue_data")
 def issue_data():
+    fix_version = request.args.get("fixVersion", "PI_25w10")  # default fallback
     jira = Jira()
-    issues = jira.list_issues()
+    issues = jira.list_issues(fix_version)
     return jsonify(issues)
+
+@app.route("/stats")
+def stats():
+    fix_version = request.args.get("fixVersion", "PI_25w10")
+    jira = Jira()
+    return jsonify(jira.get_statistics(fix_version))
+
 
 
 if __name__ == "__main__":

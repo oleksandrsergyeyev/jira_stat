@@ -1,14 +1,17 @@
 let currentSortOrder = 'asc';  // toggle between 'asc' and 'desc'
 
 async function fetchData() {
-    const response = await fetch("/stats");
+    const version = getSelectedFixVersion();
+    const response = await fetch(`/stats?fixVersion=${version}`);
     return await response.json();
 }
 
 async function fetchIssues() {
-    const response = await fetch("/issue_data");
+    const version = getSelectedFixVersion();
+    const response = await fetch(`/issue_data?fixVersion=${version}`);
     return await response.json();
 }
+
 
 async function renderChart() {
     const stats = await fetchData();
@@ -121,6 +124,15 @@ renderChart();
 renderTable();
 
 document.getElementById("refresh").addEventListener("click", () => {
+    renderChart();
+    renderTable();
+});
+
+function getSelectedFixVersion() {
+    return document.getElementById("fixVersionSelect").value;
+}
+
+document.getElementById("fixVersionSelect").addEventListener("change", () => {
     renderChart();
     renderTable();
 });
