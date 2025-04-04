@@ -3,6 +3,7 @@ from collections import Counter
 from flask import Flask, jsonify, render_template, request
 import os
 from dotenv import load_dotenv
+import re
 
 load_dotenv()  # Load .env into environment variables
 
@@ -103,6 +104,81 @@ class Jira:
         parts = label.split('_', 2)  # Split at most twice
         return '_'.join(parts[:2]) if len(parts) > 1 else label
 
+    def get_pi_planning(self, fix_version, work_group):
+        jql_query = f'("Leading Work Group" = "{work_group}" AND fixVersion = {fix_version})'
+
+        payload = {
+            "jql": jql_query,
+            "maxResults": 500,  # Make sure all results are retrieved
+            "fields": [
+                "summary",
+                "issuetype",
+                "issuelinks",
+                "customfield_10701",  # Sprint field
+            ]
+        }
+
+        response = requests.post(JIRA_SEARCH, json=payload, headers=self.headers)
+        if response.status_code != 200:
+            return {"error": response.text}
+
+        data = response.json()
+        features = {}
+
+        # First pass: collect features
+        for issue in data.get("issues", []):
+            key = issue["key"]
+            summary = issue["fields"]["summary"]
+            issuetype = issue["fields"]["issuetype"]["name"]
+
+            if issuetype.lower() == "epic":
+                features[key] = {
+                    "summary": summary,
+                    "sprints": {},  # Will be filled later
+                }
+
+        # Second pass: collect stories and match to features
+        for issue in data.get("issues", []):
+            if issue["fields"]["issuetype"]["name"].lower() != "story":
+                continue
+            print(f"Stories: {issue}")
+            story_summary = issue["fields"]["summary"]
+            story_sprints = issue["fields"].get("customfield_10701", [])
+            linked_features = [
+                f["key"]
+                for f in self.extract_linked_features(issue["fields"].get("issuelinks", []))
+            ]
+
+            for feature_key in linked_features:
+                if feature_key in features:
+                    for sprint in story_sprints:
+                        sprint_name = self.extract_sprint_name(sprint)
+                        features[feature_key]["sprints"].setdefault(sprint_name, []).append(story_summary)
+
+        return features
+
+    def extract_sprint_name(self, sprint_data):
+        """
+        Extracts 'Sprint 3' from strings like:
+        'com.atlassian.greenhopper.service.sprint.Sprint@4cf345c0[id=...,name=PI25w10_Sprint 3_TFW&HILinfr,...]'
+        """
+        if isinstance(sprint_data, list):
+            if sprint_data:
+                return self.extract_sprint_name(sprint_data[0])
+            return "Unknown Sprint"
+
+        if isinstance(sprint_data, str):
+            # Extract the name=... from inside the string
+            name_match = re.search(r"name=([^,]+)", sprint_data)
+            if name_match:
+                name_str = name_match.group(1)
+                sprint_match = re.search(r"(Sprint \d+)", name_str)
+                return sprint_match.group(1) if sprint_match else "Unknown Sprint"
+            return "Unknown Sprint"
+
+        return "Unknown Sprint"
+
+
 @app.route("/")
 def home():
     return render_template("index.html", active_page="dashboard")  # Serves the frontend
@@ -126,6 +202,15 @@ def stats():
 @app.route("/pi-planning")
 def pi_planning():
     return render_template("pi_planning.html", active_page="dashboard")
+
+@app.route("/pi_planning_data")
+def pi_planning_data():
+    fix_version = request.args.get("fixVersion", "PI_25w10")
+    work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
+    jira = Jira()
+    return jsonify(jira.get_pi_planning(fix_version, work_group))
+
+
 
 
 if __name__ == "__main__":

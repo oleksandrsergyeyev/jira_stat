@@ -3,17 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <title>PI Planning</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 6px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .story-cell {
+            white-space: pre-wrap;
+        }
+    </style>
 </head>
 <body>
+    <nav class="main-menu">
+        <a href="/" class="menu-item">Dashboard</a>
+        <a href="/pi-planning" class="menu-item active">PI Planning</a>
+    </nav>
 
-<nav class="main-menu">
-    <a href="/" class="menu-item {% if active_page == 'dashboard' %}active{% endif %}">Dashboard</a>
-    <a href="/pi-planning" class="menu-item {% if active_page == 'pi-planning' %}active{% endif %}">PI Planning</a>
-</nav>
+    <h1>PI Planning Table</h1>
+    <div id="table-container"></div>
 
-<h1>PI Planning</h1>
-<p>Coming soon...</p>
+    <script>
+        async function loadPIPlanningData() {
+            const response = await fetch('/pi_planning_data?fixVersion=PI_25w10&workGroup=ART%20-%20BCRC%20-%20BSW%20TFW');
+            const data = await response.json();
 
+            const sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"];
+
+            let tableHtml = '<table>';
+            tableHtml += '<thead><tr><th>Feature ID</th><th>Feature Name</th>';
+            sprints.forEach(sprint => {
+                tableHtml += `<th>${sprint}</th>`;
+            });
+            tableHtml += '</tr></thead><tbody>';
+
+            for (const [featureId, feature] of Object.entries(data)) {
+                tableHtml += `<tr><td>${featureId}</td><td>${feature.summary}</td>`;
+                sprints.forEach(sprint => {
+                    const stories = feature.sprints[sprint] || [];
+                    tableHtml += `<td class="story-cell">${stories.join("\n")}</td>`;
+                });
+                tableHtml += '</tr>';
+            }
+
+            tableHtml += '</tbody></table>';
+            document.getElementById('table-container').innerHTML = tableHtml;
+        }
+
+        loadPIPlanningData();
+    </script>
 </body>
 </html>
