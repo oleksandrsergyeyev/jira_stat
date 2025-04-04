@@ -11,7 +11,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-
+    <nav class="main-menu">
+        <a href="/" class="menu-item {% if active_page == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="/pi-planning" class="menu-item {% if active_page == 'pi-planning' %}active{% endif %}">PI Planning</a>
+    </nav>
     <h1>Jira Fault Report Dashboard</h1>
         <label for="fixVersionSelect">Fix Version:</label>
         <select id="fixVersionSelect">
@@ -38,7 +41,8 @@
                         <th>Status</th>
                         <th class="hide-labels">Labels</th>
                         <th id="sortClasses" style="cursor: pointer;">Classes ▲</th>
-                        <th>Linked Feature</th>
+                        <th>Transferred to</th>
+                        <th>Feature Name</th>
 
                     </tr>
                 </thead>

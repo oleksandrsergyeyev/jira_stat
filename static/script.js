@@ -70,14 +70,14 @@ async function renderTable() {
 
     issues.forEach(issue => {
         // ✅ Display clickable links with the issue key as text
-        const linksHtml = (issue.linked_features || []).map(link => {
-            try {
-                const key = link.split("/").pop();  // Extract key from URL
-                return `<a href="${link}" target="_blank">${key}</a>`;
-            } catch (e) {
-                return "";
-            }
-        }).join(" ");
+        const linksHtml = (issue.linked_features || []).map(link =>
+            `<a href="${link.url}" target="_blank">${link.key}</a>`
+        ).join(" ");
+
+        const featureNames = (issue.linked_features || []).map(link =>
+            `${link.summary}`
+        ).join("; ");
+
 
         const row = document.createElement("tr");
         row.innerHTML = `
@@ -88,7 +88,8 @@ async function renderTable() {
             <td class="${issue.classes.length === 0 ? 'no-class' : ''}">
                 ${(Array.isArray(issue.classes) && issue.classes.length > 0) ? issue.classes.join(", ") : ""}
             </td>
-            <td>${linksHtml}</td> <!-- ✅ Linked Features column -->
+            <td>${linksHtml}</td>
+            <td>${featureNames}</td>
         `;
         tbody.appendChild(row);
     });

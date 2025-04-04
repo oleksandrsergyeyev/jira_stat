@@ -72,8 +72,13 @@ class Jira:
                 issuetype = fields.get("issuetype", {})
                 if issuetype.get("id") == "10400":  # Only Feature type
                     key = issue_data.get("key")
+                    summary = fields.get("summary", "")
                     if key:
-                        result.append(f"https://jira-vira.volvocars.biz/browse/{key}")
+                        result.append({
+                            "key": key,
+                            "url": f"https://jira-vira.volvocars.biz/browse/{key}",
+                            "summary": summary
+                        })
         return result
 
     def get_statistics(self, fix_version):
@@ -100,7 +105,7 @@ class Jira:
 
 @app.route("/")
 def home():
-    return render_template("index.html")  # Serves the frontend
+    return render_template("index.html", active_page="dashboard")  # Serves the frontend
 
 @app.route("/issue_data")
 def issue_data():
@@ -115,6 +120,9 @@ def stats():
     jira = Jira()
     return jsonify(jira.get_statistics(fix_version))
 
+@app.route("/pi-planning")
+def pi_planning():
+    return render_template("pi_planning.html", active_page="dashboard")
 
 
 if __name__ == "__main__":
