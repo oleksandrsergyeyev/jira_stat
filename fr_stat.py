@@ -27,10 +27,10 @@ class Jira:
         self.jira_token = JIRA_TOKEN
         self.headers = headers
 
-    def list_issues(self, fix_version):
+    def list_issues(self, fix_version, work_group):
         jql_query = (
             'type = "Fault Report" AND '
-            '"Leading Work Group" = "ART - BCRC - BSW TFW" AND '
+            f'"Leading Work Group" = "{work_group}" AND '
             f'fixVersion = {fix_version} '
             ' AND (labels = "BuildIssue" AND labels = "Internal_Dev")'
         )
@@ -81,8 +81,8 @@ class Jira:
                         })
         return result
 
-    def get_statistics(self, fix_version):
-        all_classes = [cls for issue in self.list_issues(fix_version) for cls in issue["classes"]]
+    def get_statistics(self, fix_version, work_group):
+        all_classes = [cls for issue in self.list_issues(fix_version, work_group) for cls in issue["classes"]]
         class_counts = Counter(all_classes)
         return class_counts
 
@@ -109,16 +109,19 @@ def home():
 
 @app.route("/issue_data")
 def issue_data():
-    fix_version = request.args.get("fixVersion", "PI_25w10")  # default fallback
+    fix_version = request.args.get("fixVersion", "PI_25w10")
+    work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
     jira = Jira()
-    issues = jira.list_issues(fix_version)
+    issues = jira.list_issues(fix_version, work_group)
     return jsonify(issues)
 
 @app.route("/stats")
 def stats():
     fix_version = request.args.get("fixVersion", "PI_25w10")
+    work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
     jira = Jira()
-    return jsonify(jira.get_statistics(fix_version))
+    return jsonify(jira.get_statistics(fix_version, work_group))
+
 
 @app.route("/pi-planning")
 def pi_planning():

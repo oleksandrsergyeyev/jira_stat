@@ -2,13 +2,15 @@ let currentSortOrder = 'asc';  // toggle between 'asc' and 'desc'
 
 async function fetchData() {
     const version = getSelectedFixVersion();
-    const response = await fetch(`/stats?fixVersion=${version}`);
+    const workGroup = getSelectedWorkGroup();
+    const response = await fetch(`/stats?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}`);
     return await response.json();
 }
 
 async function fetchIssues() {
     const version = getSelectedFixVersion();
-    const response = await fetch(`/issue_data?fixVersion=${version}`);
+    const workGroup = getSelectedWorkGroup();
+    const response = await fetch(`/issue_data?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}`);
     return await response.json();
 }
 
@@ -134,6 +136,15 @@ function getSelectedFixVersion() {
 }
 
 document.getElementById("fixVersionSelect").addEventListener("change", () => {
+    renderChart();
+    renderTable();
+});
+
+function getSelectedWorkGroup() {
+    return document.getElementById("workGroupSelect").value;
+}
+
+document.getElementById("workGroupSelect").addEventListener("change", () => {
     renderChart();
     renderTable();
 });
