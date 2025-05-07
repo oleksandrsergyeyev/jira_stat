@@ -15,18 +15,27 @@
         <a href="/" class="menu-item {% if active_page == 'dashboard' %}active{% endif %}">Dashboard</a>
         <a href="/pi-planning" class="menu-item {% if active_page == 'pi-planning' %}active{% endif %}">PI Planning</a>
     </nav>
+
     <h1>Jira Fault Report Dashboard</h1>
+
     <label for="workGroupSelect">Leading Work Group:</label>
-        <select id="workGroupSelect">
-            <option value="ART - BCRC - BSW TFW" selected>Infra team</option>
-            <option value="ART - BCRC - FPT">Web team</option>
-            <option value="ART - BCRC - SysSW CI">CI team</option>
-        </select>
-        <label for="fixVersionSelect">Fix Version:</label>
-        <select id="fixVersionSelect">
-            <option value="PI_24w49">PI_24w49</option>
-            <option value="PI_25w10" selected>PI_25w10</option>
-        </select>
+    <select id="workGroupSelect">
+        <option value="ART - BCRC - BSW TFW" selected>Infra team</option>
+        <option value="ART - BCRC - FPT">Web team</option>
+        <option value="ART - BCRC - SysSW CI">CI team</option>
+    </select>
+
+    <label for="fixVersionSelect">Fix Version:</label>
+    <select id="fixVersionSelect">
+        <option value="PI_24w49">PI_24w49</option>
+        <option value="PI_25w10" selected>PI_25w10</option>
+        <option value="PI_25w22" selected>PI_25w22</option>
+    </select>
+
+    <!-- ✅ Export to Excel Button -->
+    <button id="download-excel" style="margin-left: 10px; padding: 10px 16px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
+        📥 Export to Excel
+    </button>
 
     <!-- Container for chart + table -->
     <div class="dashboard-container">
@@ -38,7 +47,6 @@
 
         <!-- Table Section -->
         <div class="table-section">
-<!--            <h2>Issue List</h2>-->
             <table id="issueTable">
                 <thead>
                     <tr>
@@ -47,9 +55,8 @@
                         <th>Status</th>
                         <th class="hide-labels">Labels</th>
                         <th id="sortClasses" style="cursor: pointer;">Classes ▲</th>
-                        <th>Transferred to</th>
+                        <th>Delegated to</th>
                         <th>Feature Name</th>
-
                     </tr>
                 </thead>
                 <tbody>
@@ -62,5 +69,14 @@
     <!-- Load custom JS -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 
+    <script>
+        // ✅ Download Excel based on selected filters
+        document.getElementById("download-excel").addEventListener("click", function () {
+            const fixVersion = document.getElementById("fixVersionSelect")?.value || "PI_25w10";
+            const workGroup = document.getElementById("workGroupSelect")?.value || "ART - BCRC - BSW TFW";
+            const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+            window.location.href = `/export_excel${query}`;
+        });
+    </script>
 </body>
 </html>

@@ -1,7 +1,9 @@
 import requests
 from collections import Counter
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_file
 import os
+import io
+import pandas as pd
 from dotenv import load_dotenv
 import re
 
@@ -32,14 +34,14 @@ class Jira:
         jql_query = (
             'type = "Fault Report" AND '
             f'"Leading Work Group" = "{work_group}" AND '
-            f'fixVersion = {fix_version} '
+            f'fixVersion = "{fix_version}" '
             ' AND (labels = "BuildIssue" AND labels = "Internal_Dev")'
         )
 
         payload = {
             "jql": jql_query,
-            "maxResults": 100,  # Limit results
-            "fields": ["summary", "status", "fixVersions", "labels", "issuelinks"]  # Fields to fetch
+            "maxResults": 100,
+            "fields": ["summary", "status", "fixVersions", "labels", "issuelinks"]
         }
         response = requests.post(JIRA_SEARCH, json=payload, headers=headers)
         result_data = []
@@ -57,8 +59,6 @@ class Jira:
                         if self.get_classes(label.lower()) not in ["buildissue", "internal_dev", "internla_dev"]
                     ],
                     "linked_features": self.extract_linked_features(issue['fields'].get("issuelinks", []))
-
-
                 })
         else:
             print(f"Error: {response.status_code}, {response.text}")
@@ -88,34 +88,23 @@ class Jira:
         return class_counts
 
     def show_statistic(self):
-        # Flatten all labels into a single list
         all_labels = [label for issue in self.list_issues() for label in issue["labels"]]
-
-        # Count occurrences of each label
         label_counts = Counter(all_labels)
-
-        # Print statistics
         print("Issue Statistics:")
         for label, count in label_counts.most_common():
             if label not in ["internal_dev", "buildissue", "internla_dev"]:
                 print(f"{label}: {count}")
 
     def get_classes(self, label):
-        parts = label.split('_', 2)  # Split at most twice
+        parts = label.split('_', 2)
         return '_'.join(parts[:2]) if len(parts) > 1 else label
 
     def get_pi_planning(self, fix_version, work_group):
-        jql_query = f'("Leading Work Group" = "{work_group}" AND fixVersion = {fix_version})'
-
+        jql_query = f'"Leading Work Group" = "{work_group}" AND fixVersion = "{fix_version}"'
         payload = {
             "jql": jql_query,
-            "maxResults": 500,  # Make sure all results are retrieved
-            "fields": [
-                "summary",
-                "issuetype",
-                "issuelinks",
-                "customfield_10701",  # Sprint field
-            ]
+            "maxResults": 500,
+            "fields": ["summary", "issuetype", "issuelinks", "customfield_10701", "status"]
         }
 
         response = requests.post(JIRA_SEARCH, json=payload, headers=self.headers)
@@ -125,23 +114,22 @@ class Jira:
         data = response.json()
         features = {}
 
-        # First pass: collect features
         for issue in data.get("issues", []):
             key = issue["key"]
             summary = issue["fields"]["summary"]
-            issuetype = issue["fields"]["issuetype"]["name"]
+            issuetype = issue["fields"]["issuetype"]["name"].lower()
 
-            if issuetype.lower() == "epic":
+            if issuetype in ["feature", "epic"]:
                 features[key] = {
                     "summary": summary,
-                    "sprints": {},  # Will be filled later
+                    "status": issue["fields"]["status"]["name"],
+                    "sprints": {},
                 }
 
-        # Second pass: collect stories and match to features
         for issue in data.get("issues", []):
             if issue["fields"]["issuetype"]["name"].lower() != "story":
                 continue
-            print(f"Stories: {issue}")
+
             story_summary = issue["fields"]["summary"]
             story_sprints = issue["fields"].get("customfield_10701", [])
             linked_features = [
@@ -154,21 +142,15 @@ class Jira:
                     for sprint in story_sprints:
                         sprint_name = self.extract_sprint_name(sprint)
                         features[feature_key]["sprints"].setdefault(sprint_name, []).append(story_summary)
-
         return features
 
     def extract_sprint_name(self, sprint_data):
-        """
-        Extracts 'Sprint 3' from strings like:
-        'com.atlassian.greenhopper.service.sprint.Sprint@4cf345c0[id=...,name=PI25w10_Sprint 3_TFW&HILinfr,...]'
-        """
         if isinstance(sprint_data, list):
             if sprint_data:
                 return self.extract_sprint_name(sprint_data[0])
             return "Unknown Sprint"
 
         if isinstance(sprint_data, str):
-            # Extract the name=... from inside the string
             name_match = re.search(r"name=([^,]+)", sprint_data)
             if name_match:
                 name_str = name_match.group(1)
@@ -178,10 +160,9 @@ class Jira:
 
         return "Unknown Sprint"
 
-
 @app.route("/")
 def home():
-    return render_template("index.html", active_page="dashboard")  # Serves the frontend
+    return render_template("index.html", active_page="dashboard")
 
 @app.route("/issue_data")
 def issue_data():
@@ -198,7 +179,6 @@ def stats():
     jira = Jira()
     return jsonify(jira.get_statistics(fix_version, work_group))
 
-
 @app.route("/pi-planning")
 def pi_planning():
     return render_template("pi_planning.html", active_page="dashboard")
@@ -210,9 +190,36 @@ def pi_planning_data():
     jira = Jira()
     return jsonify(jira.get_pi_planning(fix_version, work_group))
 
+@app.route("/export_excel")
+def export_excel():
+    fix_version = request.args.get("fixVersion", "PI_25w10")
+    work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
+    jira = Jira()
+    issues = jira.list_issues(fix_version, work_group)
 
+    rows = []
+    for issue in issues:
+        rows.append({
+            "Key": issue["key"],
+            "Summary": issue["summary"],
+            "Status": issue["status"]["name"] if isinstance(issue["status"], dict) else issue["status"],
+            "Labels": ", ".join(issue.get("labels", [])),
+            "Classes": ", ".join(issue.get("classes", [])),
+            "Linked Features": ", ".join([f["key"] for f in issue.get("linked_features", [])]),
+        })
 
+    df = pd.DataFrame(rows)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Dashboard')
+
+    output.seek(0)
+    return send_file(
+        output,
+        download_name=f"dashboard_export_{fix_version}.xlsx",
+        as_attachment=True,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
 
 if __name__ == "__main__":
-    app.run(host="10.246.141.1", port=8080, debug=True)
-
+    app.run(host="10.246.39.48", port=8080, debug=True)

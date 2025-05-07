@@ -148,3 +148,70 @@ document.getElementById("workGroupSelect").addEventListener("change", () => {
     renderChart();
     renderTable();
 });
+
+
+function getSelectedFixVersion() {
+    return document.getElementById("fixVersionSelect").value;
+}
+
+function getSelectedWorkGroup() {
+    return document.getElementById("workGroupSelect").value;
+}
+
+async function loadPIPlanningData() {
+    const fixVersion = getSelectedFixVersion();
+    const workGroup = getSelectedWorkGroup();
+
+    const response = await fetch(`/pi_planning_data?fixVersion=${fixVersion}&workGroup=${encodeURIComponent(workGroup)}`);
+    const data = await response.json();
+
+    const sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"];
+
+    let tableHtml = '<table>';
+    tableHtml += '<thead><tr>';
+    ["Feature ID", "Feature Name", "Status", ...sprints].forEach(col => {
+        tableHtml += `<th onclick="sortTable(this)">${col}</th>`;
+    });
+    tableHtml += '</tr></thead><tbody>';
+
+    for (const [featureId, feature] of Object.entries(data)) {
+        tableHtml += `<tr><td>${featureId}</td><td>${feature.summary}</td><td>${feature.status || ""}</td>`;
+        sprints.forEach(sprint => {
+            const stories = feature.sprints[sprint] || [];
+            tableHtml += `<td class="story-cell">${stories.join("\n")}</td>`;
+        });
+        tableHtml += '</tr>';
+    }
+
+    tableHtml += '</tbody></table>';
+    document.getElementById('table-container').innerHTML = tableHtml;
+}
+
+// Allow column sorting
+function sortTable(header) {
+    const table = header.closest("table");
+    const tbody = table.querySelector("tbody");
+    const index = Array.from(header.parentNode.children).indexOf(header);
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+
+    const ascending = !header.classList.contains("asc");
+    rows.sort((a, b) => {
+        const aText = a.cells[index]?.innerText.toLowerCase() || "";
+        const bText = b.cells[index]?.innerText.toLowerCase() || "";
+        return ascending ? aText.localeCompare(bText) : bText.localeCompare(aText);
+    });
+
+    tbody.innerHTML = "";
+    rows.forEach(row => tbody.appendChild(row));
+
+    // Toggle header state
+    document.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
+    header.classList.add(ascending ? "asc" : "desc");
+}
+
+// Attach listeners
+document.getElementById("fixVersionSelect").addEventListener("change", loadPIPlanningData);
+document.getElementById("workGroupSelect").addEventListener("change", loadPIPlanningData);
+
+// Initial load
+loadPIPlanningData();
