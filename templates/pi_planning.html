@@ -68,7 +68,6 @@
       <option value="ART - BCRC - SysSW CI">CI Team</option>
     </select>
 
-    <!-- ✅ Universal filter -->
     <label for="globalFilter">Filter:</label>
     <input type="text" id="globalFilter" placeholder="Search table..." />
   </div>
@@ -103,17 +102,23 @@
           <tr>
             <th class="sortable" onclick="setSort('id')">Feature ID</th>
             <th class="sortable" onclick="setSort('summary')">Feature Name</th>
-            <th class="sortable" onclick="setSort('status')">Status</th>`;
+            <th class="sortable" onclick="setSort('status')">Status</th>
+            <th>Links</th>`;
       sprints.forEach(sprint => {
         tableHtml += `<th>${sprint}</th>`;
       });
       tableHtml += '</tr></thead><tbody>';
 
       for (const [featureId, feature] of features) {
+        const linksHtml = (feature.linked_issues || [])
+          .map(link => `<a href="${link.url}" target="_blank">${link.key}</a>`)
+          .join(" ");
+
         tableHtml += `<tr>
           <td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a></td>
           <td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>
-          <td>${feature.status || ""}</td>`;
+          <td>${feature.status || ""}</td>
+          <td>${linksHtml}</td>`;
         sprints.forEach(sprint => {
           const stories = feature.sprints[sprint] || [];
           tableHtml += `<td class="story-cell">${stories.join("\n")}</td>`;

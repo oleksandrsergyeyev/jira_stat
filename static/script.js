@@ -14,7 +14,6 @@ async function fetchIssues() {
     return await response.json();
 }
 
-
 async function renderChart() {
     const stats = await fetchData();
     const labels = Object.keys(stats);
@@ -71,7 +70,6 @@ async function renderTable() {
     tbody.innerHTML = "";
 
     issues.forEach(issue => {
-        // ✅ Display clickable links with the issue key as text
         const linksHtml = (issue.linked_features || []).map(link =>
             `<a href="${link.url}" target="_blank">${link.key}</a>`
         ).join(" ");
@@ -79,7 +77,6 @@ async function renderTable() {
         const featureNames = (issue.linked_features || []).map(link =>
             `${link.summary}`
         ).join("; ");
-
 
         const row = document.createElement("tr");
         row.innerHTML = `
@@ -99,14 +96,12 @@ async function renderTable() {
     document.getElementById("sortClasses").addEventListener("click", sortTableByClass);
 }
 
-
 function sortTableByClass() {
     currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
 
     const tbody = document.querySelector("#issueTable tbody");
     const rows = Array.from(tbody.querySelectorAll("tr"));
 
-    // ✅ Update column index (Classes is now index 4)
     rows.sort((a, b) => {
         const aClass = a.cells[4].innerText.toLowerCase();
         const bClass = b.cells[4].innerText.toLowerCase();
@@ -122,60 +117,39 @@ function sortTableByClass() {
         `Classes ${currentSortOrder === 'asc' ? '▲' : '▼'}`;
 }
 
-// Load on page load
-renderChart();
-renderTable();
-
-document.getElementById("refresh").addEventListener("click", () => {
-    renderChart();
-    renderTable();
-});
-
+// Utilities
 function getSelectedFixVersion() {
     return document.getElementById("fixVersionSelect").value;
 }
-
-document.getElementById("fixVersionSelect").addEventListener("change", () => {
-    renderChart();
-    renderTable();
-});
-
 function getSelectedWorkGroup() {
     return document.getElementById("workGroupSelect").value;
 }
 
-document.getElementById("workGroupSelect").addEventListener("change", () => {
-    renderChart();
-    renderTable();
-});
-
-
-function getSelectedFixVersion() {
-    return document.getElementById("fixVersionSelect").value;
-}
-
-function getSelectedWorkGroup() {
-    return document.getElementById("workGroupSelect").value;
-}
-
+// PI Planning
 async function loadPIPlanningData() {
     const fixVersion = getSelectedFixVersion();
     const workGroup = getSelectedWorkGroup();
-
     const response = await fetch(`/pi_planning_data?fixVersion=${fixVersion}&workGroup=${encodeURIComponent(workGroup)}`);
     const data = await response.json();
 
     const sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"];
-
     let tableHtml = '<table>';
     tableHtml += '<thead><tr>';
-    ["Feature ID", "Feature Name", "Status", ...sprints].forEach(col => {
+    ["Feature ID", "Feature Name", "Status", "Links", ...sprints].forEach(col => {
         tableHtml += `<th onclick="sortTable(this)">${col}</th>`;
     });
     tableHtml += '</tr></thead><tbody>';
 
     for (const [featureId, feature] of Object.entries(data)) {
-        tableHtml += `<tr><td>${featureId}</td><td>${feature.summary}</td><td>${feature.status || ""}</td>`;
+        const linksHtml = (feature.linked_issues || []).map(link =>
+            `<a href="${link.url}" target="_blank">${link.key}</a>`
+        ).join(" ");
+
+        tableHtml += `<tr>
+            <td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a></td>
+            <td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>
+            <td>${feature.status || ""}</td>
+            <td>${linksHtml}</td>`;
         sprints.forEach(sprint => {
             const stories = feature.sprints[sprint] || [];
             tableHtml += `<td class="story-cell">${stories.join("\n")}</td>`;
@@ -185,9 +159,11 @@ async function loadPIPlanningData() {
 
     tableHtml += '</tbody></table>';
     document.getElementById('table-container').innerHTML = tableHtml;
+
+    applyFilter();
 }
 
-// Allow column sorting
+// Table sorting
 function sortTable(header) {
     const table = header.closest("table");
     const tbody = table.querySelector("tbody");
@@ -204,14 +180,38 @@ function sortTable(header) {
     tbody.innerHTML = "";
     rows.forEach(row => tbody.appendChild(row));
 
-    // Toggle header state
     document.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
     header.classList.add(ascending ? "asc" : "desc");
 }
 
-// Attach listeners
-document.getElementById("fixVersionSelect").addEventListener("change", loadPIPlanningData);
-document.getElementById("workGroupSelect").addEventListener("change", loadPIPlanningData);
+function applyFilter() {
+    const filter = document.getElementById("globalFilter")?.value?.toLowerCase() || "";
+    const rows = document.querySelectorAll("#table-container table tbody tr");
+    rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(filter) ? "" : "none";
+    });
+}
 
-// Initial load
+// Attach events
+document.getElementById("refresh")?.addEventListener("click", () => {
+    renderChart();
+    renderTable();
+});
+
+document.getElementById("fixVersionSelect").addEventListener("change", () => {
+    renderChart();
+    renderTable();
+    loadPIPlanningData();
+});
+document.getElementById("workGroupSelect").addEventListener("change", () => {
+    renderChart();
+    renderTable();
+    loadPIPlanningData();
+});
+document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
+
+// Init
+renderChart();
+renderTable();
 loadPIPlanningData();

@@ -7,16 +7,14 @@ import pandas as pd
 from dotenv import load_dotenv
 import re
 
-load_dotenv()  # Load .env into environment variables
+load_dotenv()
 
 app = Flask(__name__)
 
-# Jira API URL
 JIRA_BASE_URL = "https://jira-vira.volvocars.biz/rest/api/2"
 JIRA_SEARCH = f"{JIRA_BASE_URL}/search"
 JIRA_ISSUE = f"{JIRA_BASE_URL}/issue"
 
-# Personal Access Token
 JIRA_TOKEN = os.getenv("JIRA_TOKEN")
 
 headers = {
@@ -82,6 +80,18 @@ class Jira:
                         })
         return result
 
+    def extract_linked_issue_links(self, links):
+        result = []
+        for link in links:
+            issue = link.get("inwardIssue") or link.get("outwardIssue")
+            if issue and "key" in issue:
+                key = issue["key"]
+                result.append({
+                    "key": key,
+                    "url": f"https://jira-vira.volvocars.biz/browse/{key}"
+                })
+        return result
+
     def get_statistics(self, fix_version, work_group):
         all_classes = [cls for issue in self.list_issues(fix_version, work_group) for cls in issue["classes"]]
         class_counts = Counter(all_classes)
@@ -124,6 +134,7 @@ class Jira:
                     "summary": summary,
                     "status": issue["fields"]["status"]["name"],
                     "sprints": {},
+                    "linked_issues": self.extract_linked_issue_links(issue["fields"].get("issuelinks", [])),
                 }
 
         for issue in data.get("issues", []):
