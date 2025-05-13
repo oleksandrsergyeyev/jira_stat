@@ -1,82 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jira Fault Report Dashboard</title>
-
-    <!-- Load External CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <!-- Load Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <title>Jira Dashboard</title>
+  <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-    <nav class="main-menu">
-        <a href="/" class="menu-item {% if active_page == 'dashboard' %}active{% endif %}">Dashboard</a>
-        <a href="/pi-planning" class="menu-item {% if active_page == 'pi-planning' %}active{% endif %}">PI Planning</a>
-    </nav>
-
-    <h1>Jira Fault Report Dashboard</h1>
-
+  <nav class="main-menu">
+    <a href="/" class="menu-item active">Dashboard</a>
+    <a href="/pi-planning" class="menu-item">PI Planning</a>
+  </nav>
+  <h1>Jira Fault Report Dashboard</h1>
+  <div class="filters">
     <label for="workGroupSelect">Leading Work Group:</label>
     <select id="workGroupSelect">
-        <option value="ART - BCRC - BSW TFW" selected>Infra team</option>
-        <option value="ART - BCRC - FPT">Web team</option>
-        <option value="ART - BCRC - SysSW CI">CI team</option>
+      <option value="ART - BCRC - BSW TFW" selected>Infra Team</option>
+      <option value="ART - BCRC - FPT">Web Team</option>
+      <option value="ART - BCRC - SysSW CI">CI Team</option>
     </select>
-
     <label for="fixVersionSelect">Fix Version:</label>
     <select id="fixVersionSelect">
-        <option value="PI_24w49">PI_24w49</option>
-        <option value="PI_25w10" selected>PI_25w10</option>
-        <option value="PI_25w22" selected>PI_25w22</option>
+      <option value="PI_24w49">PI_24w49</option>
+      <option value="PI_25w10" selected>PI_25w10</option>
     </select>
-
-    <!-- ✅ Export to Excel Button -->
-    <button id="download-excel" style="margin-left: 10px; padding: 10px 16px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
-        📥 Export to Excel
-    </button>
-
-    <!-- Container for chart + table -->
-    <div class="dashboard-container">
-        <!-- Chart Section -->
-        <div class="chart-section">
-            <canvas id="statsChart"></canvas>
-            <button id="refresh">Refresh Data</button>
-        </div>
-
-        <!-- Table Section -->
-        <div class="table-section">
-            <table id="issueTable">
-                <thead>
-                    <tr>
-                        <th>Jira ID</th>
-                        <th>Summary</th>
-                        <th>Status</th>
-                        <th class="hide-labels">Labels</th>
-                        <th id="sortClasses" style="cursor: pointer;">Classes ▲</th>
-                        <th>Delegated to</th>
-                        <th>Feature Name</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- JS will populate -->
-                </tbody>
-            </table>
-        </div>
+    <button id="refresh">Refresh Data</button>
+  </div>
+  <div class="dashboard-container">
+    <div class="chart-section">
+      <canvas id="statsChart"></canvas>
     </div>
-
-    <!-- Load custom JS -->
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
-
-    <script>
-        // ✅ Download Excel based on selected filters
-        document.getElementById("download-excel").addEventListener("click", function () {
-            const fixVersion = document.getElementById("fixVersionSelect")?.value || "PI_25w10";
-            const workGroup = document.getElementById("workGroupSelect")?.value || "ART - BCRC - BSW TFW";
-            const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-            window.location.href = `/export_excel${query}`;
-        });
-    </script>
+    <div class="table-section">
+      <table id="issueTable">
+        <thead>
+          <tr>
+            <th>Jira ID</th>
+            <th>Summary</th>
+            <th>Status</th>
+            <th class="hide-labels">Labels</th>
+            <th id="sortClasses" style="cursor: pointer;">Classes ▲</th>
+            <th>Delegated to</th>
+            <th>Feature Name</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <script src="/static/script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </body>
 </html>

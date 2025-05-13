@@ -1,149 +1,135 @@
+/* Main menu and layout */
 .main-menu {
-    display: flex;
-    gap: 20px;
-    padding: 12px 20px;
-    background-color: #ffffff;
-    border-bottom: 1px solid #ddd;
-    font-size: 16px;
-    font-weight: bold;
-    justify-content: center;
+  display: flex;
+  gap: 20px;
+  padding: 12px 20px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #ddd;
+  font-size: 16px;
+  font-weight: bold;
+  justify-content: center;
 }
 
 .menu-item {
-    color: #007bff;
-    text-decoration: none;
-    padding: 8px 16px;
-    border-radius: 5px;
-    transition: background-color 0.2s ease;
+  color: #007bff;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  transition: background-color 0.2s ease;
 }
 
 .menu-item:hover {
-    background-color: #e8f0ff;
+  background-color: #e8f0ff;
 }
 
 .menu-item.active {
-    background-color: #007bff;
-    color: white;
+  background-color: #007bff;
+  color: white;
 }
 
-
 body {
-    font-family: Arial, sans-serif;
-    padding: 20px;
-    margin: 0;
-    text-align: center;
-    background-color: #f9f9f9;
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  margin: 0;
+  text-align: center;
+  background-color: #f9f9f9;
 }
 
 h1 {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
+/* Filters */
+.filters {
+  margin-bottom: 20px;
+}
+.filters select,
+.filters input[type="text"],
+.filters button {
+  padding: 5px 10px;
+  margin-right: 10px;
+}
+
+/* Chart */
 .dashboard-container {
-    display: flex;
-    width: 100%;
-    align-items: flex-start;
-    gap: 20px;
-    padding: 20px;
-    box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
-/* CHART SECTION */
 .chart-section {
-    flex: 0 0 550px;        /* ⬅ Increased from 350px */
-    max-width: 600px;
+  flex: 0 0 550px;
+  max-width: 600px;
 }
-
 canvas {
-    width: 100% !important;
-    height: 400px !important;  /* ⬆ Slightly taller */
+  width: 100% !important;
+  height: 400px !important;
 }
-
 
 #refresh {
-    margin-top: 15px;
-    padding: 12px 20px;
-    font-size: 16px;
-    cursor: pointer;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
+  margin-top: 15px;
+  padding: 12px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
 }
-
 #refresh:hover {
-    background-color: #0056b3;
+  background-color: #0056b3;
 }
 
-/* TABLE SECTION */
+/* Tables */
 .table-section {
-    flex-grow: 1;
-    max-width: calc(100% - 470px); /* 450px chart + 20px gap */
-    overflow-x: auto;
-    text-align: left;
+  flex-grow: 1;
+  overflow-x: auto;
+  text-align: left;
 }
-
 table {
-    border-collapse: collapse;
-    font-size: 13px;
-    background-color: white;
-    white-space: nowrap;
-    table-layout: auto;
-    width: max-content;     /* Only use as much space as needed */
-    max-width: 100%;        /* Don’t exceed available space */
+  border-collapse: collapse;
+  font-size: 13px;
+  background-color: white;
+  white-space: nowrap;
+  width: 100%;
 }
-
 th, td {
-    padding: 6px 10px;
-    border: 1px solid #ddd;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  text-align: left;
 }
-
 th {
-    background-color: #f4f4f4;
+  background-color: #f4f4f4;
+  cursor: pointer;
 }
+th.asc::after { content: " ▲"; }
+th.desc::after { content: " ▼"; }
 
-tr:hover {
-    background-color: #f1f1f1;
+.story-cell {
+  white-space: pre-wrap;
 }
-
-td:nth-child(2),  /* Summary column */
-td:nth-child(6)   /* Linked Features column */
-{
-    max-width: 300px;
+.hide-labels {
+  display: none;
 }
-
-td:nth-child(5) {
-    font-style: italic;
-    color: #555;
+.no-class {
+  background-color: #ffdd99;
+  font-weight: bold;
+  color: #333;
 }
-
-td.no-class {
-    background-color: #ffdd99;  /* Light orange */
-    font-weight: bold;
-    color: #333;
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 30px;
 }
-
-th.hide-labels,
-td.hide-labels {
-    display: none;
-}
-
-/* Responsive stacking on smaller screens */
-@media screen and (max-width: 1000px) {
-    .dashboard-container {
-        flex-direction: column;
-    }
-
-    .chart-section,
-    .table-section {
-        max-width: 100%;
-        min-width: 100%;
-    }
-
-    table {
-        width: 100%;
-    }
+.collapse-btn {
+  font-size: 13px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background-color: #e2e6ea;
 }
