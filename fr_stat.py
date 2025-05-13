@@ -114,7 +114,14 @@ class Jira:
         payload = {
             "jql": jql_query,
             "maxResults": 500,
-            "fields": ["summary", "issuetype", "issuelinks", "customfield_10701", "status"]
+            "fields": [
+                "summary",
+                "issuetype",
+                "issuelinks",
+                "customfield_10701",  # Sprint
+                "customfield_14700",  # PI Scope
+                "status"
+            ]
         }
 
         response = requests.post(JIRA_SEARCH, json=payload, headers=self.headers)
@@ -125,16 +132,21 @@ class Jira:
         features = {}
 
         for issue in data.get("issues", []):
+
             key = issue["key"]
             summary = issue["fields"]["summary"]
             issuetype = issue["fields"]["issuetype"]["name"].lower()
 
             if issuetype in ["feature", "epic"]:
+                pi_scope_field = issue["fields"].get("customfield_14700")
+                pi_scope_value = pi_scope_field.get("value") if isinstance(pi_scope_field, dict) else ""
+
                 features[key] = {
                     "summary": summary,
                     "status": issue["fields"]["status"]["name"],
-                    "sprints": {},
+                    "pi_scope": pi_scope_value,
                     "linked_issues": self.extract_linked_issue_links(issue["fields"].get("issuelinks", [])),
+                    "sprints": {},
                 }
 
         for issue in data.get("issues", []):
@@ -153,6 +165,7 @@ class Jira:
                     for sprint in story_sprints:
                         sprint_name = self.extract_sprint_name(sprint)
                         features[feature_key]["sprints"].setdefault(sprint_name, []).append(story_summary)
+
         return features
 
     def extract_sprint_name(self, sprint_data):
@@ -233,4 +246,4 @@ def export_excel():
     )
 
 if __name__ == "__main__":
-    app.run(host="10.246.39.48", port=8080, debug=True)
+    app.run(host="10.246.39.48", port=80, debug=True)
