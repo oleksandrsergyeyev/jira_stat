@@ -1,14 +1,17 @@
 let currentSortOrder = 'asc';
 
 function getSelectedFixVersion() {
-    return document.getElementById("fixVersionSelect").value;
+    return document.getElementById("fixVersionSelect")?.value;
 }
 function getSelectedWorkGroup() {
-    return document.getElementById("workGroupSelect").value;
+    return document.getElementById("workGroupSelect")?.value;
 }
 
 function applyFilter() {
-    const filter = document.getElementById("globalFilter").value.toLowerCase();
+    const filterInput = document.getElementById("globalFilter");
+    if (!filterInput) return;
+
+    const filter = filterInput.value.toLowerCase();
     document.querySelectorAll("table tbody tr").forEach(row => {
         row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
     });
@@ -45,9 +48,11 @@ function toggleAllTables(masterBtn) {
     const sections = ["committed-table", "noncommitted-table"];
     sections.forEach(id => {
         const section = document.getElementById(id);
-        const btn = section.previousElementSibling.querySelector("button");
-        section.style.display = isCollapsing ? "none" : "block";
-        btn.textContent = isCollapsing ? "⬇ Expand" : "⬆ Collapse";
+        const btn = section?.previousElementSibling?.querySelector("button");
+        if (section && btn) {
+            section.style.display = isCollapsing ? "none" : "block";
+            btn.textContent = isCollapsing ? "⬇ Expand" : "⬆ Collapse";
+        }
     });
     masterBtn.textContent = isCollapsing ? "⬇ Expand All" : "⬆ Collapse All";
 }
@@ -55,6 +60,8 @@ function toggleAllTables(masterBtn) {
 async function loadPIPlanningData() {
     const fixVersion = getSelectedFixVersion();
     const workGroup = getSelectedWorkGroup();
+    if (!fixVersion || !workGroup) return;
+
     const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
     const response = await fetch(url);
     const data = await response.json();
@@ -73,6 +80,9 @@ async function loadPIPlanningData() {
 }
 
 function renderFeatureTable(features, containerId, sprints) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
     let tableHtml = '<table><thead><tr>';
     tableHtml += '<th onclick="sortTable(this)">Feature ID</th>';
     tableHtml += '<th onclick="sortTable(this)">Feature Name</th>';
@@ -99,12 +109,147 @@ function renderFeatureTable(features, containerId, sprints) {
     }
 
     tableHtml += '</tbody></table>';
-    document.getElementById(containerId).innerHTML = tableHtml;
+    container.innerHTML = tableHtml;
 }
 
-// Init
-document.getElementById("fixVersionSelect").addEventListener("change", loadPIPlanningData);
-document.getElementById("workGroupSelect").addEventListener("change", loadPIPlanningData);
-document.getElementById("globalFilter").addEventListener("input", applyFilter);
+// Fault Report Dashboard support
+async function fetchData() {
+    const version = getSelectedFixVersion();
+    const workGroup = getSelectedWorkGroup();
+    const response = await fetch(`/stats?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}`);
+    return await response.json();
+}
 
-loadPIPlanningData();
+async function fetchIssues() {
+    const version = getSelectedFixVersion();
+    const workGroup = getSelectedWorkGroup();
+    const response = await fetch(`/issue_data?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}`);
+    return await response.json();
+}
+
+async function renderChart() {
+    const stats = await fetchData();
+    const labels = Object.keys(stats);
+    const counts = Object.values(stats);
+
+    if (window.myChart) window.myChart.destroy();
+
+    const ctx = document.getElementById("statsChart").getContext("2d");
+    window.myChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Class Count",
+                data: counts,
+                backgroundColor: "rgba(75, 192, 192, 0.5)",
+                borderColor: "rgba(75, 192, 192, 1)",
+                borderWidth: 1,
+                barThickness: 40
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        font: { size: 16 },
+                        stepSize: 1,
+                        callback: value => Number.isInteger(value) ? value : null
+                    }
+                },
+                x: {
+                    ticks: { font: { size: 14 } }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { font: { size: 18 } }
+                }
+            }
+        }
+    });
+}
+
+async function renderTable() {
+    const issues = await fetchIssues();
+    const tbody = document.querySelector("#issueTable tbody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    issues.forEach(issue => {
+        const linksHtml = (issue.linked_features || []).map(link =>
+            `<a href="${link.url}" target="_blank">${link.key}</a>`).join(" ");
+        const featureNames = (issue.linked_features || []).map(link =>
+            `${link.summary}`).join("; ");
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td><a href="https://jira-vira.volvocars.biz/browse/${issue.key}" target="_blank">${issue.key}</a></td>
+            <td>${issue.summary}</td>
+            <td>${issue.status.name || issue.status}</td>
+            <td class="hide-labels">${(Array.isArray(issue.labels) ? issue.labels.join(", ") : "")}</td>
+            <td class="${issue.classes.length === 0 ? 'no-class' : ''}">
+                ${(Array.isArray(issue.classes) && issue.classes.length > 0) ? issue.classes.join(", ") : ""}
+            </td>
+            <td>${linksHtml}</td>
+            <td>${featureNames}</td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    document.getElementById("sortClasses")?.addEventListener("click", sortTableByClass);
+}
+
+function sortTableByClass() {
+    currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+    const tbody = document.querySelector("#issueTable tbody");
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+    rows.sort((a, b) => {
+        const aClass = a.cells[4].innerText.toLowerCase();
+        const bClass = b.cells[4].innerText.toLowerCase();
+        return currentSortOrder === 'asc' ? aClass.localeCompare(bClass) : bClass.localeCompare(aClass);
+    });
+    rows.forEach(row => tbody.appendChild(row));
+    document.getElementById("sortClasses").innerText =
+        `Classes ${currentSortOrder === 'asc' ? '▲' : '▼'}`;
+}
+
+// ✅ Init depending on page
+document.addEventListener("DOMContentLoaded", () => {
+    const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
+    const isPlanning = document.getElementById("committed-table") && document.getElementById("noncommitted-table");
+
+    if (isDashboard) {
+        renderChart();
+        renderTable();
+        document.getElementById("refresh")?.addEventListener("click", () => {
+            renderChart();
+            renderTable();
+        });
+        document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
+            renderChart();
+            renderTable();
+        });
+        document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+            renderChart();
+            renderTable();
+        });
+
+        document.getElementById("download-excel")?.addEventListener("click", () => {
+            const fixVersion = getSelectedFixVersion();
+            const workGroup = getSelectedWorkGroup();
+            const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+            window.location.href = `/export_excel${query}`;
+        });
+    }
+
+    if (isPlanning) {
+        loadPIPlanningData();
+        document.getElementById("fixVersionSelect")?.addEventListener("change", loadPIPlanningData);
+        document.getElementById("workGroupSelect")?.addEventListener("change", loadPIPlanningData);
+        document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
+    }
+});
