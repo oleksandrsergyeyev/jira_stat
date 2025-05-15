@@ -121,7 +121,8 @@ class Jira:
                 "customfield_10701",  # Sprint
                 "customfield_14700",  # PI Scope
                 "status",
-                "priority"
+                "priority",
+                "customfield_13801"  # Parent link (Capability)
             ]
         }
 
@@ -145,11 +146,18 @@ class Jira:
                 priority_field = issue["fields"].get("priority")
                 priority_value = priority_field.get("name") if isinstance(priority_field, dict) else ""
 
+                parent_link = issue["fields"].get("customfield_13801", "")
+                if isinstance(parent_link, dict):
+                    parent_link_value = parent_link.get("key", "")
+                else:
+                    parent_link_value = parent_link or ""
+
                 features[key] = {
                     "summary": summary,
                     "status": issue["fields"]["status"]["name"],
                     "pi_scope": pi_scope_value,
                     "priority": priority_value,
+                    "parent_link": parent_link_value,
                     "linked_issues": self.extract_linked_issue_links(issue["fields"].get("issuelinks", [])),
                     "sprints": {},
                 }
