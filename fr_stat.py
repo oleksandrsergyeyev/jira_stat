@@ -120,7 +120,8 @@ class Jira:
                 "issuelinks",
                 "customfield_10701",  # Sprint
                 "customfield_14700",  # PI Scope
-                "status"
+                "status",
+                "priority"
             ]
         }
 
@@ -141,10 +142,14 @@ class Jira:
                 pi_scope_field = issue["fields"].get("customfield_14700")
                 pi_scope_value = pi_scope_field.get("value") if isinstance(pi_scope_field, dict) else ""
 
+                priority_field = issue["fields"].get("priority")
+                priority_value = priority_field.get("name") if isinstance(priority_field, dict) else ""
+
                 features[key] = {
                     "summary": summary,
                     "status": issue["fields"]["status"]["name"],
                     "pi_scope": pi_scope_value,
+                    "priority": priority_value,
                     "linked_issues": self.extract_linked_issue_links(issue["fields"].get("issuelinks", [])),
                     "sprints": {},
                 }

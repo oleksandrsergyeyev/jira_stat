@@ -86,6 +86,7 @@ function renderFeatureTable(features, containerId, sprints) {
     let tableHtml = '<table><thead><tr>';
     tableHtml += '<th onclick="sortTable(this)">Feature ID</th>';
     tableHtml += '<th onclick="sortTable(this)">Feature Name</th>';
+    tableHtml += '<th onclick="sortTable(this)">Priority</th>';
     tableHtml += '<th onclick="sortTable(this)">Status</th>';
     tableHtml += '<th onclick="sortTable(this)">PI Scope</th>';
     tableHtml += '<th onclick="sortTable(this)">Links</th>';
@@ -98,6 +99,7 @@ function renderFeatureTable(features, containerId, sprints) {
         tableHtml += `<tr>
             <td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a></td>
             <td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>
+            <td>${feature.priority || ""}</td>
             <td>${feature.status || ""}</td>
             <td>${feature.pi_scope || ""}</td>
             <td>${linksHtml}</td>`;
@@ -253,3 +255,4 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
     }
 });
+
