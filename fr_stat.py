@@ -121,7 +121,8 @@ class Jira:
         return ""
 
     def get_pi_planning(self, fix_version, work_group):
-        jql_query = f'"Leading Work Group" = "{work_group}" AND fixVersion = "{fix_version}"'
+        # Query all features/epics for the work group (not filtered by fixVersion)
+        jql_query = f'"Leading Work Group" = "{work_group}"'
         payload = {
             "jql": jql_query,
             "maxResults": 500,
@@ -133,7 +134,9 @@ class Jira:
                 "customfield_14700",  # PI Scope
                 "status",
                 "priority",
-                "customfield_13801"  # Parent link (Capability)
+                "customfield_13801",  # Parent link (Capability)
+                "fixVersions",
+                "customfield_10702"   # Epic Link (for stories!)
             ]
         }
 
@@ -169,6 +172,8 @@ class Jira:
                 if parent_link_value:
                     parent_summary = self.get_issue_summary(parent_link_value, summary_cache)
 
+                fix_versions = [fv["name"] for fv in issue["fields"].get("fixVersions", []) if "name" in fv]
+
                 features[key] = {
                     "summary": summary,
                     "status": issue["fields"]["status"]["name"],
@@ -176,44 +181,55 @@ class Jira:
                     "priority": priority_value,
                     "parent_link": parent_link_value,
                     "parent_summary": parent_summary,
+                    "fixVersions": fix_versions,  # <-- important!
                     "linked_issues": self.extract_linked_issue_links(issue["fields"].get("issuelinks", [])),
                     "sprints": {},
                 }
-
+        # Assign only true child stories (Epic Link) to correct feature+correct sprint
+        epic_link_field = "customfield_10702"
         for issue in data.get("issues", []):
             if issue["fields"]["issuetype"]["name"].lower() != "story":
                 continue
 
+            story_key = issue["key"]
             story_summary = issue["fields"]["summary"]
-            story_sprints = issue["fields"].get("customfield_10701", [])
-            linked_features = [
-                f["key"]
-                for f in self.extract_linked_features(issue["fields"].get("issuelinks", []))
-            ]
+            story_sprints = issue["fields"].get("customfield_10701")
+            if not story_sprints:
+                continue  # skip stories with no sprint info
 
-            for feature_key in linked_features:
-                if feature_key in features:
-                    for sprint in story_sprints:
-                        sprint_name = self.extract_sprint_name(sprint)
-                        features[feature_key]["sprints"].setdefault(sprint_name, []).append(story_summary)
+            # Jira may return string or list, always use as list
+            if not isinstance(story_sprints, list):
+                story_sprints = [story_sprints]
 
+            # Only use true Epic Link (not generic links!)
+            story_epic = issue["fields"].get(epic_link_field, "")
+
+            for sprint in story_sprints:
+                sprint_name = self.extract_sprint_name(sprint)
+                if sprint_name and sprint_name != "Unknown Sprint":
+                    if story_epic in features:
+                        features[story_epic]["sprints"].setdefault(sprint_name, []).append(story_key)
+
+        import json
+        print("=== DEBUG: get_pi_planning API response ===")
+        print(json.dumps(features, indent=2, ensure_ascii=False))
         return features
 
     def extract_sprint_name(self, sprint_data):
         if isinstance(sprint_data, list):
             if sprint_data:
                 return self.extract_sprint_name(sprint_data[0])
-            return "Unknown Sprint"
+            return None  # skip empty lists
 
         if isinstance(sprint_data, str):
             name_match = re.search(r"name=([^,]+)", sprint_data)
             if name_match:
                 name_str = name_match.group(1)
                 sprint_match = re.search(r"(Sprint \d+)", name_str)
-                return sprint_match.group(1) if sprint_match else "Unknown Sprint"
-            return "Unknown Sprint"
+                return sprint_match.group(1) if sprint_match else None
+            return None
 
-        return "Unknown Sprint"
+        return None
 
 @app.route("/")
 def home():

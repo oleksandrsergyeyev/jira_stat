@@ -133,3 +133,76 @@ th.desc::after { content: " ▼"; }
   border-radius: 3px;
   background-color: #e2e6ea;
 }
+
+/* ===============================
+   Custom: Narrow Columns for PI Planning
+   =============================== */
+
+/* Capability column */
+th:nth-child(1), td:nth-child(1) {
+  max-width: 120px;
+  width: 110px;
+  min-width: 80px;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* Feature ID column */
+th:nth-child(2), td:nth-child(2) {
+  max-width: 90px;
+  width: 80px;
+  min-width: 70px;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* Feature Name column */
+th:nth-child(3), td:nth-child(3) {
+  max-width: 200px;
+  width: 200px;
+  min-width: 150px;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* Prio */
+th:nth-child(4), td:nth-child(4) {
+  max-width: 60px;
+  width: 50px;
+  min-width: 40px;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* Status */
+th:nth-child(5), td:nth-child(5) {
+  max-width: 80px;
+  width: 80px;
+  min-width: 80px;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* PI SCope */
+th:nth-child(6), td:nth-child(6) {
+  max-width: 80px;
+  width: 80px;
+  min-width: 80px;
+  word-break: break-word;
+  white-space: normal;
+}
+/* Links column */
+th:nth-child(7), td:nth-child(7) {
+  max-width: 90px;
+  width: 80px;
+  min-width: 70px;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* Optionally, ensure Sprint columns have a little more space */
+th.story-cell, td.story-cell {
+  min-width: 80px;
+  width: 80px;
+  /* You can increase if you want even more space */
+}

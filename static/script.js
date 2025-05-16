@@ -43,20 +43,7 @@ function toggleTable(id, btn) {
     btn.textContent = isHidden ? "⬆ Collapse" : "⬇ Expand";
 }
 
-function toggleAllTables(masterBtn) {
-    const isCollapsing = masterBtn.textContent.includes("Collapse");
-    const sections = ["committed-table", "noncommitted-table"];
-    sections.forEach(id => {
-        const section = document.getElementById(id);
-        const btn = section?.previousElementSibling?.querySelector("button");
-        if (section && btn) {
-            section.style.display = isCollapsing ? "none" : "block";
-            btn.textContent = isCollapsing ? "⬇ Expand" : "⬆ Collapse";
-        }
-    });
-    masterBtn.textContent = isCollapsing ? "⬇ Expand All" : "⬆ Collapse All";
-}
-
+// PI Planning logic with cross-PI backlog
 async function loadPIPlanningData() {
     const fixVersion = getSelectedFixVersion();
     const workGroup = getSelectedWorkGroup();
@@ -68,14 +55,38 @@ async function loadPIPlanningData() {
 
     const sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"];
     const committed = [];
-    const nonCommitted = [];
+    const backlog = [];
 
+    // Helper to check if feature is in selected PI (fixVersion)
+    function featureInSelectedPI(feature, fixVersion) {
+        return Array.isArray(feature.fixVersions) && feature.fixVersions.includes(fixVersion);
+    }
+
+    // 1. Collect committed features for selected PI
     for (const [key, feature] of Object.entries(data)) {
-        (feature.pi_scope === "Committed" ? committed : nonCommitted).push([key, feature]);
+        if (
+            feature.pi_scope === "Committed" &&
+            featureInSelectedPI(feature, fixVersion)
+        ) {
+            committed.push([key, feature]);
+        }
+    }
+    // Build a set of committed feature keys
+    const committedKeys = new Set(committed.map(([key]) => key));
+
+    // 2. Collect all not-Done features NOT already committed for this PI
+    for (const [key, feature] of Object.entries(data)) {
+        if (
+            feature.status &&
+            feature.status.toLowerCase() !== "done" &&
+            !committedKeys.has(key)
+        ) {
+            backlog.push([key, feature]);
+        }
     }
 
     renderFeatureTable(committed, "committed-table", sprints);
-    renderFeatureTable(nonCommitted, "noncommitted-table", sprints);
+    renderFeatureTable(backlog, "backlog-table", sprints);
     applyFilter();
 }
 
@@ -106,8 +117,11 @@ function renderFeatureTable(features, containerId, sprints) {
             <td>${feature.pi_scope || ""}</td>
             <td>${linksHtml}</td>`;
         sprints.forEach(sprint => {
-            const stories = feature.sprints[sprint] || [];
-            tableHtml += `<td class="story-cell">${stories.join("\n")}</td>`;
+            const stories = Array.isArray(feature.sprints[sprint]) ? feature.sprints[sprint] : [];
+            const cellContent = stories.length
+                ? stories.map(storyKey => `<a href="https://jira-vira.volvocars.biz/browse/${storyKey}" target="_blank">${storyKey}</a>`).join("<br>")
+                : "";
+            tableHtml += `<td class="story-cell">${cellContent}</td>`;
         });
         tableHtml += '</tr>';
     }
@@ -116,7 +130,7 @@ function renderFeatureTable(features, containerId, sprints) {
     container.innerHTML = tableHtml;
 }
 
-// Fault Report Dashboard support
+// Fault Report Dashboard support (unchanged)
 async function fetchData() {
     const version = getSelectedFixVersion();
     const workGroup = getSelectedWorkGroup();
@@ -224,7 +238,7 @@ function sortTableByClass() {
 // ✅ Init depending on page
 document.addEventListener("DOMContentLoaded", () => {
     const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
-    const isPlanning = document.getElementById("committed-table") && document.getElementById("noncommitted-table");
+    const isPlanning = document.getElementById("committed-table") && document.getElementById("backlog-table");
 
     if (isDashboard) {
         renderChart();
@@ -257,4 +271,3 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
     }
 });
-

@@ -18,7 +18,7 @@
     <select id="fixVersionSelect">
       <option value="PI_24w49">PI_24w49</option>
       <option value="PI_25w10" selected>PI_25w10</option>
-      <option value="PI_25w22" selected>PI_25w22</option>
+      <option value="PI_25w22">PI_25w22</option>
     </select>
     <label for="workGroupSelect">Leading Work Group:</label>
     <select id="workGroupSelect">
@@ -37,10 +37,10 @@
   <div id="committed-table" class="collapsible-section"></div>
 
   <div class="section-header">
-    <h2>Other Features</h2>
-    <button class="collapse-btn" onclick="toggleTable('noncommitted-table', this)">⬆ Collapse</button>
+    <h2>Backlog</h2>
+    <button class="collapse-btn" onclick="toggleTable('backlog-table', this)">⬆ Collapse</button>
   </div>
-  <div id="noncommitted-table" class="collapsible-section"></div>
+  <div id="backlog-table" class="collapsible-section"></div>
 
   <script src="/static/script.js"></script>
 </body>
