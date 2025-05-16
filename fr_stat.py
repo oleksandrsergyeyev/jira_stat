@@ -109,6 +109,17 @@ class Jira:
         parts = label.split('_', 2)
         return '_'.join(parts[:2]) if len(parts) > 1 else label
 
+    def get_issue_summary(self, key, summary_cache):
+        if key in summary_cache:
+            return summary_cache[key]
+        url = f"{JIRA_ISSUE}/{key}"
+        resp = requests.get(url, headers=self.headers)
+        if resp.status_code == 200:
+            summary = resp.json()["fields"]["summary"]
+            summary_cache[key] = summary
+            return summary
+        return ""
+
     def get_pi_planning(self, fix_version, work_group):
         jql_query = f'"Leading Work Group" = "{work_group}" AND fixVersion = "{fix_version}"'
         payload = {
@@ -132,6 +143,7 @@ class Jira:
 
         data = response.json()
         features = {}
+        summary_cache = {}
 
         for issue in data.get("issues", []):
 
@@ -152,12 +164,18 @@ class Jira:
                 else:
                     parent_link_value = parent_link or ""
 
+                # Fetch parent summary
+                parent_summary = ""
+                if parent_link_value:
+                    parent_summary = self.get_issue_summary(parent_link_value, summary_cache)
+
                 features[key] = {
                     "summary": summary,
                     "status": issue["fields"]["status"]["name"],
                     "pi_scope": pi_scope_value,
                     "priority": priority_value,
                     "parent_link": parent_link_value,
+                    "parent_summary": parent_summary,
                     "linked_issues": self.extract_linked_issue_links(issue["fields"].get("issuelinks", [])),
                     "sprints": {},
                 }

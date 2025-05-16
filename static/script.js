@@ -98,7 +98,7 @@ function renderFeatureTable(features, containerId, sprints) {
         const linksHtml = (feature.linked_issues || []).map(link =>
             `<a href="${link.url}" target="_blank">${link.key}</a>`).join(" ");
         tableHtml += `<tr>
-            <td><a href="https://jira-vira.volvocars.biz/browse/${feature.parent_link}" target="_blank">${feature.parent_link}</a></td>
+            <td>${feature.parent_link ? `<a href="https://jira-vira.volvocars.biz/browse/${feature.parent_link}" target="_blank">${feature.parent_summary || feature.parent_link}</a>` : ""}</td>
             <td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a></td>
             <td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>
             <td>${feature.priority || ""}</td>
