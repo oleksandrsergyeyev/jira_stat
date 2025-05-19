@@ -117,18 +117,87 @@ function renderFeatureTable(features, containerId, sprints) {
             <td>${feature.pi_scope || ""}</td>
             <td>${linksHtml}</td>`;
         sprints.forEach(sprint => {
-            const stories = Array.isArray(feature.sprints[sprint]) ? feature.sprints[sprint] : [];
-            const cellContent = stories.length
-                ? stories.map(storyKey => `<a href="https://jira-vira.volvocars.biz/browse/${storyKey}" target="_blank">${storyKey}</a>`).join("<br>")
-                : "";
-            tableHtml += `<td class="story-cell">${cellContent}</td>`;
+            let stories = Array.isArray(feature.sprints[sprint]) ? feature.sprints[sprint] : [];
+            // --- FILTER OUT ALL FALSEY, NULL, UNDEFINED, and EMPTY STRINGS ---
+            stories = stories.filter(storyKey =>
+                typeof storyKey === "string" && !!storyKey && storyKey.trim() !== "" && storyKey !== "null" && storyKey !== "undefined"
+            );
+            // Debug
+            //console.log(`DEBUG for Feature ${featureId}, Sprint ${sprint}:`, JSON.stringify(stories));
+            if (stories.length) {
+                tableHtml += `<td class="story-cell"><span class="story-badge" tabindex="0" data-stories='${JSON.stringify(stories)}'>${stories.length}</span></td>`;
+            } else {
+                tableHtml += `<td class="story-cell"></td>`;
+            }
+
         });
         tableHtml += '</tr>';
     }
-
     tableHtml += '</tbody></table>';
     container.innerHTML = tableHtml;
+
+    // Attach hover event for all badges
+    document.querySelectorAll('.story-badge').forEach(badge => {
+        badge.addEventListener('mouseenter', handleStoryBadgeHover);
+        badge.addEventListener('mouseleave', hideCustomTooltip);
+        badge.addEventListener('focus', handleStoryBadgeHover);
+        badge.addEventListener('blur', hideCustomTooltip);
+        badge.addEventListener('mousemove', moveCustomTooltip);
+    });
 }
+
+
+// Tooltip helpers
+function handleStoryBadgeHover(event) {
+    const badge = event.currentTarget;
+    let stories = [];
+    try {
+        stories = JSON.parse(badge.getAttribute('data-stories')) || [];
+    } catch { }
+    // Clean up again for tooltip (paranoia)
+    stories = stories.filter(storyKey =>
+        !!storyKey && typeof storyKey === "string" && storyKey.trim() !== "" && !/^null|undefined$/i.test(storyKey)
+    );
+    if (!stories.length) return;
+    let tooltip = document.getElementById('custom-tooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'custom-tooltip';
+        tooltip.style.position = 'fixed';
+        tooltip.style.zIndex = 9999;
+        tooltip.style.background = '#fff';
+        tooltip.style.border = '1px solid #007bff';
+        tooltip.style.borderRadius = '8px';
+        tooltip.style.padding = '10px 16px';
+        tooltip.style.boxShadow = '0 4px 16px rgba(0,0,0,0.13)';
+        tooltip.style.fontSize = '14px';
+        tooltip.style.maxWidth = '350px';
+        tooltip.style.pointerEvents = 'none';
+        tooltip.style.whiteSpace = 'pre-line';
+        document.body.appendChild(tooltip);
+    }
+    tooltip.innerHTML = stories.map(key =>
+        `<a href="https://jira-vira.volvocars.biz/browse/${key}" target="_blank" style="color:#007bff;display:block;margin:2px 0;">${key}</a>`
+    ).join('');
+    tooltip.style.display = 'block';
+
+    // Position below the badge
+    const rect = badge.getBoundingClientRect();
+    tooltip.style.left = (rect.left + window.scrollX + rect.width/2) + "px";
+    tooltip.style.top = (rect.bottom + window.scrollY + 8) + "px";
+}
+function hideCustomTooltip() {
+    let tooltip = document.getElementById('custom-tooltip');
+    if (tooltip) tooltip.style.display = 'none';
+}
+function moveCustomTooltip(event) {
+    let tooltip = document.getElementById('custom-tooltip');
+    if (tooltip && tooltip.style.display === 'block') {
+        tooltip.style.left = (event.clientX + 20) + "px";
+        tooltip.style.top = (event.clientY + 10) + "px";
+    }
+}
+
 
 // Fault Report Dashboard support (unchanged)
 async function fetchData() {

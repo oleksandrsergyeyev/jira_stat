@@ -110,6 +110,11 @@ th.desc::after { content: " ▼"; }
 
 .story-cell {
   white-space: pre-wrap;
+  min-width: 80px;
+  width: 80px;
+  max-width: 120px;
+  text-align: center;
+  position: relative;
 }
 .hide-labels {
   display: none;
@@ -140,8 +145,8 @@ th.desc::after { content: " ▼"; }
 
 /* Capability column */
 th:nth-child(1), td:nth-child(1) {
-  max-width: 120px;
-  width: 110px;
+  max-width: 180px;
+  width: 150px;
   min-width: 80px;
   word-break: break-word;
   white-space: normal;
@@ -167,8 +172,8 @@ th:nth-child(3), td:nth-child(3) {
 
 /* Prio */
 th:nth-child(4), td:nth-child(4) {
-  max-width: 60px;
-  width: 50px;
+  max-width: 40px;
+  width: 40px;
   min-width: 40px;
   word-break: break-word;
   white-space: normal;
@@ -183,7 +188,7 @@ th:nth-child(5), td:nth-child(5) {
   white-space: normal;
 }
 
-/* PI SCope */
+/* PI Scope */
 th:nth-child(6), td:nth-child(6) {
   max-width: 80px;
   width: 80px;
@@ -200,9 +205,51 @@ th:nth-child(7), td:nth-child(7) {
   white-space: normal;
 }
 
-/* Optionally, ensure Sprint columns have a little more space */
+/* Sprint columns have more space */
 th.story-cell, td.story-cell {
-  min-width: 80px;
-  width: 80px;
-  /* You can increase if you want even more space */
+  min-width: 20px;
+  width: 20px;
+}
+
+/* Badge for story count in sprints */
+.story-badge {
+  display: inline-block;
+  background: #007bff;
+  color: #fff;
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  outline: none;
+}
+
+/* =========================
+   Custom floating tooltip
+   ========================= */
+.custom-tooltip {
+  display: none;
+  position: fixed;
+  z-index: 99999;
+  background: #fff;
+  color: #222;
+  border: 1px solid #007bff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: normal;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  min-width: 110px;
+  max-width: 340px;
+  word-break: break-all;
+  text-align: left;
+}
+.custom-tooltip a {
+  color: #007bff;
+  text-decoration: underline;
+  display: block;
+  margin-bottom: 2px;
 }

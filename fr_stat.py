@@ -293,4 +293,5 @@ def export_excel():
     )
 
 if __name__ == "__main__":
-    app.run(host="10.246.39.48", port=80, debug=True)
+    # app.run(host="10.246.39.48", port=80, debug=True)
+    app.run(host="10.246.142.104", port=80, debug=True)
