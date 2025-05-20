@@ -6,6 +6,8 @@ import io
 import pandas as pd
 from dotenv import load_dotenv
 import re
+import argparse
+import json
 
 load_dotenv()
 
@@ -210,9 +212,9 @@ class Jira:
                     if story_epic in features:
                         features[story_epic]["sprints"].setdefault(sprint_name, []).append(story_key)
 
-        import json
-        print("=== DEBUG: get_pi_planning API response ===")
-        print(json.dumps(features, indent=2, ensure_ascii=False))
+
+        # print("=== DEBUG: get_pi_planning API response ===")
+        # print(json.dumps(features, indent=2, ensure_ascii=False))
         return features
 
     def extract_sprint_name(self, sprint_data):
@@ -292,6 +294,109 @@ def export_excel():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
+
+@app.route("/export_committed_excel")
+def export_committed_excel():
+    fix_version = request.args.get("fixVersion", "PI_25w10")
+    work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
+    jira = Jira()
+    features = jira.get_pi_planning(fix_version, work_group)
+
+    # Filter for Committed in current PI only
+    committed = []
+    for key, feature in features.items():
+        if feature.get("pi_scope") == "Committed" and fix_version in feature.get("fixVersions", []):
+            committed.append((key, feature))
+
+    # Prepare rows
+    sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"]
+    rows = []
+    for key, feature in committed:
+        row = {
+            "Capability": feature["parent_summary"] or feature["parent_link"] or "",
+            "Feature ID": key,
+            "Feature Name": feature["summary"],
+            "Priority": feature.get("priority", ""),
+            "Status": feature.get("status", ""),
+            "PI Scope": feature.get("pi_scope", ""),
+            "Links": ", ".join([l["key"] for l in feature.get("linked_issues", [])]),
+        }
+        for sprint in sprints:
+            row[sprint] = ", ".join(feature["sprints"].get(sprint, []))
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Committed')
+
+    output.seek(0)
+    return send_file(
+        output,
+        download_name=f"pi_planning_committed_{fix_version}.xlsx",
+        as_attachment=True,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+@app.route("/export_backlog_excel")
+def export_backlog_excel():
+    fix_version = request.args.get("fixVersion", "PI_25w10")
+    work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
+    jira = Jira()
+    features = jira.get_pi_planning(fix_version, work_group)
+
+    # Get all Committed keys first
+    committed_keys = set()
+    for key, feature in features.items():
+        if feature.get("pi_scope") == "Committed" and fix_version in feature.get("fixVersions", []):
+            committed_keys.add(key)
+
+    # Filter for not-Done, not already committed
+    backlog = []
+    for key, feature in features.items():
+        if (
+            feature.get("status") and
+            feature["status"].lower() != "done" and
+            key not in committed_keys
+        ):
+            backlog.append((key, feature))
+
+    # Prepare rows
+    sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"]
+    rows = []
+    for key, feature in backlog:
+        row = {
+            "Capability": feature["parent_summary"] or feature["parent_link"] or "",
+            "Feature ID": key,
+            "Feature Name": feature["summary"],
+            "Priority": feature.get("priority", ""),
+            "Status": feature.get("status", ""),
+            "PI Scope": feature.get("pi_scope", ""),
+            "Links": ", ".join([l["key"] for l in feature.get("linked_issues", [])]),
+        }
+        for sprint in sprints:
+            row[sprint] = ", ".join(feature["sprints"].get(sprint, []))
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Backlog')
+
+    output.seek(0)
+    return send_file(
+        output,
+        download_name=f"pi_planning_backlog_{fix_version}.xlsx",
+        as_attachment=True,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+
 if __name__ == "__main__":
-    # app.run(host="10.246.39.48", port=80, debug=True)
-    app.run(host="10.246.142.104", port=80, debug=True)
+    parser = argparse.ArgumentParser(description="Run Flask backend with custom IP and port")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host IP to bind (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=80, help="Port to bind (default: 80)")
+    parser.add_argument("--debug", action="store_true", help="Enable Flask debug mode")
+
+    args = parser.parse_args()
+    app.run(host=args.host, port=args.port, debug=args.debug)

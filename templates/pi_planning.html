@@ -18,7 +18,7 @@
     <select id="fixVersionSelect">
       <option value="PI_24w49">PI_24w49</option>
       <option value="PI_25w10" selected>PI_25w10</option>
-      <option value="PI_25w22">PI_25w22</option>
+      <option value="QS_25w22">QS_25w22</option>
     </select>
     <label for="workGroupSelect">Leading Work Group:</label>
     <select id="workGroupSelect">
@@ -32,16 +32,42 @@
 
   <div class="section-header">
     <h2>Committed Features</h2>
-    <button class="collapse-btn" onclick="toggleTable('committed-table', this)">⬆ Collapse</button>
+    <div>
+      <button class="collapse-btn" onclick="toggleTable('committed-table', this)">⬆ Collapse</button>
+      <button id="export-committed-excel"
+        style="margin-left: 10px; padding: 10px 16px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
+        📥 Export Committed to Excel
+      </button>
+    </div>
   </div>
   <div id="committed-table" class="collapsible-section"></div>
 
   <div class="section-header">
     <h2>Backlog</h2>
-    <button class="collapse-btn" onclick="toggleTable('backlog-table', this)">⬆ Collapse</button>
+    <div>
+      <button class="collapse-btn" onclick="toggleTable('backlog-table', this)">⬆ Collapse</button>
+      <button id="export-backlog-excel"
+        style="margin-left: 10px; padding: 10px 16px; background-color: #17a2b8; color: white; border: none; border-radius: 5px; cursor: pointer;">
+        📥 Export Backlog to Excel
+      </button>
+    </div>
   </div>
   <div id="backlog-table" class="collapsible-section"></div>
 
   <script src="/static/script.js"></script>
+  <script>
+    document.getElementById("export-committed-excel")?.addEventListener("click", function () {
+      const fixVersion = document.getElementById("fixVersionSelect")?.value || "PI_25w10";
+      const workGroup = document.getElementById("workGroupSelect")?.value || "ART - BCRC - BSW TFW";
+      const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+      window.location.href = `/export_committed_excel${query}`;
+    });
+    document.getElementById("export-backlog-excel")?.addEventListener("click", function () {
+      const fixVersion = document.getElementById("fixVersionSelect")?.value || "PI_25w10";
+      const workGroup = document.getElementById("workGroupSelect")?.value || "ART - BCRC - BSW TFW";
+      const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+      window.location.href = `/export_backlog_excel${query}`;
+    });
+  </script>
 </body>
 </html>

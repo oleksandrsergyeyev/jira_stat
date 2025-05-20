@@ -27,7 +27,7 @@
     <select id="fixVersionSelect">
       <option value="PI_24w49">PI_24w49</option>
       <option value="PI_25w10" selected>PI_25w10</option>
-      <option value="PI_25w22">PI_25w22</option>
+      <option value="QS_25w22">QS_25w22</option>
     </select>
 
     <button id="refresh">Refresh Data</button>
@@ -46,24 +46,23 @@
       <table id="issueTable">
         <thead>
           <tr>
-            <th>Jira ID</th>
+            <th class="one-line-cell">Jira ID</th>
             <th>Summary</th>
             <th>Status</th>
             <th class="hide-labels">Labels</th>
             <th id="sortClasses" style="cursor: pointer;">Classes ▲</th>
-            <th>Delegated to</th>
+            <th class="one-line-cell">Delegated to</th>
             <th>Feature Name</th>
           </tr>
         </thead>
         <tbody>
-          <!-- JS will populate -->
+          <!-- JS will populate rows with <td class="one-line-cell"> for Jira ID and Delegated to -->
         </tbody>
       </table>
     </div>
   </div>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
-
   <script>
     document.getElementById("download-excel").addEventListener("click", function () {
       const fixVersion = document.getElementById("fixVersionSelect")?.value || "PI_25w10";

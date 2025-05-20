@@ -118,18 +118,14 @@ function renderFeatureTable(features, containerId, sprints) {
             <td>${linksHtml}</td>`;
         sprints.forEach(sprint => {
             let stories = Array.isArray(feature.sprints[sprint]) ? feature.sprints[sprint] : [];
-            // --- FILTER OUT ALL FALSEY, NULL, UNDEFINED, and EMPTY STRINGS ---
             stories = stories.filter(storyKey =>
                 typeof storyKey === "string" && !!storyKey && storyKey.trim() !== "" && storyKey !== "null" && storyKey !== "undefined"
             );
-            // Debug
-            //console.log(`DEBUG for Feature ${featureId}, Sprint ${sprint}:`, JSON.stringify(stories));
             if (stories.length) {
                 tableHtml += `<td class="story-cell"><span class="story-badge" tabindex="0" data-stories='${JSON.stringify(stories)}'>${stories.length}</span></td>`;
             } else {
                 tableHtml += `<td class="story-cell"></td>`;
             }
-
         });
         tableHtml += '</tr>';
     }
@@ -146,7 +142,6 @@ function renderFeatureTable(features, containerId, sprints) {
     });
 }
 
-
 // Tooltip helpers
 function handleStoryBadgeHover(event) {
     const badge = event.currentTarget;
@@ -154,7 +149,6 @@ function handleStoryBadgeHover(event) {
     try {
         stories = JSON.parse(badge.getAttribute('data-stories')) || [];
     } catch { }
-    // Clean up again for tooltip (paranoia)
     stories = stories.filter(storyKey =>
         !!storyKey && typeof storyKey === "string" && storyKey.trim() !== "" && !/^null|undefined$/i.test(storyKey)
     );
@@ -181,7 +175,6 @@ function handleStoryBadgeHover(event) {
     ).join('');
     tooltip.style.display = 'block';
 
-    // Position below the badge
     const rect = badge.getBoundingClientRect();
     tooltip.style.left = (rect.left + window.scrollX + rect.width/2) + "px";
     tooltip.style.top = (rect.bottom + window.scrollY + 8) + "px";
@@ -197,7 +190,6 @@ function moveCustomTooltip(event) {
         tooltip.style.top = (event.clientY + 10) + "px";
     }
 }
-
 
 // Fault Report Dashboard support (unchanged)
 async function fetchData() {
@@ -274,14 +266,14 @@ async function renderTable() {
 
         const row = document.createElement("tr");
         row.innerHTML = `
-            <td><a href="https://jira-vira.volvocars.biz/browse/${issue.key}" target="_blank">${issue.key}</a></td>
+            <td class="one-line-cell"><a href="https://jira-vira.volvocars.biz/browse/${issue.key}" target="_blank">${issue.key}</a></td>
             <td>${issue.summary}</td>
             <td>${issue.status.name || issue.status}</td>
             <td class="hide-labels">${(Array.isArray(issue.labels) ? issue.labels.join(", ") : "")}</td>
             <td class="${issue.classes.length === 0 ? 'no-class' : ''}">
                 ${(Array.isArray(issue.classes) && issue.classes.length > 0) ? issue.classes.join(", ") : ""}
             </td>
-            <td>${linksHtml}</td>
+            <td class="one-line-cell">${linksHtml}</td>
             <td>${featureNames}</td>
         `;
         tbody.appendChild(row);
@@ -338,5 +330,55 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("fixVersionSelect")?.addEventListener("change", loadPIPlanningData);
         document.getElementById("workGroupSelect")?.addEventListener("change", loadPIPlanningData);
         document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
+    }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
+    const isPlanning = document.getElementById("committed-table") && document.getElementById("backlog-table");
+
+    if (isDashboard) {
+        renderChart();
+        renderTable();
+        document.getElementById("refresh")?.addEventListener("click", () => {
+            renderChart();
+            renderTable();
+        });
+        document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
+            renderChart();
+            renderTable();
+        });
+        document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+            renderChart();
+            renderTable();
+        });
+
+        document.getElementById("download-excel")?.addEventListener("click", () => {
+            const fixVersion = getSelectedFixVersion();
+            const workGroup = getSelectedWorkGroup();
+            const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+            window.location.href = `/export_excel${query}`;
+        });
+    }
+
+    if (isPlanning) {
+        loadPIPlanningData();
+        document.getElementById("fixVersionSelect")?.addEventListener("change", loadPIPlanningData);
+        document.getElementById("workGroupSelect")?.addEventListener("change", loadPIPlanningData);
+        document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
+
+        // --- NEW: Export PI Planning Committed/Backlog ---
+        document.getElementById("export-committed-excel")?.addEventListener("click", function () {
+            const fixVersion = getSelectedFixVersion();
+            const workGroup = getSelectedWorkGroup();
+            const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+            window.location.href = `/export_committed_excel${query}`;
+        });
+        document.getElementById("export-backlog-excel")?.addEventListener("click", function () {
+            const fixVersion = getSelectedFixVersion();
+            const workGroup = getSelectedWorkGroup();
+            const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+            window.location.href = `/export_backlog_excel${query}`;
+        });
     }
 });
