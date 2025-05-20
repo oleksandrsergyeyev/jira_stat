@@ -21,7 +21,6 @@
 .menu-item:hover {
   background-color: #e8f0ff;
 }
-
 .menu-item.active {
   background-color: #007bff;
   color: white;
@@ -34,15 +33,10 @@ body {
   text-align: center;
   background-color: #f9f9f9;
 }
-
-h1 {
-  margin-bottom: 20px;
-}
+h1 { margin-bottom: 20px; }
 
 /* Filters */
-.filters {
-  margin-bottom: 20px;
-}
+.filters { margin-bottom: 20px; }
 .filters select,
 .filters input[type="text"],
 .filters button {
@@ -59,7 +53,6 @@ h1 {
   padding: 20px;
   box-sizing: border-box;
 }
-
 .chart-section {
   flex: 0 0 550px;
   max-width: 600px;
@@ -68,7 +61,6 @@ canvas {
   width: 100% !important;
   height: 400px !important;
 }
-
 #refresh {
   margin-top: 15px;
   padding: 12px 20px;
@@ -99,7 +91,10 @@ th, td {
   padding: 6px 10px;
   border: 1px solid #ddd;
   text-align: left;
-  white-space: normal;
+  white-space: nowrap;      /* << COMPACT: No wrap by default */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }
 th {
   background-color: #f4f4f4;
@@ -115,15 +110,15 @@ th.desc::after { content: " ▼"; }
   text-overflow: ellipsis;
 }
 
-/* (rest unchanged, including .hide-labels, .no-class, PI Planning, tooltips, etc.) */
-
+/* .hide-labels, .no-class, section-header, collapse-btn (unchanged) */
 .story-cell {
-  white-space: pre-wrap;
-  min-width: 80px;
-  width: 80px;
-  max-width: 120px;
+  white-space: nowrap;
+  min-width: 45px;
+  width: 50px;
+  max-width: 100px;
   text-align: center;
   position: relative;
+  overflow: visible;
 }
 .hide-labels {
   display: none;
@@ -148,25 +143,32 @@ th.desc::after { content: " ▼"; }
   background-color: #e2e6ea;
 }
 
-/* ===============================
+/* ================================
    Custom: Narrow Columns for PI Planning (scoped)
-   =============================== */
+   ================================ */
+/* For *all* PI Planning tables, including backlog */
+.pi-planning-table th, .pi-planning-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+/* Capability column */
 .pi-planning-table th:nth-child(1), .pi-planning-table td:nth-child(1) {
   max-width: 140px;
   width: 120px;
   min-width: 80px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
+
+/* Feature ID */
 .pi-planning-table th:nth-child(2), .pi-planning-table td:nth-child(2) {
   max-width: 90px;
   width: 80px;
   min-width: 70px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
+
+/* Feature Name (optional: allow wrap or ellipsis) */
 .pi-planning-table th:nth-child(3), .pi-planning-table td:nth-child(3) {
   max-width: 200px;
   width: 200px;
@@ -175,42 +177,40 @@ th.desc::after { content: " ▼"; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Priority */
 .pi-planning-table th:nth-child(4), .pi-planning-table td:nth-child(4) {
   max-width: 40px;
   width: 40px;
   min-width: 40px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
+
+/* Status */
 .pi-planning-table th:nth-child(5), .pi-planning-table td:nth-child(5) {
   max-width: 80px;
   width: 80px;
   min-width: 80px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
+/* PI Scope */
 .pi-planning-table th:nth-child(6), .pi-planning-table td:nth-child(6) {
   max-width: 80px;
   width: 80px;
   min-width: 80px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
+/* Links */
 .pi-planning-table th:nth-child(7), .pi-planning-table td:nth-child(7) {
   max-width: 90px;
   width: 80px;
   min-width: 70px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-/* Sprint columns in PI Planning only */
+/* Sprint columns */
 .pi-planning-table th.story-cell, .pi-planning-table td.story-cell {
-  min-width: 20px;
-  width: 20px;
+  min-width: 30px;
+  width: 35px;
+  max-width: 60px;
+  text-align: center;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* Badge for story count in sprints */
@@ -227,6 +227,7 @@ th.desc::after { content: " ▼"; }
   cursor: pointer;
   position: relative;
   outline: none;
+  margin: 0 auto;
 }
 
 /* =========================

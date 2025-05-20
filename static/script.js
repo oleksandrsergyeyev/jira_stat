@@ -43,6 +43,26 @@ function toggleTable(id, btn) {
     btn.textContent = isHidden ? "⬆ Collapse" : "⬇ Expand";
 }
 
+// --- Remember PI Planning selections ---
+function savePlanningSettings() {
+    localStorage.setItem("piPlanningFixVersion", getSelectedFixVersion());
+    localStorage.setItem("piPlanningWorkGroup", getSelectedWorkGroup());
+}
+
+function restorePlanningSettings() {
+    const fixVersion = localStorage.getItem("piPlanningFixVersion");
+    const workGroup = localStorage.getItem("piPlanningWorkGroup");
+
+    if (fixVersion) {
+        const fixVersionSelect = document.getElementById("fixVersionSelect");
+        if (fixVersionSelect) fixVersionSelect.value = fixVersion;
+    }
+    if (workGroup) {
+        const workGroupSelect = document.getElementById("workGroupSelect");
+        if (workGroupSelect) workGroupSelect.value = workGroup;
+    }
+}
+
 // PI Planning logic with cross-PI backlog
 async function loadPIPlanningData() {
     const fixVersion = getSelectedFixVersion();
@@ -57,12 +77,10 @@ async function loadPIPlanningData() {
     const committed = [];
     const backlog = [];
 
-    // Helper to check if feature is in selected PI (fixVersion)
     function featureInSelectedPI(feature, fixVersion) {
         return Array.isArray(feature.fixVersions) && feature.fixVersions.includes(fixVersion);
     }
 
-    // 1. Collect committed features for selected PI
     for (const [key, feature] of Object.entries(data)) {
         if (
             feature.pi_scope === "Committed" &&
@@ -71,10 +89,8 @@ async function loadPIPlanningData() {
             committed.push([key, feature]);
         }
     }
-    // Build a set of committed feature keys
     const committedKeys = new Set(committed.map(([key]) => key));
 
-    // 2. Collect all not-Done features NOT already committed for this PI
     for (const [key, feature] of Object.entries(data)) {
         if (
             feature.status &&
@@ -132,7 +148,6 @@ function renderFeatureTable(features, containerId, sprints) {
     tableHtml += '</tbody></table>';
     container.innerHTML = tableHtml;
 
-    // Attach hover event for all badges
     document.querySelectorAll('.story-badge').forEach(badge => {
         badge.addEventListener('mouseenter', handleStoryBadgeHover);
         badge.addEventListener('mouseleave', hideCustomTooltip);
@@ -326,48 +341,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (isPlanning) {
+        // Restore last PI/WorkGroup before first load
+        restorePlanningSettings();
+
         loadPIPlanningData();
-        document.getElementById("fixVersionSelect")?.addEventListener("change", loadPIPlanningData);
-        document.getElementById("workGroupSelect")?.addEventListener("change", loadPIPlanningData);
-        document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
-    }
-});
 
-document.addEventListener("DOMContentLoaded", () => {
-    const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
-    const isPlanning = document.getElementById("committed-table") && document.getElementById("backlog-table");
-
-    if (isDashboard) {
-        renderChart();
-        renderTable();
-        document.getElementById("refresh")?.addEventListener("click", () => {
-            renderChart();
-            renderTable();
-        });
         document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
-            renderChart();
-            renderTable();
+            savePlanningSettings();
+            loadPIPlanningData();
         });
         document.getElementById("workGroupSelect")?.addEventListener("change", () => {
-            renderChart();
-            renderTable();
+            savePlanningSettings();
+            loadPIPlanningData();
         });
-
-        document.getElementById("download-excel")?.addEventListener("click", () => {
-            const fixVersion = getSelectedFixVersion();
-            const workGroup = getSelectedWorkGroup();
-            const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-            window.location.href = `/export_excel${query}`;
-        });
-    }
-
-    if (isPlanning) {
-        loadPIPlanningData();
-        document.getElementById("fixVersionSelect")?.addEventListener("change", loadPIPlanningData);
-        document.getElementById("workGroupSelect")?.addEventListener("change", loadPIPlanningData);
         document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
 
-        // --- NEW: Export PI Planning Committed/Backlog ---
+        // --- Export PI Planning Committed/Backlog ---
         document.getElementById("export-committed-excel")?.addEventListener("click", function () {
             const fixVersion = getSelectedFixVersion();
             const workGroup = getSelectedWorkGroup();
