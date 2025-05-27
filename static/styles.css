@@ -143,93 +143,6 @@ th.desc::after { content: " ▼"; }
   background-color: #e2e6ea;
 }
 
-/* ================================
-   Custom: Narrow Columns for PI Planning (scoped)
-   ================================ */
-/* For *all* PI Planning tables, including backlog */
-.pi-planning-table th, .pi-planning-table td {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-}
-
-/* Capability column */
-.pi-planning-table th:nth-child(1), .pi-planning-table td:nth-child(1) {
-  max-width: 140px;
-  width: 120px;
-  min-width: 80px;
-}
-
-/* Feature ID */
-.pi-planning-table th:nth-child(2), .pi-planning-table td:nth-child(2) {
-  max-width: 90px;
-  width: 80px;
-  min-width: 70px;
-}
-
-/* Feature Name (optional: allow wrap or ellipsis) */
-.pi-planning-table th:nth-child(3), .pi-planning-table td:nth-child(3) {
-  max-width: 200px;
-  width: 200px;
-  min-width: 150px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Priority */
-.pi-planning-table th:nth-child(4), .pi-planning-table td:nth-child(4) {
-  max-width: 40px;
-  width: 40px;
-  min-width: 40px;
-}
-
-/* Status */
-.pi-planning-table th:nth-child(5), .pi-planning-table td:nth-child(5) {
-  max-width: 80px;
-  width: 80px;
-  min-width: 80px;
-}
-/* PI Scope */
-.pi-planning-table th:nth-child(6), .pi-planning-table td:nth-child(6) {
-  max-width: 80px;
-  width: 80px;
-  min-width: 80px;
-}
-/* Links */
-.pi-planning-table th:nth-child(7), .pi-planning-table td:nth-child(7) {
-  max-width: 90px;
-  width: 80px;
-  min-width: 70px;
-}
-/* Sprint columns */
-.pi-planning-table th.story-cell, .pi-planning-table td.story-cell {
-  min-width: 30px;
-  width: 35px;
-  max-width: 60px;
-  text-align: center;
-  padding-left: 0;
-  padding-right: 0;
-}
-
-/* Badge for story count in sprints */
-.story-badge {
-  display: inline-block;
-  background: #007bff;
-  color: #fff;
-  min-width: 22px;
-  padding: 2px 7px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: bold;
-  text-align: center;
-  cursor: pointer;
-  position: relative;
-  outline: none;
-  margin: 0 auto;
-}
-
 /* =========================
    Custom floating tooltip
    ========================= */
@@ -256,3 +169,56 @@ th.desc::after { content: " ▼"; }
   display: block;
   margin-bottom: 2px;
 }
+
+table.pi-planning-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  background-color: white;
+  width: 100%;         /* Let it size to fit content naturally */
+}
+
+.pi-planning-table th, .pi-planning-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  padding: 6px 8px;
+}
+
+.pi-planning-table th:nth-child(1), .pi-planning-table td:nth-child(1) { max-width: 140px; min-width: 80px; }
+.pi-planning-table th:nth-child(2), .pi-planning-table td:nth-child(2) { max-width: 80px; min-width: 70px; }
+.pi-planning-table th:nth-child(3), .pi-planning-table td:nth-child(3) { max-width: 300px; min-width: 200px; }
+.pi-planning-table th:nth-child(4), .pi-planning-table td:nth-child(4) { max-width: 40px; min-width: 30px; }
+.pi-planning-table th:nth-child(5), .pi-planning-table td:nth-child(5) { max-width: 80px; min-width: 60px; }
+.pi-planning-table th:nth-child(6), .pi-planning-table td:nth-child(6) { max-width: 80px; min-width: 60px; }
+.pi-planning-table th:nth-child(7), .pi-planning-table td:nth-child(7) { max-width: 140px; min-width: 80px; }
+/* Sprint columns */
+.pi-planning-table th.story-cell, .pi-planning-table td.story-cell {
+  max-width: 36px;
+  min-width: 30px;
+  text-align: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+
+
+
+/* Badge for story count in sprints */
+.story-badge {
+  display: inline-block;
+  background: #007bff;
+  color: #fff;
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  outline: none;
+  margin: 0 auto;
+}
+
+

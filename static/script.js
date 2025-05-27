@@ -110,7 +110,7 @@ function renderFeatureTable(features, containerId, sprints) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    let tableHtml = '<table><thead><tr>';
+    let tableHtml = '<table class="pi-planning-table"><thead><tr>';
     tableHtml += '<th onclick="sortTable(this)">Capability</th>';
     tableHtml += '<th onclick="sortTable(this)">Feature ID</th>';
     tableHtml += '<th onclick="sortTable(this)">Feature Name</th>';
@@ -148,14 +148,66 @@ function renderFeatureTable(features, containerId, sprints) {
     tableHtml += '</tbody></table>';
     container.innerHTML = tableHtml;
 
+    // Tooltip: show below badge, allow mouse to enter and click links
     document.querySelectorAll('.story-badge').forEach(badge => {
-        badge.addEventListener('mouseenter', handleStoryBadgeHover);
-        badge.addEventListener('mouseleave', hideCustomTooltip);
-        badge.addEventListener('focus', handleStoryBadgeHover);
-        badge.addEventListener('blur', hideCustomTooltip);
-        badge.addEventListener('mousemove', moveCustomTooltip);
+        badge.addEventListener('mouseenter', showCustomTooltip);
+        badge.addEventListener('focus', showCustomTooltip);
+        badge.addEventListener('mouseleave', hideCustomTooltipWithDelay);
+        badge.addEventListener('blur', hideCustomTooltipWithDelay);
     });
+
+    // Prepare tooltip
+    let tooltip = document.getElementById('custom-tooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'custom-tooltip';
+        tooltip.className = 'custom-tooltip';
+        tooltip.style.display = 'none';
+        document.body.appendChild(tooltip);
+    }
+    // Allow hovering into the tooltip itself
+    tooltip.addEventListener('mouseenter', function () {
+        clearTimeout(tooltip._hideTimeout);
+    });
+    tooltip.addEventListener('mouseleave', hideCustomTooltipWithDelay);
 }
+
+function showCustomTooltip(event) {
+    const badge = event.currentTarget;
+    let stories = [];
+    try {
+        stories = JSON.parse(badge.getAttribute('data-stories')) || [];
+    } catch { }
+    stories = stories.filter(storyKey =>
+        !!storyKey && typeof storyKey === "string" && storyKey.trim() !== "" && !/^null|undefined$/i.test(storyKey)
+    );
+    if (!stories.length) return;
+    let tooltip = document.getElementById('custom-tooltip');
+    if (!tooltip) return;
+
+    tooltip.innerHTML = stories.map(key =>
+        `<a href="https://jira-vira.volvocars.biz/browse/${key}" target="_blank">${key}</a>`
+    ).join('');
+    tooltip.style.display = 'block';
+
+    // Position below badge, centered, and FIXED, so it doesn't move with mouse
+    const rect = badge.getBoundingClientRect();
+    const scrollY = window.scrollY !== undefined ? window.scrollY : window.pageYOffset;
+    const scrollX = window.scrollX !== undefined ? window.scrollX : window.pageXOffset;
+    tooltip.style.left = (rect.left + scrollX + rect.width / 2 - tooltip.offsetWidth / 2) + "px";
+    tooltip.style.top = (rect.bottom + scrollY + 6) + "px";
+}
+
+function hideCustomTooltipWithDelay() {
+    let tooltip = document.getElementById('custom-tooltip');
+    if (tooltip) {
+        clearTimeout(tooltip._hideTimeout);
+        tooltip._hideTimeout = setTimeout(() => {
+            tooltip.style.display = 'none';
+        }, 250);
+    }
+}
+
 
 // Tooltip helpers
 function handleStoryBadgeHover(event) {
@@ -369,5 +421,54 @@ document.addEventListener("DOMContentLoaded", () => {
             const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
             window.location.href = `/export_backlog_excel${query}`;
         });
+    }
+});
+
+let lastTooltipBadge = null;
+
+function showCustomTooltip(event) {
+    const badge = event.currentTarget;
+    lastTooltipBadge = badge; // <-- track for reposition
+    let stories = [];
+    try {
+        stories = JSON.parse(badge.getAttribute('data-stories')) || [];
+    } catch { }
+    stories = stories.filter(storyKey =>
+        !!storyKey && typeof storyKey === "string" && storyKey.trim() !== "" && !/^null|undefined$/i.test(storyKey)
+    );
+    if (!stories.length) return;
+    let tooltip = document.getElementById('custom-tooltip');
+    if (!tooltip) return;
+
+    tooltip.innerHTML = stories.map(key =>
+        `<a href="https://jira-vira.volvocars.biz/browse/${key}" target="_blank">${key}</a>`
+    ).join('');
+    tooltip.style.display = 'block';
+
+    // Position below badge, centered
+    positionTooltipUnderBadge(badge, tooltip);
+}
+
+// Helper for correct positioning
+function positionTooltipUnderBadge(badge, tooltip) {
+    const rect = badge.getBoundingClientRect();
+    const scrollY = window.scrollY !== undefined ? window.scrollY : window.pageYOffset;
+    const scrollX = window.scrollX !== undefined ? window.scrollX : window.pageXOffset;
+    tooltip.style.position = 'fixed';
+    tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + "px";
+    tooltip.style.top = (rect.bottom + 6) + "px";
+}
+
+// Update tooltip position on scroll and resize
+window.addEventListener('scroll', function () {
+    let tooltip = document.getElementById('custom-tooltip');
+    if (tooltip && tooltip.style.display === 'block' && lastTooltipBadge) {
+        positionTooltipUnderBadge(lastTooltipBadge, tooltip);
+    }
+});
+window.addEventListener('resize', function () {
+    let tooltip = document.getElementById('custom-tooltip');
+    if (tooltip && tooltip.style.display === 'block' && lastTooltipBadge) {
+        positionTooltipUnderBadge(lastTooltipBadge, tooltip);
     }
 });
