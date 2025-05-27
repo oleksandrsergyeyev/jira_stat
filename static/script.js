@@ -111,6 +111,7 @@ function renderFeatureTable(features, containerId, sprints) {
     if (!container) return;
 
     let tableHtml = '<table class="pi-planning-table"><thead><tr>';
+    tableHtml += '<th>#</th>'; // NEW: Row number
     tableHtml += '<th onclick="sortTable(this)">Capability</th>';
     tableHtml += '<th onclick="sortTable(this)">Feature ID</th>';
     tableHtml += '<th onclick="sortTable(this)">Feature Name</th>';
@@ -121,10 +122,12 @@ function renderFeatureTable(features, containerId, sprints) {
     sprints.forEach(sprint => tableHtml += `<th>${sprint}</th>`);
     tableHtml += '</tr></thead><tbody>';
 
+    let rowIndex = 1;
     for (const [featureId, feature] of features) {
         const linksHtml = (feature.linked_issues || []).map(link =>
             `<a href="${link.url}" target="_blank">${link.key}</a>`).join(" ");
         tableHtml += `<tr>
+            <td>${rowIndex++}</td> <!-- Row number -->
             <td>${feature.parent_link ? `<a href="https://jira-vira.volvocars.biz/browse/${feature.parent_link}" target="_blank">${feature.parent_summary || feature.parent_link}</a>` : ""}</td>
             <td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a></td>
             <td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>
@@ -148,7 +151,7 @@ function renderFeatureTable(features, containerId, sprints) {
     tableHtml += '</tbody></table>';
     container.innerHTML = tableHtml;
 
-    // Tooltip: show below badge, allow mouse to enter and click links
+    // Reattach story-badge events (as before)
     document.querySelectorAll('.story-badge').forEach(badge => {
         badge.addEventListener('mouseenter', showCustomTooltip);
         badge.addEventListener('focus', showCustomTooltip);
@@ -156,7 +159,7 @@ function renderFeatureTable(features, containerId, sprints) {
         badge.addEventListener('blur', hideCustomTooltipWithDelay);
     });
 
-    // Prepare tooltip
+    // Tooltip persistence
     let tooltip = document.getElementById('custom-tooltip');
     if (!tooltip) {
         tooltip = document.createElement('div');
@@ -165,8 +168,7 @@ function renderFeatureTable(features, containerId, sprints) {
         tooltip.style.display = 'none';
         document.body.appendChild(tooltip);
     }
-    // Allow hovering into the tooltip itself
-    tooltip.addEventListener('mouseenter', function () {
+    tooltip.addEventListener('mouseenter', () => {
         clearTimeout(tooltip._hideTimeout);
     });
     tooltip.addEventListener('mouseleave', hideCustomTooltipWithDelay);
