@@ -88,10 +88,10 @@ table {
   width: 100%;
 }
 th, td {
-  padding: 6px 10px;
+  padding: 6px 8px;
   border: 1px solid #ddd;
   text-align: left;
-  white-space: nowrap;      /* << COMPACT: No wrap by default */
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   vertical-align: middle;
@@ -174,7 +174,7 @@ table.pi-planning-table {
   border-collapse: collapse;
   font-size: 13px;
   background-color: white;
-  width: 100%;         /* Let it size to fit content naturally */
+  width: 100%;
 }
 
 .pi-planning-table th, .pi-planning-table td {
@@ -185,31 +185,90 @@ table.pi-planning-table {
   padding: 6px 8px;
 }
 
-.pi-planning-table th:first-child,
-.pi-planning-table td:first-child {
+/* === COLUMN WIDTHS for pi-planning-table (adjust as columns change) === */
+
+/* 1. Row number */
+.pi-planning-table th:nth-child(1), .pi-planning-table td:nth-child(1) {
+  max-width: 38px;
+  min-width: 26px;
   width: 36px;
-  min-width: 28px;
-  max-width: 50px;
   text-align: right;
   background: #f9f9f9;
   color: #888;
   font-weight: normal;
 }
 
-.pi-planning-table th:nth-child(1), .pi-planning-table td:nth-child(1) { max-width: 40px; min-width: 30px; } /* Number column */
-.pi-planning-table th:nth-child(2), .pi-planning-table td:nth-child(2) { max-width: 140px; min-width: 80px; } /* Capability */
-.pi-planning-table th:nth-child(3), .pi-planning-table td:nth-child(3) { max-width: 80px; min-width: 70px; } /* Feature ID */
-.pi-planning-table th:nth-child(4), .pi-planning-table td:nth-child(4) { max-width: 300px; min-width: 200px; } /* Feature Name */
-.pi-planning-table th:nth-child(5), .pi-planning-table td:nth-child(5) { max-width: 40px; min-width: 30px; } /* Story points */
-.pi-planning-table th:nth-child(6), .pi-planning-table td:nth-child(6) { max-width: 80px; min-width: 60px; } /* Assignee */
-.pi-planning-table th:nth-child(7), .pi-planning-table td:nth-child(7) { max-width: 40px; min-width: 30px; } /* Priority */
-.pi-planning-table th:nth-child(8), .pi-planning-table td:nth-child(8) { max-width: 80px; min-width: 60px; } /* Status */
-.pi-planning-table th:nth-child(9), .pi-planning-table td:nth-child(9) { max-width: 80px; min-width: 60px; } /* PI Scope */
-.pi-planning-table th:nth-child(10), .pi-planning-table td:nth-child(10) { max-width: 140px; min-width: 80px; } /* Links */
+/* 2. Capability */
+.pi-planning-table th:nth-child(2), .pi-planning-table td:nth-child(2) {
+  max-width: 120px;
+  min-width: 60px;
+  width: 120px;
+}
+
+/* 3. Feature ID */
+.pi-planning-table th:nth-child(3), .pi-planning-table td:nth-child(3) {
+  max-width: 100px;
+  min-width: 95px;
+  width: 90px;
+}
+
+/* 4. Feature Name */
+.pi-planning-table th:nth-child(4), .pi-planning-table td:nth-child(4) {
+  max-width: 220px;
+  min-width: 110px;
+}
+
+/* 5. Story Points (extra compact) */
+.pi-planning-table th:nth-child(5), .pi-planning-table td:nth-child(5) {
+  max-width: 36px;
+  min-width: 24px;
+  width: 32px;
+  text-align: right;
+  padding-right: 4px;
+}
+
+/* 6. Assignee (compact) */
+.pi-planning-table th:nth-child(6), .pi-planning-table td:nth-child(6) {
+  max-width: 110px;
+  min-width: 46px;
+  width: 100px;
+  text-align: left;
+  padding-left: 4px;
+}
+
+/* 7. Priority (very compact) */
+.pi-planning-table th:nth-child(7), .pi-planning-table td:nth-child(7) {
+  max-width: 36px;
+  min-width: 24px;
+  width: 32px;
+  text-align: right;
+  padding-right: 4px;
+}
+
+/* 8. Status */
+.pi-planning-table th:nth-child(8), .pi-planning-table td:nth-child(8) {
+  max-width: 74px;
+  min-width: 40px;
+  width: 64px;
+}
+
+/* 9. PI Scope */
+.pi-planning-table th:nth-child(9), .pi-planning-table td:nth-child(9) {
+  max-width: 74px;
+  min-width: 40px;
+  width: 64px;
+}
+
+/* 10. Links */
+.pi-planning-table th:nth-child(10), .pi-planning-table td:nth-child(10) {
+  max-width: 120px;
+  min-width: 66px;
+}
+
 /* Sprint columns */
 .pi-planning-table th.story-cell, .pi-planning-table td.story-cell {
-  max-width: 40px;
-  min-width: 35px;
+  max-width: 54px;
+  min-width: 38px;
   text-align: center;
   padding-left: 0;
   padding-right: 0;
@@ -260,18 +319,4 @@ table.pi-planning-table {
   background: #f0f0f0;
   cursor: not-allowed;
   border-color: #ddd;
-}
-
-.pi-planning-table th:nth-child(5),
-.pi-planning-table td:nth-child(5) {
-  max-width: 80px;
-  min-width: 50px;
-  text-align: right;
-}
-
-.pi-planning-table th:nth-child(6),
-.pi-planning-table td:nth-child(6) {
-  max-width: 130px;
-  min-width: 60px;
-  text-align: left;
 }

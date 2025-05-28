@@ -186,9 +186,9 @@ function renderFeatureTable(features, containerId, sprints) {
       '<th onclick="sortTable(this)">Capability</th>',
       '<th onclick="sortTable(this)">Feature ID</th>',
       '<th onclick="sortTable(this)">Feature Name</th>',
-      '<th onclick="sortTable(this)">Story Points</th>',
-      '<th onclick="sortTable(this)">Assignee</th>',     // <--- NEW
-      '<th onclick="sortTable(this)">Priority</th>',
+      '<th onclick="sortTable(this)">St.P.</th>',
+      '<th onclick="sortTable(this)">Assignee</th>',
+      '<th onclick="sortTable(this)">Prio</th>',
       '<th onclick="sortTable(this)">Status</th>',
       '<th onclick="sortTable(this)">PI Scope</th>',
       '<th onclick="sortTable(this)">Links</th>'
