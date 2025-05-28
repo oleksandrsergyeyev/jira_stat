@@ -213,9 +213,6 @@ table.pi-planning-table {
   padding-right: 0;
 }
 
-
-
-
 /* Badge for story count in sprints */
 .story-badge {
   display: inline-block;
@@ -233,4 +230,46 @@ table.pi-planning-table {
   margin: 0 auto;
 }
 
+/* --- Column toggles bar --- */
+.column-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 8px;
+  justify-content: flex-start;
+  align-items: center;
+}
+.col-toggle-btn {
+  font-size: 12px;
+  padding: 2px 10px;
+  border: 1px solid #aaa;
+  border-radius: 5px;
+  background: #f4f4f4;
+  cursor: pointer;
+  color: #007bff;
+  transition: background 0.17s;
+}
+.col-toggle-btn.collapsed {
+  background: #ffe9d2;
+  color: #c85d00;
+}
+.col-toggle-btn:disabled {
+  color: #bbb;
+  background: #f0f0f0;
+  cursor: not-allowed;
+  border-color: #ddd;
+}
 
+.pi-planning-table th:nth-child(5),
+.pi-planning-table td:nth-child(5) {
+  max-width: 80px;
+  min-width: 50px;
+  text-align: right;
+}
+
+.pi-planning-table th:nth-child(6),
+.pi-planning-table td:nth-child(6) {
+  max-width: 130px;
+  min-width: 60px;
+  text-align: left;
+}

@@ -138,7 +138,9 @@ class Jira:
                 "priority",
                 "customfield_13801",  # Parent link (Capability)
                 "fixVersions",
-                "customfield_10702"   # Epic Link (for stories!)
+                "customfield_10702",  # Epic Link (for stories!)
+                "customfield_10708",  # Story Points   <--- ADDED
+                "assignee",
             ]
         }
 
@@ -151,7 +153,6 @@ class Jira:
         summary_cache = {}
 
         for issue in data.get("issues", []):
-
             key = issue["key"]
             summary = issue["fields"]["summary"]
             issuetype = issue["fields"]["issuetype"]["name"].lower()
@@ -176,6 +177,23 @@ class Jira:
 
                 fix_versions = [fv["name"] for fv in issue["fields"].get("fixVersions", []) if "name" in fv]
 
+                # --- STORY POINTS extraction ---
+                story_points = issue["fields"].get("customfield_10708", "")
+                # Some JIRA setups return as string or float; keep as string or convert
+                try:
+                    if story_points is not None and story_points != "":
+                        story_points = float(story_points)
+                    else:
+                        story_points = ""
+                except Exception:
+                    story_points = ""
+
+                assignee_obj = issue["fields"].get("assignee")
+                if isinstance(assignee_obj, dict):
+                    assignee_display = assignee_obj.get("displayName") or assignee_obj.get("name") or ""
+                else:
+                    assignee_display = ""
+
                 features[key] = {
                     "summary": summary,
                     "status": issue["fields"]["status"]["name"],
@@ -183,9 +201,11 @@ class Jira:
                     "priority": priority_value,
                     "parent_link": parent_link_value,
                     "parent_summary": parent_summary,
-                    "fixVersions": fix_versions,  # <-- important!
+                    "fixVersions": fix_versions,
                     "linked_issues": self.extract_linked_issue_links(issue["fields"].get("issuelinks", [])),
                     "sprints": {},
+                    "story_points": story_points,
+                    "assignee": assignee_display,
                 }
         # Assign only true child stories (Epic Link) to correct feature+correct sprint
         epic_link_field = "customfield_10702"
@@ -212,9 +232,6 @@ class Jira:
                     if story_epic in features:
                         features[story_epic]["sprints"].setdefault(sprint_name, []).append(story_key)
 
-
-        # print("=== DEBUG: get_pi_planning API response ===")
-        # print(json.dumps(features, indent=2, ensure_ascii=False))
         return features
 
     def extract_sprint_name(self, sprint_data):
@@ -316,6 +333,8 @@ def export_committed_excel():
             "Capability": feature["parent_summary"] or feature["parent_link"] or "",
             "Feature ID": key,
             "Feature Name": feature["summary"],
+            "Story Points": feature.get("story_points", ""),
+            "Assignee": feature.get("assignee", ""),
             "Priority": feature.get("priority", ""),
             "Status": feature.get("status", ""),
             "PI Scope": feature.get("pi_scope", ""),
@@ -337,6 +356,7 @@ def export_committed_excel():
         as_attachment=True,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+
 
 @app.route("/export_backlog_excel")
 def export_backlog_excel():
@@ -369,6 +389,8 @@ def export_backlog_excel():
             "Capability": feature["parent_summary"] or feature["parent_link"] or "",
             "Feature ID": key,
             "Feature Name": feature["summary"],
+            "Story Points": feature.get("story_points", ""),
+            "Assignee": feature.get("assignee", ""),
             "Priority": feature.get("priority", ""),
             "Status": feature.get("status", ""),
             "PI Scope": feature.get("pi_scope", ""),
