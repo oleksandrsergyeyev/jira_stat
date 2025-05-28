@@ -196,18 +196,20 @@ table.pi-planning-table {
   font-weight: normal;
 }
 
-.pi-planning-table th:nth-child(1), .pi-planning-table td:nth-child(1) { max-width: 40px; min-width: 30px; }
-.pi-planning-table th:nth-child(2), .pi-planning-table td:nth-child(2) { max-width: 140px; min-width: 80px; }
-.pi-planning-table th:nth-child(3), .pi-planning-table td:nth-child(3) { max-width: 80px; min-width: 70px; }
-.pi-planning-table th:nth-child(4), .pi-planning-table td:nth-child(4) { max-width: 300px; min-width: 200px; }
-.pi-planning-table th:nth-child(5), .pi-planning-table td:nth-child(5) { max-width: 40px; min-width: 30px; }
-.pi-planning-table th:nth-child(6), .pi-planning-table td:nth-child(6) { max-width: 80px; min-width: 60px; }
-.pi-planning-table th:nth-child(7), .pi-planning-table td:nth-child(7) { max-width: 80px; min-width: 60px; }
-.pi-planning-table th:nth-child(8), .pi-planning-table td:nth-child(8) { max-width: 140px; min-width: 80px; }
+.pi-planning-table th:nth-child(1), .pi-planning-table td:nth-child(1) { max-width: 40px; min-width: 30px; } /* Number column */
+.pi-planning-table th:nth-child(2), .pi-planning-table td:nth-child(2) { max-width: 140px; min-width: 80px; } /* Capability */
+.pi-planning-table th:nth-child(3), .pi-planning-table td:nth-child(3) { max-width: 80px; min-width: 70px; } /* Feature ID */
+.pi-planning-table th:nth-child(4), .pi-planning-table td:nth-child(4) { max-width: 300px; min-width: 200px; } /* Feature Name */
+.pi-planning-table th:nth-child(5), .pi-planning-table td:nth-child(5) { max-width: 40px; min-width: 30px; } /* Story points */
+.pi-planning-table th:nth-child(6), .pi-planning-table td:nth-child(6) { max-width: 80px; min-width: 60px; } /* Assignee */
+.pi-planning-table th:nth-child(7), .pi-planning-table td:nth-child(7) { max-width: 40px; min-width: 30px; } /* Priority */
+.pi-planning-table th:nth-child(8), .pi-planning-table td:nth-child(8) { max-width: 80px; min-width: 60px; } /* Status */
+.pi-planning-table th:nth-child(9), .pi-planning-table td:nth-child(9) { max-width: 80px; min-width: 60px; } /* PI Scope */
+.pi-planning-table th:nth-child(10), .pi-planning-table td:nth-child(10) { max-width: 140px; min-width: 80px; } /* Links */
 /* Sprint columns */
 .pi-planning-table th.story-cell, .pi-planning-table td.story-cell {
-  max-width: 36px;
-  min-width: 30px;
+  max-width: 40px;
+  min-width: 35px;
   text-align: center;
   padding-left: 0;
   padding-right: 0;
