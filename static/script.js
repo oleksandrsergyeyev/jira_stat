@@ -170,77 +170,90 @@ function renderFeatureTable(features, containerId, sprints) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    // Store features for column toggler rerender
     container._features = features;
 
-    // Render column toggler bar
     renderColumnToggles(containerId, sprints);
 
-    // Default: visible columns = all except those in hiddenColumns[containerId]
     const hidden = hiddenColumns[containerId] || new Set();
 
-    // Header
+    // Define column classes (must match order of piPlanningColumns!)
+    const columnClasses = [
+        'col-rownum',
+        'col-capability',
+        'col-feature-id',
+        'col-feature-name',
+        'col-story-points',
+        'col-assignee',
+        'col-priority',
+        'col-status',
+        'col-pi-scope',
+        'col-links'
+    ];
+
+    // HEADER
     let tableHtml = '<table class="pi-planning-table"><thead><tr>';
     [
-      '<th>#</th>',
-      '<th onclick="sortTable(this)">Capability</th>',
-      '<th onclick="sortTable(this)">Feature ID</th>',
-      '<th onclick="sortTable(this)">Feature Name</th>',
-      '<th onclick="sortTable(this)">St.P.</th>',
-      '<th onclick="sortTable(this)">Assignee</th>',
-      '<th onclick="sortTable(this)">Prio</th>',
-      '<th onclick="sortTable(this)">Status</th>',
-      '<th onclick="sortTable(this)">PI Scope</th>',
-      '<th onclick="sortTable(this)">Links</th>'
-    ].forEach((th, idx) => {
-      if (!hidden.has(idx)) tableHtml += th;
+      '#',
+      'Capability',
+      'Feature ID',
+      'Feature Name',
+      'St.P.',
+      'Assignee',
+      'Prio',
+      'Status',
+      'PI Scope',
+      'Links'
+    ].forEach((colLabel, idx) => {
+        if (!hidden.has(idx))
+            tableHtml += `<th class="${columnClasses[idx]}" onclick="sortTable(this)">${colLabel}</th>`;
     });
     // Sprint columns
     sprints.forEach((sprint, i) => {
-      if (!hidden.has(piPlanningColumns.length + i))
-        tableHtml += `<th class="story-cell">${sprint}</th>`;
+        if (!hidden.has(piPlanningColumns.length + i))
+            tableHtml += `<th class="story-cell">${sprint}</th>`;
     });
     tableHtml += '</tr></thead><tbody>';
 
+    // ROWS
     let rowIndex = 1;
     for (const [featureId, feature] of features) {
         tableHtml += '<tr>';
         let colIdx = 0;
 
         // Row number
-        if (!hidden.has(colIdx++)) tableHtml += `<td>${rowIndex}</td>`;
+        if (!hidden.has(colIdx++)) tableHtml += `<td class="col-rownum">${rowIndex}</td>`;
         // Capability
         if (!hidden.has(colIdx++))
-            tableHtml += `<td>${feature.parent_link ? `<a href="https://jira-vira.volvocars.biz/browse/${feature.parent_link}" target="_blank">${feature.parent_summary || feature.parent_link}</a>` : ""}</td>`;
+            tableHtml += `<td class="col-capability">${feature.parent_link ? `<a href="https://jira-vira.volvocars.biz/browse/${feature.parent_link}" target="_blank">${feature.parent_summary || feature.parent_link}</a>` : ""}</td>`;
         // Feature ID
         if (!hidden.has(colIdx++))
-            tableHtml += `<td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a></td>`;
+            tableHtml += `<td class="col-feature-id"><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a></td>`;
         // Feature Name
         if (!hidden.has(colIdx++))
-            tableHtml += `<td><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>`;
+            tableHtml += `<td class="col-feature-name"><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>`;
         // Story Points
         if (!hidden.has(colIdx++)) {
             let storyPoints = feature.story_points ?? "";
             if (storyPoints && !isNaN(Number(storyPoints))) storyPoints = parseFloat(storyPoints);
-            tableHtml += `<td>${storyPoints !== "" ? storyPoints : ""}</td>`;
+            tableHtml += `<td class="col-story-points">${storyPoints !== "" ? storyPoints : ""}</td>`;
         }
-        // Assignee (NEW)
+        // Assignee
         if (!hidden.has(colIdx++))
-            tableHtml += `<td>${feature.assignee || ""}</td>`;
+            tableHtml += `<td class="col-assignee">${feature.assignee || ""}</td>`;
         // Priority
         if (!hidden.has(colIdx++))
-            tableHtml += `<td>${feature.priority || ""}</td>`;
+            tableHtml += `<td class="col-priority">${feature.priority || ""}</td>`;
         // Status
         if (!hidden.has(colIdx++))
-            tableHtml += `<td>${feature.status || ""}</td>`;
+            tableHtml += `<td class="col-status">${feature.status || ""}</td>`;
         // PI Scope
         if (!hidden.has(colIdx++))
-            tableHtml += `<td>${feature.pi_scope || ""}</td>`;
+            tableHtml += `<td class="col-pi-scope">${feature.pi_scope || ""}</td>`;
         // Links
         if (!hidden.has(colIdx++)) {
             const linksHtml = (feature.linked_issues || []).map(link =>
                 `<a href="${link.url}" target="_blank">${link.key}</a>`).join(" ");
-            tableHtml += `<td>${linksHtml}</td>`;
+            tableHtml += `<td class="col-links">${linksHtml}</td>`;
         }
         // Sprints
         sprints.forEach((sprint, i) => {
@@ -270,7 +283,6 @@ function renderFeatureTable(features, containerId, sprints) {
         badge.addEventListener('blur', hideCustomTooltipWithDelay);
     });
 
-    // Tooltip persistence (existing logic)
     let tooltip = document.getElementById('custom-tooltip');
     if (!tooltip) {
         tooltip = document.createElement('div');
