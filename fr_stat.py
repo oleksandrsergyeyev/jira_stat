@@ -138,8 +138,8 @@ class Jira:
                 "priority",
                 "customfield_13801",  # Parent link (Capability)
                 "fixVersions",
-                "customfield_10702",  # Epic Link (for stories!)
-                "customfield_10708",  # Story Points   <--- ADDED
+                "customfield_10702",  # Epic Link
+                "customfield_10708",  # Story Points
                 "assignee",
             ]
         }

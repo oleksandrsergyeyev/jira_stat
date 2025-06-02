@@ -256,3 +256,50 @@ table.pi-planning-table {
 @keyframes spin {
   100% { transform: rotate(360deg); }
 }
+
+.summary-section {
+  margin: 25px 0 20px 0;
+  padding: 12px 0;
+  text-align: left;
+  /* Add these lines: */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;     /* Aligns the box to the right */
+  width: fit-content;        /* Only as wide as content */
+  max-width: 450px;          /* Prevents too wide if lots of assignees */
+}
+
+.summary-section {
+  margin: 25px 0 20px 0;
+  padding: 12px 0;
+  text-align: left;
+}
+.summary-section h3 {
+  font-size: 1.05em;
+  margin: 0 0 8px 0;
+  color: #007bff;
+}
+.summary-table {
+  margin: 8px 0 8px 0;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: #f9f9ff;
+}
+.summary-table th, .summary-table td {
+  border: 1px solid #d4e4ff;
+  padding: 6px 14px;
+}
+.summary-table th {
+  background: #e8f4ff;
+  font-weight: bold;
+}
+.summary-table td {
+  text-align: right;
+}
+.summary-table td:first-child, .summary-table th:first-child {
+  text-align: left;
+}
+
+#committed-summary {
+  margin-right: 10px;
+}

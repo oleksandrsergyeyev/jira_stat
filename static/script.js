@@ -116,13 +116,13 @@ async function loadPIPlanningData() {
         }
 
         renderFeatureTable(committed, "committed-table", sprints);
+        renderCommittedSummary(committed, "committed-summary");
         renderFeatureTable(backlog, "backlog-table", sprints);
         applyFilter();
     } finally {
         hideLoading();
     }
 }
-
 
 // Config for columns (update if columns added/removed in future)
 const piPlanningColumns = [
@@ -616,3 +616,37 @@ window.addEventListener('resize', function () {
         positionTooltipUnderBadge(lastTooltipBadge, tooltip);
     }
 });
+
+function renderCommittedSummary(committedFeatures, containerId) {
+    // Compute totals
+    let totalPoints = 0;
+    const perPerson = {};
+
+    for (const [, feature] of committedFeatures) {
+        const sp = Number(feature.story_points) || 0;
+        const assignee = (feature.assignee || "Unassigned").trim() || "Unassigned";
+        totalPoints += sp;
+        if (!perPerson[assignee]) perPerson[assignee] = 0;
+        perPerson[assignee] += sp;
+    }
+
+    // Create summary table HTML
+    let html = `
+      <div class="summary-section">
+        <h3>Committed Load (St. P.) Summary</h3>
+        <table class="summary-table">
+          <tr><th>Total Story Points (Committed, this PI):</th><td>${totalPoints}</td></tr>
+        </table>
+        <table class="summary-table">
+          <tr><th>Assignee</th><th>Load (St. P.)</th></tr>
+          ${Object.entries(perPerson).sort((a, b) => b[1] - a[1]).map(
+            ([assignee, points]) =>
+              `<tr><td>${assignee}</td><td>${points}</td></tr>`
+          ).join("")}
+        </table>
+      </div>
+    `;
+
+    const container = document.getElementById(containerId);
+    if (container) container.innerHTML = html;
+}

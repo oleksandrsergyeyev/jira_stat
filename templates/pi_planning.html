@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -60,7 +61,7 @@
   </div>
 
   <div class="section-header">
-    <h2>Committed Features</h2>
+  <h2>Committed Features</h2>
     <div>
       <button class="collapse-btn" onclick="toggleTable('committed-table', this)">⬆ Collapse</button>
       <button id="export-committed-excel"
@@ -72,6 +73,9 @@
   <!-- Column toggler bar for committed table -->
   <div id="committed-column-toggles" class="column-toggles"></div>
   <div id="committed-table" class="collapsible-section"></div>
+
+  <!-- 🔽🔽 Place summary OUTSIDE of committed-table! -->
+  <div id="committed-summary"></div>
 
   <div class="section-header">
     <h2>Backlog</h2>
@@ -86,6 +90,7 @@
   <!-- Column toggler bar for backlog table -->
   <div id="backlog-column-toggles" class="column-toggles"></div>
   <div id="backlog-table" class="collapsible-section"></div>
+
 
   <script src="/static/script.js"></script>
   <script>
