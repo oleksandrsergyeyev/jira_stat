@@ -252,3 +252,7 @@ table.pi-planning-table {
   cursor: not-allowed;
   border-color: #ddd;
 }
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}

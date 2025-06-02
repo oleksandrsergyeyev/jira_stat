@@ -64,47 +64,65 @@ function restorePlanningSettings() {
 }
 
 // PI Planning logic with cross-PI backlog
-async function loadPIPlanningData() {
-    const fixVersion = getSelectedFixVersion();
-    const workGroup = getSelectedWorkGroup();
-    if (!fixVersion || !workGroup) return;
-
-    const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-    const response = await fetch(url);
-    const data = await response.json();
-
-    const sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"];
-    const committed = [];
-    const backlog = [];
-
-    function featureInSelectedPI(feature, fixVersion) {
-        return Array.isArray(feature.fixVersions) && feature.fixVersions.includes(fixVersion);
-    }
-
-    for (const [key, feature] of Object.entries(data)) {
-        if (
-            feature.pi_scope === "Committed" &&
-            featureInSelectedPI(feature, fixVersion)
-        ) {
-            committed.push([key, feature]);
-        }
-    }
-    const committedKeys = new Set(committed.map(([key]) => key));
-
-    for (const [key, feature] of Object.entries(data)) {
-        if (
-            feature.status &&
-            feature.status.toLowerCase() !== "done" &&
-            !committedKeys.has(key)
-        ) {
-            backlog.push([key, feature]);
-        }
-    }
-
-    renderFeatureTable(committed, "committed-table", sprints);
-    renderFeatureTable(backlog, "backlog-table", sprints);
-    applyFilter();
+function showLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.style.display = 'flex';
 }
+function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+async function loadPIPlanningData() {
+    showLoading();
+    try {
+        const fixVersion = getSelectedFixVersion();
+        const workGroup = getSelectedWorkGroup();
+        if (!fixVersion || !workGroup) {
+            hideLoading();
+            return;
+        }
+
+        const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"];
+        const committed = [];
+        const backlog = [];
+
+        function featureInSelectedPI(feature, fixVersion) {
+            return Array.isArray(feature.fixVersions) && feature.fixVersions.includes(fixVersion);
+        }
+
+        for (const [key, feature] of Object.entries(data)) {
+            if (
+                feature.pi_scope === "Committed" &&
+                featureInSelectedPI(feature, fixVersion)
+            ) {
+                committed.push([key, feature]);
+            }
+        }
+        const committedKeys = new Set(committed.map(([key]) => key));
+
+        for (const [key, feature] of Object.entries(data)) {
+            if (
+                feature.status &&
+                feature.status.toLowerCase() !== "done" &&
+                !committedKeys.has(key)
+            ) {
+                backlog.push([key, feature]);
+            }
+        }
+
+        renderFeatureTable(committed, "committed-table", sprints);
+        renderFeatureTable(backlog, "backlog-table", sprints);
+        applyFilter();
+    } finally {
+        hideLoading();
+    }
+}
+
 
 // Config for columns (update if columns added/removed in future)
 const piPlanningColumns = [
