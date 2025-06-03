@@ -303,3 +303,27 @@ table.pi-planning-table {
 #committed-summary {
   margin-right: 10px;
 }
+
+.links-type-badge {
+  display: inline-block;
+  background: #e8f0ff;
+  color: #007bff;
+  border: 1px solid #b6d2ff;
+  border-radius: 12px;
+  padding: 2px 8px;
+  margin: 2px 2px 2px 0;
+  font-size: 12px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.18s;
+}
+.links-type-badge:hover, .links-type-badge:focus {
+  background: #007bff;
+  color: #fff;
+}
+.badge-count {
+  color: #222;
+  font-size: 11px;
+  font-weight: normal;
+  margin-left: 2px;
+}

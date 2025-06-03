@@ -267,12 +267,32 @@ function renderFeatureTable(features, containerId, sprints) {
         // PI Scope
         if (!hidden.has(colIdx++))
             tableHtml += `<td class="col-pi-scope">${feature.pi_scope || ""}</td>`;
-        // Links
+        // Links (badge style)
+        // Links: group by type, show type badges, tooltip lists the linked issues
         if (!hidden.has(colIdx++)) {
-            const linksHtml = (feature.linked_issues || []).map(link =>
-                `<a href="${link.url}" target="_blank">${link.key}</a>`).join(" ");
-            tableHtml += `<td class="col-links">${linksHtml}</td>`;
+            const linksArr = feature.linked_issues || [];
+            // Group by link_type
+            const linksByType = {};
+            for (const link of linksArr) {
+                const type = link.link_type || "Other";
+                if (!linksByType[type]) linksByType[type] = [];
+                linksByType[type].push(link);
+            }
+            // Render a badge per link type (like "delegated from", etc)
+            let badgesHtml = "";
+            Object.entries(linksByType).forEach(([type, links]) => {
+                badgesHtml += `
+                  <span class="links-type-badge" tabindex="0"
+                        data-links='${JSON.stringify(links)}'
+                        data-type="${type}">
+                    ${type} <span class="badge-count">(${links.length})</span>
+                  </span>
+                `;
+            });
+            tableHtml += `<td class="col-links">${badgesHtml}</td>`;
         }
+
+
         // Sprints
         sprints.forEach((sprint, i) => {
             if (!hidden.has(piPlanningColumns.length + i)) {
@@ -299,6 +319,14 @@ function renderFeatureTable(features, containerId, sprints) {
         badge.addEventListener('focus', showCustomTooltip);
         badge.addEventListener('mouseleave', hideCustomTooltipWithDelay);
         badge.addEventListener('blur', hideCustomTooltipWithDelay);
+    });
+
+    // Attach tooltip handlers for links-type badges
+    document.querySelectorAll('.links-type-badge').forEach(badge => {
+        badge.addEventListener('mouseenter', showLinksTypeTooltip);
+        badge.addEventListener('focus', showLinksTypeTooltip);
+        badge.addEventListener('mouseleave', hideLinksTypeTooltipWithDelay);
+        badge.addEventListener('blur', hideLinksTypeTooltipWithDelay);
     });
 
     let tooltip = document.getElementById('custom-tooltip');
@@ -506,6 +534,42 @@ function sortTableByClass() {
     document.getElementById("sortClasses").innerText =
         `Classes ${currentSortOrder === 'asc' ? '▲' : '▼'}`;
 }
+
+
+function showLinksTypeTooltip(event) {
+    const badge = event.currentTarget;
+    let links = [];
+    try {
+        links = JSON.parse(badge.getAttribute('data-links')) || [];
+    } catch { }
+    if (!links.length) return;
+    let tooltip = document.getElementById('custom-tooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'custom-tooltip';
+        tooltip.className = 'custom-tooltip';
+        tooltip.style.display = 'none';
+        document.body.appendChild(tooltip);
+    }
+    tooltip.innerHTML = links.map(link =>
+        `<a href="${link.url}" target="_blank">${link.key}${link.summary ? ': ' + link.summary : ''}</a>`
+    ).join('');
+    tooltip.style.display = 'block';
+
+    // Position below badge, centered and fixed
+    positionTooltipUnderBadge(badge, tooltip);
+}
+
+function hideLinksTypeTooltipWithDelay() {
+    let tooltip = document.getElementById('custom-tooltip');
+    if (tooltip) {
+        clearTimeout(tooltip._hideTimeout);
+        tooltip._hideTimeout = setTimeout(() => {
+            tooltip.style.display = 'none';
+        }, 250);
+    }
+}
+
 
 // ✅ Init depending on page
 document.addEventListener("DOMContentLoaded", () => {

@@ -85,12 +85,24 @@ class Jira:
     def extract_linked_issue_links(self, links):
         result = []
         for link in links:
-            issue = link.get("inwardIssue") or link.get("outwardIssue")
+            link_type = link.get("type", {}).get("outward", "") or link.get("type", {}).get("inward", "")
+            # figure out which is populated
+            outward_issue = link.get("outwardIssue")
+            inward_issue = link.get("inwardIssue")
+            issue = outward_issue or inward_issue
             if issue and "key" in issue:
                 key = issue["key"]
+                # choose which direction applies
+                if outward_issue and link.get("type", {}).get("outward"):
+                    direction = link.get("type", {}).get("outward")
+                elif inward_issue and link.get("type", {}).get("inward"):
+                    direction = link.get("type", {}).get("inward")
+                else:
+                    direction = ""
                 result.append({
                     "key": key,
-                    "url": f"https://jira-vira.volvocars.biz/browse/{key}"
+                    "url": f"https://jira-vira.volvocars.biz/browse/{key}",
+                    "link_type": direction
                 })
         return result
 
