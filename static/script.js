@@ -630,6 +630,7 @@ document.addEventListener("DOMContentLoaded", () => {
             window.location.href = `/export_backlog_excel${query}`;
         });
     }
+    showUniqueUserCount();
 });
 
 let lastTooltipBadge = null;
@@ -713,4 +714,32 @@ function renderCommittedSummary(committedFeatures, containerId) {
 
     const container = document.getElementById(containerId);
     if (container) container.innerHTML = html;
+}
+
+function getOrCreateUserId() {
+    let uid = localStorage.getItem('user_id');
+    if (!uid) {
+        // Simple random id
+        uid = Math.random().toString(36).substring(2) + Date.now();
+        localStorage.setItem('user_id', uid);
+    }
+    return uid;
+}
+
+// Send to backend
+function sendUserIdToBackend() {
+    const userId = getOrCreateUserId();
+    fetch('/track_user', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: userId})
+    });
+}
+sendUserIdToBackend();
+
+function showUniqueUserCount() {
+  let users = JSON.parse(localStorage.getItem("uniqueUsers") || "[]");
+  let count = users.length || 1;
+  let el = document.getElementById("unique-users-count").innerText = "Unique users: " + (count || 0);
+  if (el) el.textContent = count;
 }

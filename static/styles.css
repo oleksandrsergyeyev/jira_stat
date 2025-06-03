@@ -327,3 +327,43 @@ table.pi-planning-table {
   font-weight: normal;
   margin-left: 2px;
 }
+
+#unique-users-inline {
+  margin: 22px 0 10px 0;
+  font-size: 13px;
+  color: #567;
+  background: #f3f8fc;
+  border: 1px solid #d3e5fc;
+  border-radius: 12px;
+  padding: 4px 18px;
+  display: block;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: 20px;  /* aligns right with a small gap */
+  text-align: right;
+  box-shadow: 0 2px 7px rgba(0,0,0,0.03);
+  letter-spacing: 0.02em;
+}
+
+#unique-users-label {
+  font-weight: 500;
+  color: #388ae5;
+  margin-right: 6px;
+  opacity: 0.82;
+}
+#unique-users-count {
+  font-weight: bold;
+  color: #145caa;
+  letter-spacing: 0.07em;
+}
+
+.unique-users-counter {
+  position: static;          /* Not fixed or absolute */
+  text-align: right;
+  font-size: 13px;
+  color: #555;
+  margin: 18px 16px 5px 0;
+  opacity: 0.7;
+  pointer-events: none;      /* User can't click, just for info */
+}
+

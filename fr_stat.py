@@ -425,6 +425,33 @@ def export_backlog_excel():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
+@app.route('/track_user', methods=['POST'])
+def track_user():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    if user_id:
+        # Save user_id to a file, one per line (no duplicates)
+        file_path = 'user_ids.txt'
+        try:
+            with open(file_path, 'r') as f:
+                ids = set(line.strip() for line in f if line.strip())
+        except FileNotFoundError:
+            ids = set()
+        if user_id not in ids:
+            with open(file_path, 'a') as f:
+                f.write(user_id + '\n')
+    return jsonify({'ok': True})
+
+@app.route('/unique_users')
+def unique_users():
+    file_path = 'user_ids.txt'
+    try:
+        with open(file_path, 'r') as f:
+            ids = set(line.strip() for line in f if line.strip())
+        return jsonify({'unique_users': len(ids)})
+    except FileNotFoundError:
+        return jsonify({'unique_users': 0})
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Flask backend with custom IP and port")

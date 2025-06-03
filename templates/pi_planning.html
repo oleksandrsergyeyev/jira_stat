@@ -53,8 +53,17 @@
     <label for="workGroupSelect">Leading Work Group:</label>
     <select id="workGroupSelect">
       <option value="ART - BCRC - BSW TFW" selected>Infra Team</option>
-      <option value="ART - BCRC - FPT">Web Team</option>
       <option value="ART - BCRC - SysSW CI">CI Team</option>
+      <option value="ART - BCRC - FPT">Web Team</option>
+      <option value="ART - BCRC - BSW Diag and Com">Diag and Com</option>
+      <option value="ART - BCRC - BSW HW Interface">HW interface</option>
+      <option value="ART - BCRC - BSW Platform">BSW Platform</option>
+      <option value="ART - BCRC - BSW SW Platform and BL">BSW SW Platform and BL</option>
+      <option value="ART - BCRC - Domain">AiC team</option>
+      <option value="ART - BCRC - FSW">FSW 1 team</option>
+      <option value="ART - BCRC - FSW2">FSW 2 team</option>
+      <option value="ART - BCRC - SysSW System Safety and Security">Safety & Security</option>
+      <option value="ART - BCRC - TPMS">TPMS</option>
     </select>
     <label for="globalFilter">Filter:</label>
     <input type="text" id="globalFilter" placeholder="Search table..." />
@@ -107,5 +116,8 @@
       window.location.href = `/export_backlog_excel${query}`;
     });
   </script>
+<div id="unique-users-count" class="unique-users-counter"></div>
+</div>
+</div>
 </body>
 </html>
