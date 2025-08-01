@@ -130,13 +130,13 @@ const piPlanningColumns = [
   { key: 'capability', label: 'Capability' },
   { key: 'featureid', label: 'Feature ID' },
   { key: 'featurename', label: 'Feature Name' },
-  { key: 'storypoints', label: 'Story Points' },
+  { key: 'storypoints', label: 'Feature St.P.' },
+  { key: 'totalpoints', label: 'Total St.P. (with Stories)' },  // NEW
   { key: 'assignee', label: 'Assignee' },
   { key: 'priority', label: 'Priority' },
   { key: 'status', label: 'Status' },
   { key: 'piscope', label: 'PI Scope' },
   { key: 'links', label: 'Links' }
-  // Sprints columns are handled dynamically below
 ];
 
 // Track hidden columns per table id
@@ -196,17 +196,19 @@ function renderFeatureTable(features, containerId, sprints) {
 
     // Define column classes (must match order of piPlanningColumns!)
     const columnClasses = [
-        'col-rownum',
-        'col-capability',
-        'col-feature-id',
-        'col-feature-name',
-        'col-story-points',
-        'col-assignee',
-        'col-priority',
-        'col-status',
-        'col-pi-scope',
-        'col-links'
+      'col-rownum',
+      'col-capability',
+      'col-feature-id',
+      'col-feature-name',
+      'col-story-points',    // Feature SP
+      'col-story-points',    // Total SP ← SAME class
+      'col-assignee',
+      'col-priority',
+      'col-status',
+      'col-pi-scope',
+      'col-links'
     ];
+
 
     // HEADER
     let tableHtml = '<table class="pi-planning-table"><thead><tr>';
@@ -215,7 +217,8 @@ function renderFeatureTable(features, containerId, sprints) {
       'Capability',
       'Feature ID',
       'Feature Name',
-      'St.P.',
+      'Feature St.P.',
+      'St.P. sum',
       'Assignee',
       'Prio',
       'Status',
@@ -225,6 +228,7 @@ function renderFeatureTable(features, containerId, sprints) {
         if (!hidden.has(idx))
             tableHtml += `<th class="${columnClasses[idx]}" onclick="sortTable(this)">${colLabel}</th>`;
     });
+
     // Sprint columns
     sprints.forEach((sprint, i) => {
         if (!hidden.has(piPlanningColumns.length + i))
@@ -249,11 +253,18 @@ function renderFeatureTable(features, containerId, sprints) {
         // Feature Name
         if (!hidden.has(colIdx++))
             tableHtml += `<td class="col-feature-name"><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>`;
-        // Story Points
+        // Feature Story Points
         if (!hidden.has(colIdx++)) {
-            let storyPoints = feature.story_points ?? "";
-            if (storyPoints && !isNaN(Number(storyPoints))) storyPoints = parseFloat(storyPoints);
-            tableHtml += `<td class="col-story-points">${storyPoints !== "" ? storyPoints : ""}</td>`;
+            let sp = feature.story_points ?? "";
+            if (sp && !isNaN(Number(sp))) sp = parseFloat(sp);
+            tableHtml += `<td class="col-story-points">${sp !== "" ? sp : ""}</td>`;
+        }
+
+        // Total Story Points (feature + child stories)
+        if (!hidden.has(colIdx++)) {
+            let total = feature.sum_story_points ?? "";
+            if (total && !isNaN(Number(total))) total = parseFloat(total);
+            tableHtml += `<td class="col-story-points">${total !== "" ? total : ""}</td>`;
         }
         // Assignee
         if (!hidden.has(colIdx++))

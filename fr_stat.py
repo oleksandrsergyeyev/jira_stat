@@ -135,22 +135,15 @@ class Jira:
         return ""
 
     def get_pi_planning(self, fix_version, work_group):
-        # Query all features/epics for the work group (not filtered by fixVersion)
         jql_query = f'"Leading Work Group" = "{work_group}"'
         payload = {
             "jql": jql_query,
             "maxResults": 500,
             "fields": [
-                "summary",
-                "issuetype",
-                "issuelinks",
-                "customfield_10701",  # Sprint
+                "summary", "issuetype", "issuelinks", "customfield_10701",  # Sprint
                 "customfield_14700",  # PI Scope
-                "status",
-                "priority",
-                "customfield_13801",  # Parent link (Capability)
-                "fixVersions",
-                "customfield_10702",  # Epic Link
+                "status", "priority", "customfield_13801",  # Parent link
+                "fixVersions", "customfield_10702",  # Epic Link
                 "customfield_10708",  # Story Points
                 "assignee",
             ]
@@ -182,29 +175,23 @@ class Jira:
                 else:
                     parent_link_value = parent_link or ""
 
-                # Fetch parent summary
                 parent_summary = ""
                 if parent_link_value:
                     parent_summary = self.get_issue_summary(parent_link_value, summary_cache)
 
                 fix_versions = [fv["name"] for fv in issue["fields"].get("fixVersions", []) if "name" in fv]
 
-                # --- STORY POINTS extraction ---
                 story_points = issue["fields"].get("customfield_10708", "")
-                # Some JIRA setups return as string or float; keep as string or convert
                 try:
                     if story_points is not None and story_points != "":
                         story_points = float(story_points)
                     else:
-                        story_points = ""
+                        story_points = 0
                 except Exception:
-                    story_points = ""
+                    story_points = 0
 
                 assignee_obj = issue["fields"].get("assignee")
-                if isinstance(assignee_obj, dict):
-                    assignee_display = assignee_obj.get("displayName") or assignee_obj.get("name") or ""
-                else:
-                    assignee_display = ""
+                assignee_display = assignee_obj.get("displayName") if isinstance(assignee_obj, dict) else ""
 
                 features[key] = {
                     "summary": summary,
@@ -217,26 +204,35 @@ class Jira:
                     "linked_issues": self.extract_linked_issue_links(issue["fields"].get("issuelinks", [])),
                     "sprints": {},
                     "story_points": story_points,
+                    "sum_story_points": story_points,  # initialize with its own points
                     "assignee": assignee_display,
                 }
-        # Assign only true child stories (Epic Link) to correct feature+correct sprint
+
         epic_link_field = "customfield_10702"
         for issue in data.get("issues", []):
             if issue["fields"]["issuetype"]["name"].lower() != "story":
                 continue
 
             story_key = issue["key"]
-            story_summary = issue["fields"]["summary"]
+            story_epic = issue["fields"].get(epic_link_field, "")
             story_sprints = issue["fields"].get("customfield_10701")
-            if not story_sprints:
-                continue  # skip stories with no sprint info
 
-            # Jira may return string or list, always use as list
+            story_points = issue["fields"].get("customfield_10708", "")
+            try:
+                if story_points is not None and story_points != "":
+                    story_points = float(story_points)
+                else:
+                    story_points = 0
+            except Exception:
+                story_points = 0
+
+            if story_epic in features:
+                features[story_epic]["sum_story_points"] += story_points
+
+            if not story_sprints:
+                continue
             if not isinstance(story_sprints, list):
                 story_sprints = [story_sprints]
-
-            # Only use true Epic Link (not generic links!)
-            story_epic = issue["fields"].get(epic_link_field, "")
 
             for sprint in story_sprints:
                 sprint_name = self.extract_sprint_name(sprint)
