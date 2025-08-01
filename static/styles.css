@@ -367,3 +367,18 @@ table.pi-planning-table {
   pointer-events: none;      /* User can't click, just for info */
 }
 
+.summary-section-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;  /* two equal-width columns */
+  gap: 40px;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 25px;
+}
+
+.summary-total-diff td {
+  border-top: 2px solid #999;
+  font-weight: bold;
+  background-color: #f8f8f8;
+}

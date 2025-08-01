@@ -204,7 +204,7 @@ class Jira:
                     "linked_issues": self.extract_linked_issue_links(issue["fields"].get("issuelinks", [])),
                     "sprints": {},
                     "story_points": story_points,
-                    "sum_story_points": story_points,  # initialize with its own points
+                    "sum_story_points": 0,  # initialize with its own points
                     "assignee": assignee_display,
                 }
 

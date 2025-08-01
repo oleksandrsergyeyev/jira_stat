@@ -694,38 +694,81 @@ window.addEventListener('resize', function () {
 });
 
 function renderCommittedSummary(committedFeatures, containerId) {
-    // Compute totals
     let totalPoints = 0;
     const perPerson = {};
+    let totalSpent = 0;
+    const mismatchedFeatures = [];
 
-    for (const [, feature] of committedFeatures) {
-        const sp = Number(feature.story_points) || 0;
+    for (const [featureId, feature] of committedFeatures) {
+        const featureSP = Number(feature.story_points) || 0;
+        const totalSP = Number(feature.sum_story_points) || 0;
         const assignee = (feature.assignee || "Unassigned").trim() || "Unassigned";
-        totalPoints += sp;
+
+        totalPoints += featureSP;
+        totalSpent += totalSP;
+
         if (!perPerson[assignee]) perPerson[assignee] = 0;
-        perPerson[assignee] += sp;
+        perPerson[assignee] += featureSP;
+
+        if (featureSP !== totalSP) {
+            mismatchedFeatures.push({
+                summary: feature.summary || featureId,
+                featureSP,
+                totalSP,
+                diff: totalSP - featureSP,
+                url: `https://jira-vira.volvocars.biz/browse/${featureId}`
+            });
+        }
+
     }
 
-    // Create summary table HTML
-    let html = `
-      <div class="summary-section">
-        <h3>Committed Load (St. P.) Summary</h3>
-        <table class="summary-table">
-          <tr><th>Total Story Points (Committed, this PI):</th><td>${totalPoints}</td></tr>
-        </table>
-        <table class="summary-table">
-          <tr><th>Assignee</th><th>Load (St. P.)</th></tr>
-          ${Object.entries(perPerson).sort((a, b) => b[1] - a[1]).map(
-            ([assignee, points]) =>
-              `<tr><td>${assignee}</td><td>${points}</td></tr>`
-          ).join("")}
-        </table>
+    const totalDifference = mismatchedFeatures.reduce((sum, f) => sum + f.diff, 0);
+
+    const html = `
+      <div class="summary-section-wrapper">
+        <div class="summary-section">
+          <h3>Committed Load (St. P.) Summary</h3>
+          <table class="summary-table">
+            <tr><th>Total Story Points (Committed, this PI):</th><td>${totalPoints}</td></tr>
+          </table>
+          <table class="summary-table">
+            <tr><th>Assignee</th><th>Load (St. P.)</th></tr>
+            ${Object.entries(perPerson).sort((a, b) => b[1] - a[1]).map(
+              ([assignee, points]) => `<tr><td>${assignee}</td><td>${points}</td></tr>`
+            ).join("")}
+          </table>
+        </div>
+
+        <div class="summary-section">
+          <h3>Story Point Changes</h3>
+          <table class="summary-table">
+            <tr><th>Total Story Points (Spent):</th><td>${totalSpent}</td></tr>
+          </table>
+          <table class="summary-table">
+              <tr><th>Feature</th><th>Feature St.P.</th><th>Total St.P.</th><th>Δ Diff</th></tr>
+              ${mismatchedFeatures.map(f =>
+                `<tr>
+                  <td><a href="${f.url}" target="_blank">${f.summary}</a></td>
+                  <td>${f.featureSP}</td>
+                  <td>${f.totalSP}</td>
+                  <td>${f.diff}</td>
+                </tr>`
+              ).join("")}
+              <tr class="summary-total-diff">
+                <td colspan="3" style="text-align: right;"><strong>Sum of Differences:</strong></td>
+                <td><strong>${totalDifference}</strong></td>
+              </tr>
+            </table>
+
+        </div>
       </div>
     `;
 
     const container = document.getElementById(containerId);
     if (container) container.innerHTML = html;
 }
+
+
 
 function getOrCreateUserId() {
     let uid = localStorage.getItem('user_id');
