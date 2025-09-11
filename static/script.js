@@ -87,7 +87,7 @@ async function loadPIPlanningData() {
         const response = await fetch(url);
         const data = await response.json();
 
-        const sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"];
+        const sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5", "No Sprint"];
         const committed = [];
         const backlog = [];
 
@@ -131,7 +131,7 @@ const piPlanningColumns = [
   { key: 'featureid', label: 'Feature ID' },
   { key: 'featurename', label: 'Feature Name' },
   { key: 'storypoints', label: 'Feature St.P.' },
-  { key: 'totalpoints', label: 'Total St.P. (with Stories)' },  // NEW
+  { key: 'totalpoints', label: 'St.P. sum' },  // NEW
   { key: 'assignee', label: 'Assignee' },
   { key: 'priority', label: 'Priority' },
   { key: 'status', label: 'Status' },
@@ -742,10 +742,10 @@ function renderCommittedSummary(committedFeatures, containerId) {
         <div class="summary-section">
           <h3>Story Point Changes</h3>
           <table class="summary-table">
-            <tr><th>Total Story Points (Spent):</th><td>${totalSpent}</td></tr>
+            <tr><th>Total Story adjusted during implementation:</th><td>${totalSpent}</td></tr>
           </table>
           <table class="summary-table">
-              <tr><th>Feature</th><th>Feature St.P.</th><th>Total St.P.</th><th>Δ Diff</th></tr>
+              <tr><th>Feature</th><th>Feature St.P.</th><th>St.P. sum</th><th>Δ Diff</th></tr>
               ${mismatchedFeatures.map(f =>
                 `<tr>
                   <td><a href="${f.url}" target="_blank">${f.summary}</a></td>

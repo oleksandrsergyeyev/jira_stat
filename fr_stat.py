@@ -135,110 +135,154 @@ class Jira:
         return ""
 
     def get_pi_planning(self, fix_version, work_group):
+        """
+        Build PI Planning data for a given Leading Work Group.
+        - Does NOT filter by fixVersion here (so backlog can include other PIs).
+        - Features/Epics become rows; Stories contribute to sprint columns.
+        - Stories with no/unknown sprint go into a 'No Sprint' bucket.
+        """
+        # Pull everything for the work group; keep it broad so backlog spans PIs
         jql_query = f'"Leading Work Group" = "{work_group}"'
         payload = {
             "jql": jql_query,
             "maxResults": 500,
             "fields": [
-                "summary", "issuetype", "issuelinks", "customfield_10701",  # Sprint
+                "summary",
+                "issuetype",
+                "issuelinks",
+                "customfield_10701",  # Sprint (string or list of strings)
                 "customfield_14700",  # PI Scope
-                "status", "priority", "customfield_13801",  # Parent link
-                "fixVersions", "customfield_10702",  # Epic Link
+                "status",
+                "priority",
+                "customfield_13801",  # Parent link (to Capability/Initiative etc)
+                "fixVersions",
+                "customfield_10702",  # Epic Link (Stories -> Feature/Epic)
                 "customfield_10708",  # Story Points
                 "assignee",
-            ]
+            ],
         }
 
         response = requests.post(JIRA_SEARCH, json=payload, headers=self.headers)
         if response.status_code != 200:
             return {"error": response.text}
 
-        data = response.json()
-        features = {}
-        summary_cache = {}
+        data = response.json() or {}
+        issues = data.get("issues", [])
 
-        for issue in data.get("issues", []):
-            key = issue["key"]
-            summary = issue["fields"]["summary"]
-            issuetype = issue["fields"]["issuetype"]["name"].lower()
+        features = {}  # key -> feature/epic row
+        summary_cache = {}  # for parent summary resolution
 
-            if issuetype in ["feature", "epic"]:
-                pi_scope_field = issue["fields"].get("customfield_14700")
-                pi_scope_value = pi_scope_field.get("value") if isinstance(pi_scope_field, dict) else ""
+        # ---------- 1) Seed rows from Features & Epics ----------
+        for issue in issues:
+            key = issue.get("key", "")
+            fields = issue.get("fields", {}) or {}
+            issuetype_name = (fields.get("issuetype", {}) or {}).get("name", "").lower()
 
-                priority_field = issue["fields"].get("priority")
-                priority_value = priority_field.get("name") if isinstance(priority_field, dict) else ""
+            if issuetype_name in ("feature", "epic"):
+                # PI Scope (select field can be dict or string/None)
+                pi_scope_field = fields.get("customfield_14700")
+                if isinstance(pi_scope_field, dict):
+                    pi_scope_value = pi_scope_field.get("value", "") or ""
+                else:
+                    pi_scope_value = pi_scope_field or ""
 
-                parent_link = issue["fields"].get("customfield_13801", "")
+                # Priority
+                prio_field = fields.get("priority")
+                priority_value = (prio_field or {}).get("name", "") if isinstance(prio_field, dict) else (
+                            prio_field or "")
+
+                # Parent link might be an object with 'key' or a direct key string
+                parent_link = fields.get("customfield_13801", "")
                 if isinstance(parent_link, dict):
-                    parent_link_value = parent_link.get("key", "")
+                    parent_link_value = parent_link.get("key", "") or ""
                 else:
                     parent_link_value = parent_link or ""
 
+                # Resolve parent summary lazily via API (cached)
                 parent_summary = ""
                 if parent_link_value:
-                    parent_summary = self.get_issue_summary(parent_link_value, summary_cache)
+                    parent_summary = self.get_issue_summary(parent_link_value, summary_cache) or ""
 
-                fix_versions = [fv["name"] for fv in issue["fields"].get("fixVersions", []) if "name" in fv]
+                # Fix Versions -> list of names
+                fix_versions = []
+                for fv in fields.get("fixVersions", []) or []:
+                    name = fv.get("name")
+                    if name:
+                        fix_versions.append(name)
 
-                story_points = issue["fields"].get("customfield_10708", "")
+                # Feature's own SP
+                feature_sp = fields.get("customfield_10708", 0)
                 try:
-                    if story_points is not None and story_points != "":
-                        story_points = float(story_points)
-                    else:
-                        story_points = 0
+                    feature_sp = float(feature_sp) if feature_sp not in (None, "") else 0.0
                 except Exception:
-                    story_points = 0
+                    feature_sp = 0.0
 
-                assignee_obj = issue["fields"].get("assignee")
+                # Assignee
+                assignee_obj = fields.get("assignee")
                 assignee_display = assignee_obj.get("displayName") if isinstance(assignee_obj, dict) else ""
 
                 features[key] = {
-                    "summary": summary,
-                    "status": issue["fields"]["status"]["name"],
+                    "summary": fields.get("summary", "") or "",
+                    "status": (fields.get("status", {}) or {}).get("name", "") or "",
                     "pi_scope": pi_scope_value,
                     "priority": priority_value,
                     "parent_link": parent_link_value,
                     "parent_summary": parent_summary,
                     "fixVersions": fix_versions,
-                    "linked_issues": self.extract_linked_issue_links(issue["fields"].get("issuelinks", [])),
-                    "sprints": {},
-                    "story_points": story_points,
-                    "sum_story_points": 0,  # initialize with its own points
+                    "linked_issues": self.extract_linked_issue_links(fields.get("issuelinks", []) or []),
+                    "sprints": {},  # sprint name -> [story keys]
+                    "story_points": feature_sp,  # feature's own estimate
+                    "sum_story_points": 0.0,  # sum of child stories (does NOT include feature_sp)
                     "assignee": assignee_display,
                 }
 
+        # ---------- 2) Attach Stories to their Feature/Epic rows ----------
         epic_link_field = "customfield_10702"
-        for issue in data.get("issues", []):
-            if issue["fields"]["issuetype"]["name"].lower() != "story":
+
+        for issue in issues:
+            fields = issue.get("fields", {}) or {}
+            issuetype_name = (fields.get("issuetype", {}) or {}).get("name", "").lower()
+
+            if issuetype_name != "story":
                 continue
 
-            story_key = issue["key"]
-            story_epic = issue["fields"].get(epic_link_field, "")
-            story_sprints = issue["fields"].get("customfield_10701")
+            story_key = issue.get("key", "")
+            story_epic = fields.get(epic_link_field, "") or ""
 
-            story_points = issue["fields"].get("customfield_10708", "")
+            # Story points
+            story_points = fields.get("customfield_10708", 0)
             try:
-                if story_points is not None and story_points != "":
-                    story_points = float(story_points)
-                else:
-                    story_points = 0
+                story_points = float(story_points) if story_points not in (None, "") else 0.0
             except Exception:
-                story_points = 0
+                story_points = 0.0
 
+            # If the story belongs to a seeded Feature/Epic, add its SP
             if story_epic in features:
                 features[story_epic]["sum_story_points"] += story_points
 
-            if not story_sprints:
-                continue
-            if not isinstance(story_sprints, list):
-                story_sprints = [story_sprints]
+            # Sprint(s) can be None, string, or list of strings
+            raw_sprints = fields.get("customfield_10701")
 
-            for sprint in story_sprints:
-                sprint_name = self.extract_sprint_name(sprint)
+            # No sprint at all -> bucket into "No Sprint"
+            if not raw_sprints:
+                if story_epic in features:
+                    features[story_epic]["sprints"].setdefault("No Sprint", []).append(story_key)
+                continue
+
+            # Normalize to a list
+            sprint_entries = raw_sprints if isinstance(raw_sprints, list) else [raw_sprints]
+
+            placed_in_any = False
+            for entry in sprint_entries:
+                sprint_name = self.extract_sprint_name(entry)  # returns "Sprint N" or None
                 if sprint_name and sprint_name != "Unknown Sprint":
                     if story_epic in features:
                         features[story_epic]["sprints"].setdefault(sprint_name, []).append(story_key)
+                        placed_in_any = True
+
+            # Unrecognized/garbled sprint strings also go to "No Sprint"
+            if not placed_in_any and story_epic in features:
+                features[story_epic]["sprints"].setdefault("No Sprint", []).append(story_key)
 
         return features
 
@@ -334,7 +378,7 @@ def export_committed_excel():
             committed.append((key, feature))
 
     # Prepare rows
-    sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"]
+    sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5", "No Sprint"]
     rows = []
     for key, feature in committed:
         row = {
@@ -390,7 +434,7 @@ def export_backlog_excel():
             backlog.append((key, feature))
 
     # Prepare rows
-    sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"]
+    sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5", "No Sprint"]
     rows = []
     for key, feature in backlog:
         row = {

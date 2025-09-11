@@ -1,0 +1,4580 @@
+
+
+id          : customfield_19321
+name        : Affected Network(s)
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Affected Network(s), cf[19321]}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=19321}
+
+id          : customfield_20310
+name        : Implementation Consequences
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20310], Implementation Consequences}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20310}
+
+id          : customfield_19200
+name        : Partner Issue Category
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19200], Partner Issue Category}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19200}
+
+id          : customfield_20311
+name        : Non-Implementation Consequences
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20311], Non-Implementation Consequences}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20311}
+
+id          : customfield_19201
+name        : Temporary Deviation ID
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19201], Temporary Deviation ID}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19201}
+
+id          : customfield_19202
+name        : Temporary Deviation Needed?
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19202], Temporary Deviation Needed?}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=19202}
+
+id          : customfield_19320
+name        : ECU complete p/n
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19320], ECU complete p/n}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19320}
+
+id          : resolution
+name        : Resolution
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {resolution}
+schema      : @{type=resolution; system=resolution}
+
+id          : customfield_12802
+name        : Last Release date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12802], Last Release date}
+schema      : @{type=datetime; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=12802}
+
+id          : customfield_10502
+name        : Requirement Link
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10502], Requirement Link}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=10502}
+
+id          : customfield_10504
+name        : Requirement Link Input
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10504], Requirement Link Input}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=10504}
+
+id          : customfield_12803
+name        : Reporter Department Code
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12803], Reporter Department Code}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=12803}
+
+id          : customfield_20309
+name        : CR Impact
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20309], CR Impact}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20309}
+
+id          : customfield_20307
+name        : Scope of Change
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20307], Scope of Change}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=20307}
+
+id          : customfield_20308
+name        : Type of Impact
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20308], Type of Impact}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=20308}
+
+id          : customfield_20305
+name        : ASIL
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {ASIL, cf[20305]}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20305}
+
+id          : customfield_20306
+name        : Type of Change
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20306], Type of Change}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20306}
+
+id          : customfield_20303
+name        : Decided By
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20303], Decided By}
+schema      : @{type=array; items=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiuserpicker; customId=20303}
+
+id          : customfield_20304
+name        : Decision Item
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20304], Decision Item}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20304}
+
+id          : customfield_20301
+name        : Business Value
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Business Value, cf[20301]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20301}
+
+id          : customfield_20302
+name        : CR Evaluation
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20302], CR Evaluation}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20302}
+
+id          : customfield_18100
+name        : Delivered in SW Baseline/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18100], Delivered in SW Baseline/s}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=18100}
+
+id          : lastViewed
+name        : Last Viewed
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {lastViewed}
+schema      : @{type=datetime; system=lastViewed}
+
+id          : customfield_19311
+name        : Affected Platform+Project 1
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Affected Platform+Project 1, cf[19311]}
+schema      : @{type=option-with-child; custom=com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect; customId=19311}
+
+id          : customfield_20300
+name        : Complexity
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20300], Complexity}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20300}
+
+id          : customfield_19319
+name        : ECU Supplier
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19319], ECU Supplier}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19319}
+
+id          : customfield_19316
+name        : ECU
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19316], ECU}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19316}
+
+id          : customfield_11700
+name        : Escalation
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11700], Escalation}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=11700}
+
+id          : aggregatetimeoriginalestimate
+name        : Σ Original Estimate
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {}
+schema      : @{type=number; system=aggregatetimeoriginalestimate}
+
+id          : issuelinks
+name        : Linked Issues
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {}
+schema      : @{type=array; items=issuelinks; system=issuelinks}
+
+id          : assignee
+name        : Assignee
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {assignee}
+schema      : @{type=user; system=assignee}
+
+id          : customfield_19301
+name        : Deviation duration
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19301], Deviation duration}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19301}
+
+id          : customfield_17000
+name        : Investigation
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17000], Investigation}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=17000}
+
+id          : customfield_19307
+name        : Technology Area
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19307], Technology Area}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19307}
+
+id          : customfield_19305
+name        : Participants
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19305], Participants}
+schema      : @{type=array; items=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiuserpicker; customId=19305}
+
+id          : customfield_19306
+name        : Comments
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19306], Comments}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19306}
+
+id          : customfield_12901
+name        : Implementation Confirmed Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12901], Implementation Confirmed Date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=12901}
+
+id          : customfield_10601
+name        : Supplier
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10601], Supplier}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=10601}
+
+id          : customfield_12900
+name        : CCC
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {CCC, cf[12900]}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=12900}
+
+id          : customfield_12903
+name        : PCA Breakpoint
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12903], PCA Breakpoint}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=12903}
+
+id          : customfield_10604
+name        : External User Access
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10604], External User Access}
+schema      : @{type=any; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=10604}
+
+id          : customfield_12902
+name        : ICA Breakpoint
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12902], ICA Breakpoint}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=12902}
+
+id          : customfield_10605
+name        : Attribute
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Attribute, cf[10605]}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=10605}
+
+id          : customfield_12904
+name        : ICA Actual Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12904], ICA Actual Date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=12904}
+
+id          : customfield_18200
+name        : Function Group
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18200], Function Group}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=18200}
+
+id          : subtasks
+name        : Sub-Tasks
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {subtasks}
+schema      : @{type=array; items=issuelinks; system=subtasks}
+
+id          : customfield_11801
+name        : Test Specific Information
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11801], Test Specific Information}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=11801}
+
+id          : worklog
+name        : Log Work
+custom      : False
+orderable   : True
+navigable   : False
+searchable  : True
+clauseNames : {}
+schema      : @{type=array; items=worklog; system=worklog}
+
+id          : issuetype
+name        : Issue Type
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {issuetype, type}
+schema      : @{type=issuetype; system=issuetype}
+
+id          : customfield_18310
+name        : 4 M Root cause
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {4 M Root cause, cf[18310]}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=18310}
+
+id          : customfield_18311
+name        : 4 M Results
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {4 M Results, cf[18311]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=18311}
+
+id          : customfield_18312
+name        : 5 Why Analysis Done
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {5 Why Analysis Done, cf[18312]}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=18312}
+
+id          : customfield_17100
+name        : System Classification
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17100], System Classification}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=17100}
+
+id          : customfield_18313
+name        : 5 Why Results
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {5 Why Results, cf[18313]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=18313}
+
+id          : customfield_10700
+name        : Rank
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10700], Rank}
+schema      : @{type=any; custom=com.pyxis.greenhopper.jira:gh-lexo-rank; customId=10700}
+
+id          : customfield_10701
+name        : Sprint
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10701], Sprint}
+schema      : @{type=array; items=string; custom=com.pyxis.greenhopper.jira:gh-sprint; customId=10701}
+
+id          : customfield_10702
+name        : Feature Link
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10702], Feature Link}
+schema      : @{type=any; custom=com.pyxis.greenhopper.jira:gh-epic-link; customId=10702}
+
+id          : customfield_10703
+name        : Feature Status
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10703], Feature Status}
+schema      : @{type=option; custom=com.pyxis.greenhopper.jira:gh-epic-status; customId=10703}
+
+id          : customfield_10704
+name        : Feature Name
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10704], Feature Name}
+schema      : @{type=string; custom=com.pyxis.greenhopper.jira:gh-epic-label; customId=10704}
+
+id          : customfield_10705
+name        : Feature Colour
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10705], Feature Color}
+schema      : @{type=string; custom=com.pyxis.greenhopper.jira:gh-epic-color; customId=10705}
+
+id          : customfield_10706
+name        : Flagged
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10706], Flagged}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=10706}
+
+id          : customfield_10708
+name        : Story Points
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10708], Story Points}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=10708}
+
+id          : customfield_18300
+name        : Problem identified in area
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18300], Problem identified in area}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=18300}
+
+id          : customfield_18301
+name        : Shift
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18301], Shift}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=18301}
+
+id          : customfield_18306
+name        : ERA Implemented
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18306], ERA Implemented}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=18306}
+
+id          : customfield_18307
+name        : Pipeline
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18307], Pipeline}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=18307}
+
+id          : customfield_18308
+name        : Pipeline Comment
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18308], Pipeline Comment}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=18308}
+
+id          : customfield_18309
+name        : 4 M Analysis Done
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {4 M Analysis Done, cf[18309]}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=18309}
+
+id          : customfield_18302
+name        : VCPA Criticality
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18302], VCPA Criticality}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=18302}
+
+id          : customfield_18303
+name        : Plant Team
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18303], Plant Team}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=18303}
+
+id          : customfield_18304
+name        : ERA Needed
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18304], ERA Needed}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=18304}
+
+id          : customfield_18305
+name        : ERA Comment
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18305], ERA Comment}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=18305}
+
+id          : customfield_17201
+name        : External Partner
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17201], External Partner}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=17201}
+
+id          : customfield_17200
+name        : Shared Technology Decision
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17200], Shared Technology Decision}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:radiobuttons; customId=17200}
+
+id          : customfield_17202
+name        : Design Owner
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17202], Design Owner}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=17202}
+
+id          : timetracking
+name        : Time Tracking
+custom      : False
+orderable   : True
+navigable   : False
+searchable  : True
+clauseNames : {}
+schema      : @{type=timetracking; system=timetracking}
+
+id          : customfield_10801
+name        : Generic Root Cause
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10801], Generic Root Cause}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=10801}
+
+id          : customfield_18400
+name        : External issue ID
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18400], External issue ID}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=18400}
+
+id          : customfield_16100
+name        : PCA/Solution Verification Result
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16100], PCA/Solution Verification Result}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=16100}
+
+id          : environment
+name        : Environment
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {environment}
+schema      : @{type=string; system=environment}
+
+id          : duedate
+name        : Due Date
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {due, duedate}
+schema      : @{type=date; system=duedate}
+
+id          : customfield_20035
+name        : PKE test result
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20035], PKE test result}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20035}
+
+id          : customfield_20036
+name        : Test notes
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20036], Test notes}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20036}
+
+id          : customfield_20033
+name        : Integration test result
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20033], Integration test result}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20033}
+
+id          : customfield_20034
+name        : PKE tester
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20034], PKE tester}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=20034}
+
+id          : customfield_20031
+name        : Participants names
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20031], Participants names}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20031}
+
+id          : customfield_20032
+name        : Integration tester
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20032], Integration tester}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=20032}
+
+id          : customfield_20030
+name        : To follow-up
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20030], To follow-up}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20030}
+
+id          : customfield_10110
+name        : Severity
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10110], Severity}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=10110}
+
+id          : customfield_15800
+name        : Impacts
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15800], Impacts}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=15800}
+
+id          : customfield_12411
+name        : Manufacturing Shop
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12411], Manufacturing Shop}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=12411}
+
+id          : customfield_10111
+name        : Technical Solution Description
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10111], Technical Solution Description}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=10111}
+
+id          : customfield_12410
+name        : Manufacturing Plant
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12410], Manufacturing Plant}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=12410}
+
+id          : customfield_15801
+name        : RCP Window
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15801], RCP Window}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=15801}
+
+id          : customfield_13502
+name        : Access Group Only
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Access Group Only, cf[13502]}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=13502}
+
+id          : customfield_12413
+name        : Manufacturing Line
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12413], Manufacturing Line}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=12413}
+
+id          : customfield_10114
+name        : Agreed Verification Method
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Agreed Verification Method, cf[10114]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=10114}
+
+id          : customfield_12412
+name        : Manufacturing Area
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12412], Manufacturing Area}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=12412}
+
+id          : customfield_12404
+name        : Latest Activity
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12404], Latest Activity}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=12404}
+
+id          : customfield_12403
+name        : Project Owner
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12403], Project Owner}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=12403}
+
+id          : customfield_10106
+name        : Owner
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10106], Owner}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=10106}
+
+id          : customfield_12406
+name        : Service Item
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12406], Service Item}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=12406}
+
+id          : customfield_12405
+name        : Cost Center
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12405], Cost Center}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=12405}
+
+id          : customfield_10109
+name        : Technical Root Cause
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10109], Technical Root Cause}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=10109}
+
+id          : customfield_20028
+name        : Variants
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20028], Variants}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20028}
+
+id          : customfield_20029
+name        : NCM notes
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20029], NCM notes}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20029}
+
+id          : customfield_20026
+name        : Fallback possible?
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20026], Fallback possible?}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20026}
+
+id          : customfield_20027
+name        : SW Type
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20027], SW Type}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=20027}
+
+id          : customfield_20024
+name        : Node owner list up to date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20024], Node owner list up to date}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20024}
+
+id          : customfield_20025
+name        : Deviation or SOP
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20025], Deviation or SOP}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20025}
+
+id          : customfield_20022
+name        : SDB extract version no
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20022], SDB extract version no}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=20022}
+
+id          : customfield_20023
+name        : Is correct diagnostic number (down to suffixlevel) connected in CarCom for this series for the SW?
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20023], Is correct diagnostic number (down to suffixlevel) connected in CarCom for this series for the SW?}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20023}
+
+id          : customfield_20020
+name        : New PBL backward compatible
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20020], New PBL backward compatible}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20020}
+
+id          : customfield_20021
+name        : SDB extract used
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20021], SDB extract used}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20021}
+
+id          : customfield_14700
+name        : PI Scope
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14700], PI Scope}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=14700}
+
+id          : customfield_12400
+name        : Project Reference
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12400], Project Reference}
+schema      : @{type=project; custom=com.atlassian.jira.plugin.system.customfieldtypes:project; customId=12400}
+
+id          : customfield_10100
+name        : To Analysis date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10100], To Analysis date}
+schema      : @{type=datetime; custom=com.atlassian.jira.plugin.system.customfieldtypes:datetime; customId=10100}
+
+id          : customfield_10101
+name        : To Development date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10101], To Development date}
+schema      : @{type=datetime; custom=com.atlassian.jira.plugin.system.customfieldtypes:datetime; customId=10101}
+
+id          : customfield_12402
+name        : Issues Count
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12402], Issues Count}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=12402}
+
+id          : customfield_10102
+name        : To Verification date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10102], To Verification date}
+schema      : @{type=datetime; custom=com.atlassian.jira.plugin.system.customfieldtypes:datetime; customId=10102}
+
+id          : customfield_12401
+name        : Users Count
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12401], Users Count}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=12401}
+
+id          : customfield_10103
+name        : Verification NOK Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10103], Verification NOK Date}
+schema      : @{type=datetime; custom=com.atlassian.jira.plugin.system.customfieldtypes:datetime; customId=10103}
+
+id          : timeestimate
+name        : Remaining Estimate
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {remainingEstimate, timeestimate}
+schema      : @{type=number; system=timeestimate}
+
+id          : customfield_20019
+name        : Update procedure
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20019], Update procedure}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=20019}
+
+id          : customfield_20017
+name        : New HW delivered to boxcar
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20017], New HW delivered to boxcar}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20017}
+
+id          : customfield_20018
+name        : New HW backward compatible
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20018], New HW backward compatible}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20018}
+
+id          : customfield_20015
+name        : Pre-HPD/TPD description
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20015], Pre-HPD/TPD description}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=20015}
+
+id          : status
+name        : Status
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : True
+clauseNames : {status}
+schema      : @{type=status; system=status}
+
+id          : customfield_20016
+name        : New HW description
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20016], New HW description}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=20016}
+
+id          : customfield_20013
+name        : Implementation according to FIP
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20013], Implementation according to FIP}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20013}
+
+id          : customfield_20014
+name        : Pre-HPD/TPD
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20014], Pre-HPD/TPD}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20014}
+
+id          : customfield_20011
+name        : SW delivery date to SCC
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20011], SW delivery date to SCC}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20011}
+
+id          : customfield_20012
+name        : SW delivery review date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20012], SW delivery review date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20012}
+
+id          : customfield_20010
+name        : SW delivery control date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20010], SW delivery control date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20010}
+
+id          : customfield_11300
+name        : Move Info
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11300], Move Info}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=11300}
+
+id          : customfield_13601
+name        : gitCommitsReferenced
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13601], gitCommitsReferenced}
+schema      : @{type=any; custom=com.xiplink.jira.git.jira_git_plugin:gitcommitsreferenced; customId=13601}
+
+id          : archiveddate
+name        : Archived
+custom      : False
+orderable   : True
+navigable   : False
+searchable  : True
+clauseNames : {}
+schema      : @{type=datetime; system=archiveddate}
+
+id          : customfield_12503
+name        : Criticality
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12503], Criticality}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=12503}
+
+id          : customfield_14803
+name        : Leading Solution
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14803], Leading Solution}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=14803}
+
+id          : customfield_12502
+name        : Probability
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12502], Probability}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=12502}
+
+id          : customfield_14804
+name        : Supporting Solution
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14804], Supporting Solution}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=14804}
+
+id          : customfield_14801
+name        : Supporting Portfolio
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14801], Supporting Portfolio}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=14801}
+
+id          : customfield_14802
+name        : Enabler type
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14802], Enabler type}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=14802}
+
+id          : customfield_10206
+name        : Test Object Type
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10206], Test Object Type}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=10206}
+
+id          : aggregatetimeestimate
+name        : Σ Remaining Estimate
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {}
+schema      : @{type=number; system=aggregatetimeestimate}
+
+id          : customfield_10207
+name        : Series
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10207], Series}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=10207}
+
+id          : customfield_10208
+name        : Factory
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10208], Factory}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=10208}
+
+id          : customfield_14805
+name        : Solution Business Owner
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14805], Solution Business Owner}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=14805}
+
+id          : customfield_14806
+name        : Epic URL
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14806], Epic URL}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:url; customId=14806}
+
+id          : customfield_20008
+name        : SW delivery date to VCC
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20008], SW delivery date to VCC}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20008}
+
+id          : customfield_20009
+name        : Test hours planned
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20009], Test hours planned}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=20009}
+
+id          : customfield_20006
+name        : Flow Ticket
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20006], Flow Ticket}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20006}
+
+id          : customfield_20007
+name        : ART
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {ART, cf[20007]}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=20007}
+
+id          : customfield_20004
+name        : VIDA SWDL
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20004], VIDA SWDL}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20004}
+
+id          : customfield_20005
+name        : CRB
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20005], CRB}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20005}
+
+id          : customfield_20002
+name        : CO correct and published date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20002], CO correct and published date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20002}
+
+id          : creator
+name        : Creator
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : True
+clauseNames : {creator}
+schema      : @{type=user; system=creator}
+
+id          : customfield_20001
+name        : Change Order Number and issue
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20001], Change Order Number and issue}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=20001}
+
+id          : customfield_19372
+name        : Need to Decide
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19372], Need to Decide}
+schema      : @{type=array; items=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiuserpicker; customId=19372}
+
+id          : customfield_14800
+name        : Leading Portfolio
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14800], Leading Portfolio}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=14800}
+
+id          : customfield_10200
+name        : Learnings / Preventive Actions
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10200], Learnings / Preventive Actions}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=10200}
+
+id          : customfield_12500
+name        : Follow-up Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12500], Follow-up Date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=12500}
+
+id          : customfield_19370
+name        : Risk Probability
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19370], Risk Probability}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19370}
+
+id          : customfield_19365
+name        : Add signal change description file
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Add signal change description file, cf[19365]}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=19365}
+
+id          : customfield_19002
+name        : CONTROL Action
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19002], CONTROL Action}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19002}
+
+id          : customfield_19003
+name        : Affected items
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Affected items, cf[19003]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19003}
+
+id          : customfield_19366
+name        : Current risk level
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19366], Current risk level}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=19366}
+
+id          : customfield_19367
+name        : Global Rank
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19367], Global Rank}
+schema      : @{type=any; custom=com.pyxis.greenhopper.jira:gh-global-rank; customId=19367}
+
+id          : customfield_19368
+name        : Rank (Obsolete)
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19368], Rank (Obsolete)}
+schema      : @{type=any; custom=com.pyxis.greenhopper.jira:gh-global-rank; customId=19368}
+
+id          : customfield_19362
+name        : Guided Diagnostic (Diagnostic) Assessment
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19362], Guided Diagnostic (Diagnostic) Assessment}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19362}
+
+id          : customfield_19120
+name        : OTA Possible
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19120], OTA Possible}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=19120}
+
+id          : timespent
+name        : Time Spent
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {timespent}
+schema      : @{type=number; system=timespent}
+
+id          : customfield_19000
+name        : Process Map
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19000], Process Map}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19000}
+
+id          : customfield_19363
+name        : Technology Area Assessment
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19363], Technology Area Assessment}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19363}
+
+id          : customfield_19001
+name        : Process Map Comment
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19001], Process Map Comment}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19001}
+
+id          : aggregatetimespent
+name        : Σ Time Spent
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {}
+schema      : @{type=number; system=aggregatetimespent}
+
+id          : customfield_19369
+name        : Risk Impact
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19369], Risk Impact}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19369}
+
+id          : customfield_11401
+name        : Found in Test Object/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11401], Found in Test Object/s}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=11401}
+
+id          : customfield_13700
+name        : PQ Area
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13700], PQ Area}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=13700}
+
+id          : customfield_11400
+name        : Learning
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11400], Learning}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=11400}
+
+id          : customfield_10302
+name        : Product Number
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10302], Product Number}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=10302}
+
+id          : customfield_10304
+name        : Color
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10304], Color}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=10304}
+
+id          : customfield_14900
+name        : Reason For Cancellation
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14900], Reason For Cancellation}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=14900}
+
+id          : customfield_10305
+name        : Interior
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10305], Interior}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=10305}
+
+id          : customfield_10306
+name        : Model Year
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10306], Model Year}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=10306}
+
+id          : customfield_10307
+name        : Break Week
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Break Week, cf[10307]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=10307}
+
+id          : customfield_20109
+name        : BaseTech SPL
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {BaseTech SPL, cf[20109]}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=20109}
+
+id          : workratio
+name        : Work Ratio
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : True
+clauseNames : {workratio}
+schema      : @{type=number; system=workratio}
+
+id          : customfield_20107
+name        : Function Realization Responsible
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20107], Function Realization Responsible}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=20107}
+
+id          : customfield_19360
+name        : Aftermarket Assessment
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Aftermarket Assessment, cf[19360]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19360}
+
+id          : customfield_20108
+name        : Function Realization Responsible PSS
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20108], Function Realization Responsible PSS}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20108}
+
+id          : customfield_20226
+name        : Function tester
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20226], Function tester}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=20226}
+
+id          : customfield_20105
+name        : Parent First Vehicle Project
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20105], Parent First Vehicle Project}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=20105}
+
+id          : customfield_20106
+name        : Function
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20106], Function}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20106}
+
+id          : customfield_20227
+name        : Product Function
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20227], Product Function}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20227}
+
+id          : customfield_20103
+name        : Cost Carrying Project
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20103], Cost Carrying Project}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20103}
+
+id          : customfield_20224
+name        : Test Result
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20224], Test Result}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20224}
+
+id          : customfield_20104
+name        : Parent Cost Carrying Project
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20104], Parent Cost Carrying Project}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=20104}
+
+id          : customfield_20225
+name        : Test using VCATS
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20225], Test using VCATS}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20225}
+
+id          : customfield_19354
+name        : Approvers
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Approvers, cf[19354]}
+schema      : @{type=array; items=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiuserpicker; customId=19354}
+
+id          : customfield_20101
+name        : Integration Event
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20101], Integration Event}
+schema      : @{type=version; custom=com.atlassian.jira.plugin.system.customfieldtypes:version; customId=20101}
+
+id          : customfield_19112
+name        : Pending DRM-P Decision
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19112], Pending DRM-P Decision}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=19112}
+
+id          : customfield_20222
+name        : Safety/emissions/owner’s manual
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20222], Safety/emissions/owner’s manual}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20222}
+
+id          : customfield_19113
+name        : EM3 Signoff
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19113], EM3 Signoff}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=19113}
+
+id          : customfield_20102
+name        : Parent Integration Event
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20102], Parent Integration Event}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=20102}
+
+id          : customfield_20223
+name        : Target release
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20223], Target release}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20223}
+
+id          : customfield_19114
+name        : EM6 Signoff
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19114], EM6 Signoff}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=19114}
+
+id          : customfield_20220
+name        : Relevant for release notes
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20220], Relevant for release notes}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20220}
+
+id          : customfield_19115
+name        : EM8 Signoff
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19115], EM8 Signoff}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=19115}
+
+id          : customfield_20100
+name        : Parent Summary
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20100], Parent Summary}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=20100}
+
+id          : customfield_20221
+name        : SDB Rel no.
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20221], SDB Rel no.}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=20221}
+
+id          : customfield_19110
+name        : Certification Impact
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Certification Impact, cf[19110]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19110}
+
+id          : customfield_19353
+name        : Affected Platforms & Projects
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Affected Platforms & Projects, cf[19353]}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=19353}
+
+id          : customfield_19111
+name        : Function Owner
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19111], Function Owner}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=19111}
+
+id          : customfield_19116
+name        : New or Modified Behavior
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19116], New or Modified Behavior}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=19116}
+
+id          : customfield_19359
+name        : Manufacturing Assessment
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19359], Manufacturing Assessment}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19359}
+
+id          : customfield_19117
+name        : New or Modified Realization
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19117], New or Modified Realization}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=19117}
+
+id          : customfield_12600
+name        : Function Area
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12600], Function Area}
+schema      : @{type=option-with-child; custom=com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect; customId=12600}
+
+id          : customfield_19118
+name        : Minimum Product Content J1
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19118], Minimum Product Content J1}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=19118}
+
+id          : customfield_10300
+name        : Registration Number
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10300], Registration Number}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=10300}
+
+id          : customfield_10301
+name        : Chassi Number
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10301], Chassi Number}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=10301}
+
+id          : customfield_19119
+name        : Legal Requirement Impact
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19119], Legal Requirement Impact}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19119}
+
+id          : customfield_11502
+name        : Owner Email
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11502], Owner Email}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=11502}
+
+id          : customfield_13801
+name        : Parent Link
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13801], Parent Link}
+schema      : @{type=any; custom=com.atlassian.jpo:jpo-custom-field-parent; customId=13801}
+
+id          : customfield_11501
+name        : Reporter Email
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11501], Reporter Email}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=11501}
+
+id          : customfield_13800
+name        : Team
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13800], Team}
+schema      : @{type=any; custom=com.atlassian.teams:rm-teams-custom-field-team; customId=13800}
+
+id          : customfield_13803
+name        : Target end
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13803], Target end}
+schema      : @{type=date; custom=com.atlassian.jpo:jpo-custom-field-baseline-end; customId=13803}
+
+id          : customfield_13802
+name        : Target start
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13802], Target start}
+schema      : @{type=date; custom=com.atlassian.jpo:jpo-custom-field-baseline-start; customId=13802}
+
+id          : customfield_13804
+name        : Original story points
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13804], Original story points}
+schema      : @{type=number; custom=com.atlassian.jpo:jpo-custom-field-original-story-points; customId=13804}
+
+id          : customfield_20219
+name        : Reason for Cancel
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20219], Reason for Cancel}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20219}
+
+id          : customfield_20217
+name        : Product Stream
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20217], Product Stream}
+schema      : @{type=array; items=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:labels; customId=20217}
+
+id          : customfield_20218
+name        : Project Code
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20218], Project Code}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=20218}
+
+id          : customfield_20215
+name        : PMXU CL90
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20215], PMXU CL90}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20215}
+
+id          : customfield_20216
+name        : Product Owner
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20216], Product Owner}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=20216}
+
+id          : customfield_20213
+name        : PMXU CL40
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20213], PMXU CL40}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20213}
+
+id          : customfield_20214
+name        : PMXU CL60
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20214], PMXU CL60}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20214}
+
+id          : customfield_20211
+name        : Integration test (Base Tech)
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20211], Integration test (Base Tech)}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20211}
+
+id          : customfield_19343
+name        : SPA Introduction
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19343], SPA Introduction}
+schema      : @{type=option-with-child; custom=com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect; customId=19343}
+
+id          : customfield_19101
+name        : Variant
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19101], Variant}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=19101}
+
+id          : customfield_19102
+name        : Affected products
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Affected products, cf[19102]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19102}
+
+id          : customfield_20212
+name        : Model platform
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20212], Model platform}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20212}
+
+id          : customfield_20210
+name        : Functional tester
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20210], Functional tester}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=20210}
+
+id          : customfield_19104
+name        : Need of new/modified user interface
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19104], Need of new/modified user interface}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19104}
+
+id          : customfield_19100
+name        : Donor Variant
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19100], Donor Variant}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=19100}
+
+id          : customfield_19109
+name        : Planning risks
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19109], Planning risks}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19109}
+
+id          : customfield_19347
+name        : SPA3 Introduction
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19347], SPA3 Introduction}
+schema      : @{type=option-with-child; custom=com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect; customId=19347}
+
+id          : customfield_19105
+name        : Virtual validation link
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19105], Virtual validation link}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19105}
+
+id          : customfield_19106
+name        : FXM link
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19106], FXM link}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:url; customId=19106}
+
+id          : customfield_19107
+name        : System solution overview
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19107], System solution overview}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19107}
+
+id          : customfield_19108
+name        : Technical risks
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19108], Technical risks}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19108}
+
+id          : customfield_10401
+name        : Option Codes
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10401], Option Codes}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=10401}
+
+id          : customfield_10402
+name        : Reason for Transfer
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10402], Reason for Transfer}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=10402}
+
+id          : customfield_10403
+name        : Project Meeting Follow Up
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10403], Project Meeting Follow Up}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=10403}
+
+id          : customfield_12702
+name        : Key Event Planning
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12702], Key Event Planning}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=12702}
+
+id          : customfield_10404
+name        : Prel Verification Comment
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10404], Prel Verification Comment}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=10404}
+
+id          : customfield_12705
+name        : Escalation Request Type
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12705], Escalation Request Type}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=12705}
+
+id          : customfield_10405
+name        : External Issue ID
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10405], External Issue ID}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=10405}
+
+id          : customfield_12704
+name        : Planned Version
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12704], Planned Version}
+schema      : @{type=version; custom=com.atlassian.jira.plugin.system.customfieldtypes:version; customId=12704}
+
+id          : customfield_10407
+name        : External System
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10407], External System}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=10407}
+
+id          : customfield_20329
+name        : Deployment Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20329], Deployment Date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20329}
+
+id          : customfield_20208
+name        : Functional test result
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20208], Functional test result}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20208}
+
+id          : customfield_20209
+name        : Functional test/PKE
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20209], Functional test/PKE}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20209}
+
+id          : customfield_20206
+name        : Epic Type
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20206], Epic Type}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=20206}
+
+id          : customfield_20327
+name        : Release Responsible
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20327], Release Responsible}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=20327}
+
+id          : customfield_20328
+name        : Agreed Verification Method
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Agreed Verification Method, cf[20328]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20328}
+
+id          : customfield_20207
+name        : Function test result
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20207], Function test result}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20207}
+
+id          : customfield_20204
+name        : CRB/SW_R date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20204], CRB/SW_R date}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=20204}
+
+id          : customfield_20325
+name        : CW Req ID/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20325], CW Req ID/s}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:url; customId=20325}
+
+id          : customfield_20326
+name        : Based On
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Based On, cf[20326]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20326}
+
+id          : customfield_20205
+name        : CarConfig Rel name
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {CarConfig Rel name, cf[20205]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=20205}
+
+id          : customfield_20202
+name        : Backward compatibility
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Backward compatibility, cf[20202]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20202}
+
+id          : customfield_20323
+name        : Target SW
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20323], Target SW}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=20323}
+
+id          : customfield_20203
+name        : CRB Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20203], CRB Date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20203}
+
+id          : customfield_20324
+name        : SWKA
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20324], SWKA}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=20324}
+
+id          : customfield_20200
+name        : ART Responsible
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {ART Responsible, cf[20200]}
+schema      : @{type=array; items=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:labels; customId=20200}
+
+id          : customfield_20321
+name        : Target OS
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20321], Target OS}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=20321}
+
+id          : customfield_20201
+name        : Additional Comments
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Additional Comments, cf[20201]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20201}
+
+id          : customfield_19333
+name        : Customer/interface impact
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19333], Customer/interface impact}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19333}
+
+id          : customfield_20322
+name        : SW Configuration Source
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20322], SW Configuration Source}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=20322}
+
+id          : customfield_19334
+name        : Reason for deviation request
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19334], Reason for deviation request}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19334}
+
+id          : customfield_19335
+name        : Compensation from supplier to VCC
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19335], Compensation from supplier to VCC}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19335}
+
+id          : customfield_20320
+name        : Context of Use
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20320], Context of Use}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=20320}
+
+id          : customfield_18000
+name        : FST Action Done
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18000], FST Action Done}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=18000}
+
+id          : customfield_13900
+name        : KU Number
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13900], KU Number}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=13900}
+
+id          : customfield_11600
+name        : Project Support
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11600], Project Support}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=11600}
+
+id          : customfield_11603
+name        : Escalated to SPL Counter
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11603], Escalated to SPL Counter}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=11603}
+
+id          : customfield_13901
+name        : Sub Function
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13901], Sub Function}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=13901}
+
+id          : customfield_11605
+name        : Escalated to TPL Counter
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11605], Escalated to TPL Counter}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=11605}
+
+id          : customfield_11604
+name        : Escalated to UPL Counter
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11604], Escalated to UPL Counter}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=11604}
+
+id          : customfield_20318
+name        : Verification Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20318], Verification Date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20318}
+
+id          : customfield_20319
+name        : Resume Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20319], Resume Date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20319}
+
+id          : customfield_20316
+name        : Implementation Start Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20316], Implementation Start Date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20316}
+
+id          : customfield_20317
+name        : Integration Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20317], Integration Date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=20317}
+
+id          : customfield_20314
+name        : Affected Car Configurations
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Affected Car Configurations, cf[20314]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20314}
+
+id          : customfield_20315
+name        : External Dependencies
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20315], External Dependencies}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20315}
+
+id          : customfield_20312
+name        : Interface Changes
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20312], Interface Changes}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20312}
+
+id          : customfield_20313
+name        : Affected Variants
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Affected Variants, cf[20313]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20313}
+
+id          : customfield_13100
+name        : Controlling Document
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13100], Controlling Document}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=13100}
+
+id          : customfield_15400
+name        : Customer Function
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15400], Customer Function}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=15400}
+
+id          : customfield_17700
+name        : Found in SW Baseline/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17700], Found in SW Baseline/s}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=17700}
+
+id          : customfield_15401
+name        : Product Function
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15401], Product Function}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=15401}
+
+id          : customfield_13103
+name        : ME Reporter Section
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13103], ME Reporter Section}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=13103}
+
+id          : customfield_12008
+name        : Planned Verification Finish date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12008], Planned Verification Finish date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=12008}
+
+id          : customfield_12007
+name        : Solution Available date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12007], Solution Available date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=12007}
+
+id          : customfield_12009
+name        : Found in Test Method/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12009], Found in Test Method/s}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=12009}
+
+id          : customfield_12000
+name        : Closed
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12000], Closed}
+schema      : @{type=datetime; custom=com.atlassian.jira.plugin.system.customfieldtypes:datetime; customId=12000}
+
+id          : customfield_16600
+name        : Found in level
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16600], Found in level}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=16600}
+
+id          : customfield_18900
+name        : Operational Lead Area/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18900], Operational Lead Area/s}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=18900}
+
+id          : customfield_14301
+name        : Backlog Item Type
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Backlog Item Type, cf[14301]}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=14301}
+
+id          : customfield_12004
+name        : Function
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12004], Function}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=12004}
+
+id          : customfield_12003
+name        : ECU
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12003], ECU}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=12003}
+
+id          : labels
+name        : Labels
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {labels}
+schema      : @{type=array; items=string; system=labels}
+
+id          : customfield_16601
+name        : Should have been found in Level
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16601], Should have been found in Level}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=16601}
+
+id          : components
+name        : Component/s
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {component}
+schema      : @{type=array; items=component; system=components}
+
+id          : customfield_13201
+name        : ME Reporter Department
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13201], ME Reporter Department}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=13201}
+
+id          : customfield_17800
+name        : Generic Product Module/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17800], Generic Product Module/s}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=17800}
+
+id          : customfield_14400
+name        : Leading Work Group
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14400], Leading Work Group}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=14400}
+
+id          : reporter
+name        : Reporter
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {reporter}
+schema      : @{type=user; system=reporter}
+
+id          : customfield_12100
+name        : Service Category
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12100], Service Category}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=12100}
+
+id          : customfield_14403
+name        : External issue URL
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14403], External issue URL}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:url; customId=14403}
+
+id          : customfield_14401
+name        : Dataset Change
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14401], Dataset Change}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=14401}
+
+id          : customfield_14402
+name        : Configurations
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14402], Configurations}
+schema      : @{type=array; items=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:labels; customId=14402}
+
+id          : customfield_16700
+name        : Issue shared count
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16700], Issue shared count}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=16700}
+
+id          : customfield_13306
+name        : User Group Admins
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13306], User Group Admins}
+schema      : @{type=array; items=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiuserpicker; customId=13306}
+
+id          : customfield_13305
+name        : Found in Sold Object/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13305], Found in Sold Object/s}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=13305}
+
+id          : customfield_13308
+name        : Manage Users
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13308], Manage Users}
+schema      : @{type=array; items=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiuserpicker; customId=13308}
+
+id          : customfield_13307
+name        : User Group Members
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13307], User Group Members}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=13307}
+
+id          : progress
+name        : Progress
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {progress}
+schema      : @{type=progress; system=progress}
+
+id          : archivedby
+name        : Archiver
+custom      : False
+orderable   : True
+navigable   : False
+searchable  : True
+clauseNames : {}
+schema      : @{type=user; system=archivedby}
+
+id          : project
+name        : Project
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : True
+clauseNames : {project}
+schema      : @{type=project; system=project}
+
+id          : customfield_13300
+name        : Owner Department Code
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13300], Owner Department Code}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=13300}
+
+id          : customfield_11001
+name        : Lead Project
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11001], Lead Project}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=11001}
+
+id          : customfield_13302
+name        : ME Owner Section
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13302], ME Owner Section}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=13302}
+
+id          : customfield_11002
+name        : Unit
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11002], Unit}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=11002}
+
+id          : customfield_11003
+name        : Section Factory
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11003], Section Factory}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=11003}
+
+id          : customfield_13304
+name        : Assignee Department Code
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Assignee Department Code, cf[13304]}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=13304}
+
+id          : customfield_11004
+name        : Development Task
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11004], Development Task}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=11004}
+
+id          : customfield_17900
+name        : Solved in SW Baseline/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17900], Solved in SW Baseline/s}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=17900}
+
+id          : customfield_15600
+name        : Target Integration Scenario Link
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15600], Target Integration Scenario Link}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=15600}
+
+id          : customfield_13303
+name        : ME Owner Department
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13303], ME Owner Department}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=13303}
+
+id          : customfield_15601
+name        : Target Integration Scenario
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15601], Target Integration Scenario}
+schema      : @{type=any; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=15601}
+
+id          : resolutiondate
+name        : Resolved
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : True
+clauseNames : {resolutiondate, resolved}
+schema      : @{type=datetime; system=resolutiondate}
+
+id          : watches
+name        : Watchers
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {watchers}
+schema      : @{type=watches; system=watches}
+
+id          : customfield_12200
+name        : Affected Specification Type/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Affected Specification Type/s, cf[12200]}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=12200}
+
+id          : customfield_12201
+name        : Affected Specification Name/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Affected Specification Name/s, cf[12201]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=12201}
+
+id          : customfield_16801
+name        : BPD Lane
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {BPD Lane, cf[16801]}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=16801}
+
+id          : customfield_16800
+name        : External Assignee
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16800], External Assignee}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=16800}
+
+id          : customfield_15827
+name        : Watching Work Group/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15827], Watching Work Group/s}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=15827}
+
+id          : customfield_15828
+name        : Earlier Lead Project
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15828], Earlier Lead Project}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=15828}
+
+id          : updated
+name        : Updated
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : True
+clauseNames : {updated, updatedDate}
+schema      : @{type=datetime; system=updated}
+
+id          : customfield_20051
+name        : Grandparent Summary
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20051], Grandparent Summary}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=20051}
+
+id          : timeoriginalestimate
+name        : Original Estimate
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {originalEstimate, timeoriginalestimate}
+schema      : @{type=number; system=timeoriginalestimate}
+
+id          : description
+name        : Description
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {description}
+schema      : @{type=string; system=description}
+
+id          : customfield_20050
+name        : Gateway
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20050], Gateway}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=20050}
+
+id          : customfield_11100
+name        : Date Approved
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11100], Date Approved}
+schema      : @{type=datetime; custom=com.atlassian.jira.plugin.system.customfieldtypes:datetime; customId=11100}
+
+id          : customfield_11101
+name        : Approved By
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Approved By, cf[11101]}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=11101}
+
+id          : customfield_15822
+name        : External Collaboration Development Field
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15822], External Collaboration Development Field}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=15822}
+
+id          : customfield_13401
+name        : Supporting Work Groups
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13401], Supporting Work Groups}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=13401}
+
+id          : customfield_11102
+name        : Found In Project
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[11102], Found In Project}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=11102}
+
+id          : customfield_10134
+name        : Verification Result
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10134], Verification Result}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=10134}
+
+id          : customfield_11103
+name        : Affected Project/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Affected Project/s, cf[11103]}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=11103}
+
+id          : customfield_13403
+name        : Supplier ID
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13403], Supplier ID}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=13403}
+
+id          : customfield_13402
+name        : Supplier Name
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13402], Supplier Name}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=13402}
+
+id          : customfield_15815
+name        : ICA  Available For Use
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15815], ICA  Available For Use}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=15815}
+
+id          : customfield_15816
+name        : ICA Description
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15816], ICA Description}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=15816}
+
+id          : customfield_10127
+name        : Reopen Count
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10127], Reopen Count}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=10127}
+
+id          : customfield_16903
+name        : Follow-up Notes
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16903], Follow-up Notes}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=16903}
+
+id          : customfield_10128
+name        : Verification NOK Count
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10128], Verification NOK Count}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=10128}
+
+id          : customfield_16902
+name        : Known Deviations
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16902], Known Deviations}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=16902}
+
+id          : customfield_15814
+name        : Vehicle Release Priority
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15814], Vehicle Release Priority}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=15814}
+
+id          : customfield_15817
+name        : Change Order
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15817], Change Order}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=15817}
+
+id          : customfield_15818
+name        : Affected Manufacturing Plant/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Affected Manufacturing Plant/s, cf[15818]}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=15818}
+
+id          : customfield_20048
+name        : ART function tester result
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {ART function tester result, cf[20048]}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20048}
+
+id          : customfield_20049
+name        : Deviation Decision
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20049], Deviation Decision}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20049}
+
+id          : summary
+name        : Summary
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {summary}
+schema      : @{type=string; system=summary}
+
+id          : customfield_20046
+name        : Test method for Increment
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20046], Test method for Increment}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20046}
+
+id          : customfield_20047
+name        : ART function tester
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {ART function tester, cf[20047]}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=20047}
+
+id          : customfield_20044
+name        : GCS Comment
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20044], GCS Comment}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20044}
+
+id          : customfield_20045
+name        : Test Only
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20045], Test Only}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=20045}
+
+id          : customfield_20042
+name        : Information for Dealers/Workshops
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20042], Information for Dealers/Workshops}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=20042}
+
+id          : customfield_20043
+name        : Content Approved by GCS
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20043], Content Approved by GCS}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20043}
+
+id          : customfield_20040
+name        : Need for Information for Legal Authorities?
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20040], Need for Information for Legal Authorities?}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20040}
+
+id          : customfield_20041
+name        : Need for Information for Dealers/Workshops?
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20041], Need for Information for Dealers/Workshops?}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20041}
+
+id          : customfield_12420
+name        : Planned Implementation Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12420], Planned Implementation Date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=12420}
+
+id          : customfield_10000
+name        : issueFunction
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10000], issueFunction}
+schema      : @{type=any; custom=com.onresolve.jira.groovy.groovyrunner:jqlFunctionsCustomFieldType; customId=10000}
+
+id          : customfield_16901
+name        : Integration Impact
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16901], Integration Impact}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=16901}
+
+id          : customfield_15811
+name        : Object Specific Information
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15811], Object Specific Information}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=15811}
+
+id          : customfield_12422
+name        : System Instance
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12422], System Instance}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=12422}
+
+id          : customfield_14601
+name        : Type of support
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14601], Type of support}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=14601}
+
+id          : customfield_12421
+name        : Acceptance Criteria
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Acceptance Criteria, cf[12421]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=12421}
+
+id          : customfield_15812
+name        : Customer Symptom Area
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15812], Customer Symptom Area}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=15812}
+
+id          : customfield_12300
+name        : Target Series
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12300], Target Series}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=12300}
+
+id          : customfield_16900
+name        : Test Analysis
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16900], Test Analysis}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=16900}
+
+id          : customfield_15810
+name        : Found in Object
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15810], Found in Object}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=15810}
+
+id          : customfield_12415
+name        : Equipment Number
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12415], Equipment Number}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=12415}
+
+id          : customfield_15804
+name        : PCA/Solution Available For Use
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15804], PCA/Solution Available For Use}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=15804}
+
+id          : customfield_10115
+name        : Verification Supporting Team
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10115], Verification Supporting Team}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=10115}
+
+id          : customfield_12414
+name        : Manufacturing Equipment Type
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12414], Manufacturing Equipment Type}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:com.valiantys.jira.plugins.sqlfeed.customfield.type; customId=12414}
+
+id          : customfield_15805
+name        : PCA/Solution Description
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15805], PCA/Solution Description}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=15805}
+
+id          : customfield_10116
+name        : Project Priority
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10116], Project Priority}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=10116}
+
+id          : customfield_15802
+name        : Root Cause
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15802], Root Cause}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=15802}
+
+id          : customfield_12416
+name        : PII
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12416], PII}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=12416}
+
+id          : customfield_10118
+name        : Part Number
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[10118], Part Number}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=10118}
+
+id          : customfield_15803
+name        : Release Window
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15803], Release Window}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=15803}
+
+id          : customfield_15808
+name        : Vehicle Platform
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15808], Vehicle Platform}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=15808}
+
+id          : customfield_12418
+name        : Position Layout
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[12418], Position Layout}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=12418}
+
+id          : customfield_15809
+name        : Vehicle Type
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15809], Vehicle Type}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=15809}
+
+id          : customfield_15806
+name        : PCA/Solution Planned Verification Finish Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15806], PCA/Solution Planned Verification Finish Date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=15806}
+
+id          : customfield_15807
+name        : Old _PCA Verification Result
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15807], Old _PCA Verification Result}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=15807}
+
+id          : comment
+name        : Comment
+custom      : False
+orderable   : True
+navigable   : False
+searchable  : True
+clauseNames : {comment}
+schema      : @{type=comments-page; system=comment}
+
+id          : customfield_20039
+name        : Need for Information regarding Safety?
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20039], Need for Information regarding Safety?}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20039}
+
+id          : customfield_20037
+name        : Will this SW functional change or “bug fix” affect any cars already released?
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20037], Will this SW functional change or “bug fix” affect any cars already released?}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20037}
+
+id          : customfield_20038
+name        : Need for information to end customer?
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[20038], Need for information to end customer?}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=20038}
+
+id          : customfield_17300
+name        : ICA Needed
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17300], ICA Needed}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=17300}
+
+id          : customfield_19604
+name        : First Vehicle Project
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19604], First Vehicle Project}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19604}
+
+id          : customfield_19605
+name        : SOP/IntroDate
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19605], SOP/IntroDate}
+schema      : @{type=option-with-child; custom=com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect; customId=19605}
+
+id          : customfield_15002
+name        : Leading ART
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15002], Leading ART}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=15002}
+
+id          : fixVersions
+name        : Fix Version/s
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {fixVersion}
+schema      : @{type=array; items=version; system=fixVersions}
+
+id          : customfield_17301
+name        : Manufacturing Ergo Issue
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17301], Manufacturing Ergo Issue}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=17301}
+
+id          : customfield_15003
+name        : Supporting ART
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15003], Supporting ART}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=15003}
+
+id          : customfield_19600
+name        : SW Delivery Decision
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19600], SW Delivery Decision}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19600}
+
+id          : customfield_19601
+name        : Approval Decision Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Approval Decision Date, cf[19601]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19601}
+
+id          : customfield_19602
+name        : Lead Solution
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19602], Lead Solution}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19602}
+
+id          : customfield_19603
+name        : SW Responsible
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19603], SW Responsible}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=19603}
+
+id          : customfield_19714
+name        : Planned Service Time
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19714], Planned Service Time}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19714}
+
+id          : priority
+name        : Priority
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {priority}
+schema      : @{type=priority; system=priority}
+
+id          : customfield_18500
+name        : Quality Report Number
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18500], Quality Report Number}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=18500}
+
+id          : customfield_19710
+name        : Reason for Reject
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19710], Reason for Reject}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19710}
+
+id          : customfield_19711
+name        : SW Usage
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19711], SW Usage}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=19711}
+
+id          : customfield_19712
+name        : SW to be downloaded EOL
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19712], SW to be downloaded EOL}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19712}
+
+id          : customfield_19713
+name        : Aftermarket information Volvo Cars internal
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Aftermarket information Volvo Cars internal, cf[19713]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19713}
+
+id          : customfield_19707
+name        : KDP admin status
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19707], KDP admin status}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19707}
+
+id          : versions
+name        : Affects Version/s
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {affectedVersion}
+schema      : @{type=array; items=version; system=versions}
+
+id          : customfield_19708
+name        : SCC Review comments
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19708], SCC Review comments}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19708}
+
+id          : customfield_19709
+name        : SCAR Review comments
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19709], SCAR Review comments}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19709}
+
+id          : issuekey
+name        : Key
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {id, issue, issuekey, key}
+
+id          : customfield_15100
+name        : Development
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15100], Development}
+schema      : @{type=any; custom=com.atlassian.jira.plugins.jira-development-integration-plugin:devsummary; customId=15100}
+
+id          : customfield_19824
+name        : Meeting notes
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19824], Meeting notes}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19824}
+
+id          : customfield_19703
+name        : PPU/SOP OK
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19703], PPU/SOP OK}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19703}
+
+id          : customfield_17403
+name        : SW IL CS-module/s Version
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17403], SW IL CS-module/s Version}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=17403}
+
+id          : customfield_19825
+name        : Link to SW/baseline
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19825], Link to SW/baseline}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19825}
+
+id          : customfield_19704
+name        : SSS OK
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19704], SSS OK}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19704}
+
+id          : customfield_17402
+name        : SW IL CS-module/s Updated
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17402], SW IL CS-module/s Updated}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=17402}
+
+id          : customfield_19705
+name        : Documentation status
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19705], Documentation status}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19705}
+
+id          : customfield_17401
+name        : SW IL MR node/s Version
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17401], SW IL MR node/s Version}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=17401}
+
+id          : customfield_19826
+name        : Test Performed
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19826], Test Performed}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=19826}
+
+id          : customfield_19827
+name        : Link to Test Results
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19827], Link to Test Results}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19827}
+
+id          : customfield_17400
+name        : SW IL MR node/s Updated
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17400], SW IL MR node/s Updated}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=17400}
+
+id          : customfield_19706
+name        : Versions reviewed (CO, baseline)
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19706], Versions reviewed (CO, baseline)}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19706}
+
+id          : customfield_19820
+name        : Specify PBL update procedure, if possible
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19820], Specify PBL update procedure, if possible}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19820}
+
+id          : customfield_19700
+name        : Change Order Number
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19700], Change Order Number}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19700}
+
+id          : customfield_17406
+name        : EDS Component
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17406], EDS Component}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=17406}
+
+id          : customfield_19821
+name        : Is Carcom updated for this event
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19821], Is Carcom updated for this event}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19821}
+
+id          : customfield_19701
+name        : CO correct and published
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19701], CO correct and published}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19701}
+
+id          : customfield_17405
+name        : EDS Module
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17405], EDS Module}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=17405}
+
+id          : customfield_19822
+name        : SDB extract used
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19822], SDB extract used}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19822}
+
+id          : customfield_19702
+name        : CO published date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19702], CO published date}
+schema      : @{type=date; custom=com.atlassian.jira.plugin.system.customfieldtypes:datepicker; customId=19702}
+
+id          : customfield_17404
+name        : EDS Product Module
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17404], EDS Product Module}
+schema      : @{type=array; items=string; custom=com.valiantys.jira.plugins.SQLFeed:nfeed-standard-customfield-type; customId=17404}
+
+id          : customfield_19823
+name        : Follow up needed
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19823], Follow up needed}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19823}
+
+id          : customfield_19817
+name        : Can old HW be used with new SW
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Can old HW be used with new SW, cf[19817]}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19817}
+
+id          : customfield_19818
+name        : New PBL
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19818], New PBL}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19818}
+
+id          : customfield_19819
+name        : PBL Part Number
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19819], PBL Part Number}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19819}
+
+id          : customfield_14000
+name        : End Customer Affected
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14000], End Customer Affected}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=14000}
+
+id          : customfield_14003
+name        : Follow-up Notes - old
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14003], Follow-up Notes - old}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=14003}
+
+id          : customfield_19813
+name        : HW Contact person
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19813], HW Contact person}
+schema      : @{type=user; custom=com.atlassian.jira.plugin.system.customfieldtypes:userpicker; customId=19813}
+
+id          : customfield_19814
+name        : Reason for new HW
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19814], Reason for new HW}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19814}
+
+id          : customfield_16301
+name        : Manage Partner Sharing Banner
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16301], Manage Partner Sharing Banner}
+schema      : @{type=string; custom=com.atlassian.jira.toolkit:message; customId=16301}
+
+id          : customfield_19815
+name        : New HW description/part number
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19815], New HW description/part number}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19815}
+
+id          : customfield_14001
+name        : Type of Learning
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14001], Type of Learning}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=14001}
+
+id          : aggregateprogress
+name        : Σ Progress
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {}
+schema      : @{type=progress; system=aggregateprogress}
+
+id          : customfield_16300
+name        : Found in Series​
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16300], Found in Series​}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=16300}
+
+id          : customfield_19816
+name        : How will new HW be delivered to test object
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19816], How will new HW be delivered to test object}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19816}
+
+id          : customfield_18600
+name        : Disposal plan of part in warehouse & production
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18600], Disposal plan of part in warehouse & production}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=18600}
+
+id          : customfield_19810
+name        : Pre-HPD/TPD, DESD link
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19810], Pre-HPD/TPD, DESD link}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19810}
+
+id          : customfield_18601
+name        : Effect of the long term solution
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18601], Effect of the long term solution}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=18601}
+
+id          : customfield_19811
+name        : Next planned delivery
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19811], Next planned delivery}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19811}
+
+id          : customfield_18602
+name        : External Issue Status
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18602], External Issue Status}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=18602}
+
+id          : customfield_19812
+name        : New HW
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19812], New HW}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19812}
+
+id          : customfield_19806
+name        : Market(s) affected
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19806], Market(s) affected}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=19806}
+
+id          : customfield_19807
+name        : SW Delivery Date
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19807], SW Delivery Date}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textfield; customId=19807}
+
+id          : customfield_19808
+name        : Redelivery needed between RCF and RCC
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19808], Redelivery needed between RCF and RCC}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19808}
+
+id          : customfield_19809
+name        : Pre-HPD/TPD, DESD for SW
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19809], Pre-HPD/TPD, DESD for SW}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=19809}
+
+id          : customfield_19802
+name        : Information needed to end customer
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19802], Information needed to end customer}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19802}
+
+id          : customfield_19803
+name        : End customer release notes
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19803], End customer release notes}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19803}
+
+id          : customfield_19804
+name        : Deviation or SOP
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19804], Deviation or SOP}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=19804}
+
+id          : customfield_17500
+name        : Early Estimate
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[17500], Early Estimate}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=17500}
+
+id          : customfield_19805
+name        : Type/s
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19805], Type/s}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=19805}
+
+id          : customfield_19800
+name        : Fallback possible
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19800], Fallback possible}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19800}
+
+id          : customfield_19801
+name        : Fallback Explanation
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19801], Fallback Explanation}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=19801}
+
+id          : thumbnail
+name        : Images
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : False
+clauseNames : {}
+
+id          : created
+name        : Created
+custom      : False
+orderable   : False
+navigable   : True
+searchable  : True
+clauseNames : {created, createdDate}
+schema      : @{type=datetime; system=created}
+
+id          : customfield_16402
+name        : Planned Corrective Actions
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16402], Planned Corrective Actions}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=16402}
+
+id          : customfield_14102
+name        : description
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14102]}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=14102}
+
+id          : customfield_16401
+name        : Information Level
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16401], Information Level}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multiselect; customId=16401}
+
+id          : customfield_16405
+name        : Action Plan Status
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {Action Plan Status, cf[16405]}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=16405}
+
+id          : customfield_18700
+name        : Integration Step
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18700], Integration Step}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=18700}
+
+id          : customfield_19901
+name        : CMTM Decision
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19901], CMTM Decision}
+schema      : @{type=option-with-child; custom=com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect; customId=19901}
+
+id          : customfield_13001
+name        : ICA R/1000
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13001], ICA R/1000}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=13001}
+
+id          : customfield_19902
+name        : Owner Product Stream
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19902], Owner Product Stream}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=19902}
+
+id          : customfield_15300
+name        : IPC/MPC/DPC
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[15300], IPC/MPC/DPC}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:select; customId=15300}
+
+id          : customfield_13002
+name        : PCA R/1000
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[13002], PCA R/1000}
+schema      : @{type=number; custom=com.atlassian.jira.plugin.system.customfieldtypes:float; customId=13002}
+
+id          : customfield_19900
+name        : SW RAM Decision (Year - Week)
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[19900], SW RAM Decision (Year - Week)}
+schema      : @{type=option-with-child; custom=com.atlassian.jira.plugin.system.customfieldtypes:cascadingselect; customId=19900}
+
+id          : security
+name        : Security Level
+custom      : False
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {level}
+schema      : @{type=securitylevel; system=security}
+
+id          : attachment
+name        : Attachment
+custom      : False
+orderable   : True
+navigable   : False
+searchable  : True
+clauseNames : {attachments}
+schema      : @{type=array; items=attachment; system=attachment}
+
+id          : customfield_18801
+name        : Status Guideline
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18801], Status Guideline}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=18801}
+
+id          : customfield_18802
+name        : Decision Log
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18802], Decision Log}
+schema      : @{type=string; custom=com.atlassian.jira.plugin.system.customfieldtypes:textarea; customId=18802}
+
+id          : customfield_16500
+name        : Issue ID of Parent Link
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[16500], Issue ID of Parent Link}
+schema      : @{type=string; custom=com.onresolve.jira.groovy.groovyrunner:scripted-field; customId=16500}
+
+id          : customfield_14200
+name        : Enabler
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[14200], Enabler}
+schema      : @{type=array; items=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes; customId=14200}
+
+id          : customfield_18800
+name        : Integration Test Execution Environment
+custom      : True
+orderable   : True
+navigable   : True
+searchable  : True
+clauseNames : {cf[18800], Integration Test Execution Environment}
+schema      : @{type=option; custom=com.atlassian.jira.plugin.system.customfieldtypes:radiobuttons; customId=18800}
