@@ -209,10 +209,9 @@ function renderFeatureTable(features, containerId, sprints) {
       'col-links'
     ];
 
-
     // HEADER
     let tableHtml = '<table class="pi-planning-table"><thead><tr>';
-    [
+    const headerLabels = [
       '#',
       'Capability',
       'Feature ID',
@@ -224,7 +223,8 @@ function renderFeatureTable(features, containerId, sprints) {
       'Status',
       'PI Scope',
       'Links'
-    ].forEach((colLabel, idx) => {
+    ];
+    headerLabels.forEach((colLabel, idx) => {
         if (!hidden.has(idx))
             tableHtml += `<th class="${columnClasses[idx]}" onclick="sortTable(this)">${colLabel}</th>`;
     });
@@ -245,8 +245,12 @@ function renderFeatureTable(features, containerId, sprints) {
         // Row number
         if (!hidden.has(colIdx++)) tableHtml += `<td class="col-rownum">${rowIndex}</td>`;
         // Capability
-        if (!hidden.has(colIdx++))
-            tableHtml += `<td class="col-capability">${feature.parent_link ? `<a href="https://jira-vira.volvocars.biz/browse/${feature.parent_link}" target="_blank">${feature.parent_summary || feature.parent_link}</a>` : ""}</td>`;
+        if (!hidden.has(colIdx++)) {
+            const capCell = feature.parent_link
+              ? `<a href="https://jira-vira.volvocars.biz/browse/${feature.parent_link}" target="_blank">${feature.parent_summary || feature.parent_link}</a>`
+              : "";
+            tableHtml += `<td class="col-capability">${capCell}</td>`;
+        }
         // Feature ID
         if (!hidden.has(colIdx++))
             tableHtml += `<td class="col-feature-id"><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a></td>`;
@@ -259,8 +263,7 @@ function renderFeatureTable(features, containerId, sprints) {
             if (sp && !isNaN(Number(sp))) sp = parseFloat(sp);
             tableHtml += `<td class="col-story-points">${sp !== "" ? sp : ""}</td>`;
         }
-
-        // Total Story Points (feature + child stories)
+        // Total Story Points (feature’s stories)
         if (!hidden.has(colIdx++)) {
             let total = feature.sum_story_points ?? "";
             if (total && !isNaN(Number(total))) total = parseFloat(total);
@@ -279,17 +282,14 @@ function renderFeatureTable(features, containerId, sprints) {
         if (!hidden.has(colIdx++))
             tableHtml += `<td class="col-pi-scope">${feature.pi_scope || ""}</td>`;
         // Links (badge style)
-        // Links: group by type, show type badges, tooltip lists the linked issues
         if (!hidden.has(colIdx++)) {
             const linksArr = feature.linked_issues || [];
-            // Group by link_type
             const linksByType = {};
             for (const link of linksArr) {
                 const type = link.link_type || "Other";
                 if (!linksByType[type]) linksByType[type] = [];
                 linksByType[type].push(link);
             }
-            // Render a badge per link type (like "delegated from", etc)
             let badgesHtml = "";
             Object.entries(linksByType).forEach(([type, links]) => {
                 badgesHtml += `
@@ -302,7 +302,6 @@ function renderFeatureTable(features, containerId, sprints) {
             });
             tableHtml += `<td class="col-links">${badgesHtml}</td>`;
         }
-
 
         // Sprints
         sprints.forEach((sprint, i) => {
@@ -321,6 +320,58 @@ function renderFeatureTable(features, containerId, sprints) {
         tableHtml += '</tr>';
         rowIndex++;
     }
+
+    // ===== Totals row (Committed table only) =====
+    if (containerId === 'committed-table') {
+        // Compute totals from current features
+        let totalFeatureSP = 0;
+        let totalStoriesSP = 0;
+        for (const [, feature] of features) {
+            const fsp = Number(feature.story_points) || 0;
+            const tsp = Number(feature.sum_story_points) || 0;
+            totalFeatureSP += fsp;
+            totalStoriesSP += tsp;
+        }
+
+        // Build totals row respecting hidden columns
+        tableHtml += '<tr class="totals-row">';
+        let colIdx = 0;
+        headerLabels.forEach((label, idx) => {
+            if (hidden.has(idx)) { colIdx++; return; }
+
+            // Put the word "Total" in the Feature Name column if visible,
+            // otherwise put it into the first visible column.
+            const isFeatureNameCol = (idx === 3);
+            const isFeatureSPCol   = (idx === 4);
+            const isStoriesSPCol   = (idx === 5);
+
+            let cellContent = '';
+            if (isFeatureNameCol) {
+                cellContent = 'Total';
+            } else if (isFeatureSPCol) {
+                cellContent = String(totalFeatureSP);
+            } else if (isStoriesSPCol) {
+                cellContent = String(totalStoriesSP);
+            } else if (idx === 0) {
+                // If feature name is hidden, at least label the first visible col
+                // (we'll overwrite with "Total" only when Feature Name is hidden)
+                cellContent = '';
+            }
+
+            tableHtml += `<td class="${columnClasses[idx]}">${cellContent}</td>`;
+            colIdx++;
+        });
+
+        // Sprint columns remain empty by request
+        sprints.forEach((sprint, i) => {
+            if (!hidden.has(piPlanningColumns.length + i)) {
+                tableHtml += `<td class="story-cell"></td>`;
+            }
+        });
+
+        tableHtml += '</tr>';
+    }
+
     tableHtml += '</tbody></table>';
     container.innerHTML = tableHtml;
 
@@ -332,7 +383,6 @@ function renderFeatureTable(features, containerId, sprints) {
         badge.addEventListener('blur', hideCustomTooltipWithDelay);
     });
 
-    // Attach tooltip handlers for links-type badges
     document.querySelectorAll('.links-type-badge').forEach(badge => {
         badge.addEventListener('mouseenter', showLinksTypeTooltip);
         badge.addEventListener('focus', showLinksTypeTooltip);
@@ -694,80 +744,82 @@ window.addEventListener('resize', function () {
 });
 
 function renderCommittedSummary(committedFeatures, containerId) {
-    let totalPoints = 0;
-    const perPerson = {};
-    let totalSpent = 0;
-    const mismatchedFeatures = [];
+  // Use STORY-based numbers (sum_story_points) for totals and per-person
+  let totalPoints = 0;           // <- from stories
+  const perPerson = {};          // assignee -> sum of story points (from stories)
+  const mismatchedFeatures = []; // keep comparison Feature SP vs Story sum (for insights)
+  let totalFeatureEst = 0;       // sum of feature-level estimates (for context)
 
-    for (const [featureId, feature] of committedFeatures) {
-        const featureSP = Number(feature.story_points) || 0;
-        const totalSP = Number(feature.sum_story_points) || 0;
-        const assignee = (feature.assignee || "Unassigned").trim() || "Unassigned";
+  for (const [featureId, feature] of committedFeatures) {
+    const featureSP = Number(feature.story_points) || 0;       // feature estimate
+    const totalSP   = Number(feature.sum_story_points) || 0;   // sum of child stories (from backend)
+    const assignee  = (feature.assignee || "Unassigned").trim() || "Unassigned";
 
-        totalPoints += featureSP;
-        totalSpent += totalSP;
+    // ✅ Committed Load now taken from STORIES:
+    totalPoints += totalSP;
+    totalFeatureEst += featureSP;
 
-        if (!perPerson[assignee]) perPerson[assignee] = 0;
-        perPerson[assignee] += featureSP;
+    // Attribute the story-based load to the feature's assignee
+    if (!perPerson[assignee]) perPerson[assignee] = 0;
+    perPerson[assignee] += totalSP;
 
-        if (featureSP !== totalSP) {
-            mismatchedFeatures.push({
-                summary: feature.summary || featureId,
-                featureSP,
-                totalSP,
-                diff: totalSP - featureSP,
-                url: `https://jira-vira.volvocars.biz/browse/${featureId}`
-            });
-        }
-
+    // Keep the “changes” table: shows difference between feature estimate and story sum
+    if (featureSP !== totalSP) {
+      mismatchedFeatures.push({
+        summary: feature.summary || featureId,
+        featureSP,
+        totalSP,
+        diff: totalSP - featureSP,
+        url: `https://jira-vira.volvocars.biz/browse/${featureId}`
+      });
     }
+  }
 
-    const totalDifference = mismatchedFeatures.reduce((sum, f) => sum + f.diff, 0);
+  const totalDifference = mismatchedFeatures.reduce((sum, f) => sum + f.diff, 0);
 
-    const html = `
-      <div class="summary-section-wrapper">
-        <div class="summary-section">
-          <h3>Committed Load (St. P.) Summary</h3>
-          <table class="summary-table">
-            <tr><th>Total Story Points (Committed, this PI):</th><td>${totalPoints}</td></tr>
-          </table>
-          <table class="summary-table">
-            <tr><th>Assignee</th><th>Load (St. P.)</th></tr>
-            ${Object.entries(perPerson).sort((a, b) => b[1] - a[1]).map(
-              ([assignee, points]) => `<tr><td>${assignee}</td><td>${points}</td></tr>`
-            ).join("")}
-          </table>
-        </div>
-
-        <div class="summary-section">
-          <h3>Story Point Changes</h3>
-          <table class="summary-table">
-            <tr><th>Total Story adjusted during implementation:</th><td>${totalSpent}</td></tr>
-          </table>
-          <table class="summary-table">
-              <tr><th>Feature</th><th>Feature St.P.</th><th>St.P. sum</th><th>Δ Diff</th></tr>
-              ${mismatchedFeatures.map(f =>
-                `<tr>
-                  <td><a href="${f.url}" target="_blank">${f.summary}</a></td>
-                  <td>${f.featureSP}</td>
-                  <td>${f.totalSP}</td>
-                  <td>${f.diff}</td>
-                </tr>`
-              ).join("")}
-              <tr class="summary-total-diff">
-                <td colspan="3" style="text-align: right;"><strong>Sum of Differences:</strong></td>
-                <td><strong>${totalDifference}</strong></td>
-              </tr>
-            </table>
-
-        </div>
+  const html = `
+    <div class="summary-section-wrapper">
+      <div class="summary-section">
+        <h3>Committed Load (St. P.) Summary</h3>
+        <table class="summary-table">
+          <tr><th>Total Story Points (Committed, from Stories):</th><td>${totalPoints}</td></tr>
+        </table>
+        <table class="summary-table">
+          <tr><th>Assignee</th><th>Load (St. P., from Stories)</th></tr>
+          ${Object.entries(perPerson)
+            .sort((a, b) => b[1] - a[1])
+            .map(([assignee, points]) => `<tr><td>${assignee}</td><td>${points}</td></tr>`)
+            .join("")}
+        </table>
       </div>
-    `;
 
-    const container = document.getElementById(containerId);
-    if (container) container.innerHTML = html;
+      <div class="summary-section">
+        <h3>Story Point Changes</h3>
+        <table class="summary-table">
+          <tr><th>Context:</th><td>Feature estimate total = ${totalFeatureEst}</td></tr>
+        </table>
+        <table class="summary-table">
+          <tr><th>Feature</th><th>Feature St.P.</th><th>St.P. sum (Stories)</th><th>Δ Diff</th></tr>
+          ${mismatchedFeatures.map(f => `
+            <tr>
+              <td><a href="${f.url}" target="_blank">${f.summary}</a></td>
+              <td>${f.featureSP}</td>
+              <td>${f.totalSP}</td>
+              <td>${f.diff}</td>
+            </tr>
+          `).join("")}
+          <tr class="summary-total-diff">
+            <td colspan="3" style="text-align: right;"><strong>Sum of Differences:</strong></td>
+            <td><strong>${totalDifference}</strong></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  `;
+
+  const container = document.getElementById(containerId);
+  if (container) container.innerHTML = html;
 }
-
 
 
 function getOrCreateUserId() {

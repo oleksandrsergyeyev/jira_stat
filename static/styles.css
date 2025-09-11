@@ -382,3 +382,9 @@ table.pi-planning-table {
   font-weight: bold;
   background-color: #f8f8f8;
 }
+
+.totals-row td {
+  font-weight: bold;
+  background-color: #f8f8f8;
+  border-top: 2px solid #999;
+}
