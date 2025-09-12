@@ -118,6 +118,7 @@ async function loadPIPlanningData() {
         renderFeatureTable(committed, "committed-table", sprints);
         renderCommittedSummary(committed, "committed-summary");
         renderFeatureTable(backlog, "backlog-table", sprints);
+        renderGanttTimeline(committed, sprints);
         applyFilter();
     } finally {
         hideLoading();
@@ -468,6 +469,7 @@ function handleStoryBadgeHover(event) {
         tooltip.style.maxWidth = '350px';
         tooltip.style.pointerEvents = 'none';
         tooltip.style.whiteSpace = 'pre-line';
+        tooltip.style.display = 'none';
         document.body.appendChild(tooltip);
     }
     tooltip.innerHTML = stories.map(key =>
@@ -693,6 +695,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     showUniqueUserCount();
 });
+// Ensure tooltip (if created earlier) starts hidden
+let tt = document.getElementById('custom-tooltip');
+if (tt) tt.style.display = 'none';
 
 let lastTooltipBadge = null;
 
@@ -856,4 +861,92 @@ function showUniqueUserCount() {
   let count = users.length || 1;
   let el = document.getElementById("unique-users-count").innerText = "Unique users: " + (count || 0);
   if (el) el.textContent = count;
+}
+
+function renderGanttTimeline(committedFeatures, sprints) {
+  const host = document.getElementById('gantt-container');
+  if (!host) return;
+
+  // Let CSS know how many sprint columns we have
+  host.style.setProperty('--gantt-cols', String(sprints.length));
+  host.innerHTML = '';
+
+  const gridTemplate = `minmax(220px, 1.2fr) repeat(${sprints.length}, 1fr)`;
+
+  // Header row
+  const header = document.createElement('div');
+  header.className = 'gantt-header';
+  header.style.gridTemplateColumns = gridTemplate;
+
+  const headLabel = document.createElement('div');
+  headLabel.textContent = '';      // empty label column
+  header.appendChild(headLabel);
+
+  sprints.forEach(name => {
+    const h = document.createElement('div');
+    h.textContent = name;
+    header.appendChild(h);
+  });
+  host.appendChild(header);
+
+  // Helper: count stories per sprint
+  const getCounts = (feature) =>
+    sprints.map(s => Array.isArray(feature.sprints?.[s]) ? feature.sprints[s].length : 0);
+
+  // Build one grid row per feature
+  for (const [featureId, feature] of committedFeatures) {
+    const row = document.createElement('div');
+    row.className = 'gantt-row';
+    row.style.gridTemplateColumns = gridTemplate;
+
+    // Label column (col 1)
+    const label = document.createElement('div');
+    label.className = 'gantt-label';
+    label.innerHTML = `<a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a> — ${(feature.summary || '').slice(0, 80)}`;
+    row.appendChild(label);
+
+    // Sprint cells (cols 2..N+1)
+    const counts = getCounts(feature);
+    sprints.forEach((s, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'gantt-cell';
+      if (counts[i] > 0) {
+        const num = document.createElement('div');
+        num.className = 'gantt-count';
+        num.textContent = counts[i];
+
+        const dot = document.createElement('div');
+        dot.className = 'gantt-dot';
+        dot.title = `${s}: ${counts[i]} stor${counts[i] === 1 ? 'y' : 'ies'}`;
+
+        cell.appendChild(num);
+        cell.appendChild(dot);
+      }
+      row.appendChild(cell);
+    });
+
+    // Bar spanning from first sprint-with-stories to last
+    const activeIdx = counts.map((c, i) => (c > 0 ? i : -1)).filter(i => i >= 0);
+    if (activeIdx.length > 0) {
+      const startIdx = activeIdx[0];
+      const endIdx   = activeIdx[activeIdx.length - 1];
+      const bar = document.createElement('div');
+      bar.className = 'gantt-bar';
+      // Grid columns: label is col 1, sprints start at col 2
+      bar.style.gridColumn = `${2 + startIdx} / ${2 + endIdx + 1}`;
+      row.appendChild(bar);
+    } else {
+      // Only "No Sprint" stories? Show a small grey bar in that column
+      const noIdx = sprints.indexOf('No Sprint');
+      const noCnt = Array.isArray(feature.sprints?.['No Sprint']) ? feature.sprints['No Sprint'].length : 0;
+      if (noIdx >= 0 && noCnt > 0) {
+        const bar = document.createElement('div');
+        bar.className = 'gantt-bar nosprint';
+        bar.style.gridColumn = `${2 + noIdx} / ${2 + noIdx + 1}`;
+        row.appendChild(bar);
+      }
+    }
+
+    host.appendChild(row);
+  }
 }

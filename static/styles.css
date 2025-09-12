@@ -388,3 +388,86 @@ table.pi-planning-table {
   background-color: #f8f8f8;
   border-top: 2px solid #999;
 }
+
+/* ===== Gantt Timeline (safe grid, no page-overlap) ===== */
+.gantt-wrapper {
+  margin-top: 10px;
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 8px 12px;
+}
+
+#gantt-container {
+  display: grid;
+  gap: 6px;               /* space between rows (header + feature rows) */
+}
+
+/* Each header & row is its own grid with same columns */
+.gantt-header,
+.gantt-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) repeat(var(--gantt-cols, 5), 1fr);
+  align-items: center;
+  position: relative;      /* lets children position safely inside the row */
+}
+
+/* Header */
+.gantt-header div {
+  font-weight: 600;
+  font-size: 12px;
+  color: #333;
+  padding: 2px 6px 2px 6px;
+}
+
+/* Row label & cells */
+.gantt-label {
+  font-size: 12px;
+  color: #222;
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gantt-cell {
+  height: 24px;
+  border-left: 1px dashed #eee;
+}
+
+/* Bar spans sprint columns within the row grid */
+.gantt-row .gantt-bar {
+  height: 14px;
+  background: rgba(0,123,255,0.18);
+  border: 1px solid #7bb6ff;
+  border-radius: 8px;
+  align-self: center;
+}
+.gantt-row .gantt-bar.nosprint {
+  background: rgba(200,200,200,0.30);
+  border-color: #ccc;
+}
+
+/* Dots & counts sit centered in their sprint cells */
+.gantt-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #007bff;
+  justify-self: center;
+}
+.gantt-count {
+  font-size: 10px;
+  color: #007bff;
+  justify-self: center;
+  transform: translateY(-10px);
+}
+
+/* Hide empty or unintended tooltips so they can't show as a 1px blue line */
+.custom-tooltip:empty {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  border: 0 !important;
+  padding: 0 !important;
+}

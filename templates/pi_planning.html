@@ -6,36 +6,37 @@
   <title>PI Planning</title>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<div id="loading-overlay" style="
-  display: none;
-  position: fixed;
-  top:0; left:0; right:0; bottom:0;
-  background: rgba(255,255,255,0.7);
-  z-index: 99999;
-  justify-content: center;
-  align-items: center;
-">
-  <div style="
-    background: #fff;
-    border: 2px solid #007bff;
-    border-radius: 14px;
-    padding: 24px 36px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
-    font-size: 1.4em;
-    color: #007bff;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-  ">
-    <span class="loading-spinner" style="
-      width: 28px; height: 28px; border: 3px solid #cce0ff; border-top: 3px solid #007bff;
-      border-radius: 50%; display: inline-block; animation: spin 1s linear infinite; margin-right: 15px;">
-    </span>
-    Loading data...
-  </div>
-</div>
-
 <body>
+  <!-- FIX: loading overlay moved inside <body> -->
+  <div id="loading-overlay" style="
+    display: none;
+    position: fixed;
+    top:0; left:0; right:0; bottom:0;
+    background: rgba(255,255,255,0.7);
+    z-index: 99999;
+    justify-content: center;
+    align-items: center;
+  ">
+    <div style="
+      background: #fff;
+      border: 2px solid #007bff;
+      border-radius: 14px;
+      padding: 24px 36px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      font-size: 1.4em;
+      color: #007bff;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    ">
+      <span class="loading-spinner" style="
+        width: 28px; height: 28px; border: 3px solid #cce0ff; border-top: 3px solid #007bff;
+        border-radius: 50%; display: inline-block; animation: spin 1s linear infinite; margin-right: 15px;">
+      </span>
+      Loading data...
+    </div>
+  </div>
+
   <nav class="main-menu">
     <a href="/" class="menu-item">Dashboard</a>
     <a href="/pi-planning" class="menu-item active">PI Planning</a>
@@ -71,7 +72,7 @@
   </div>
 
   <div class="section-header">
-  <h2>Committed Features</h2>
+    <h2>Committed Features</h2>
     <div>
       <button class="collapse-btn" onclick="toggleTable('committed-table', this)">⬆ Collapse</button>
       <button id="export-committed-excel"
@@ -87,6 +88,18 @@
   <!-- 🔽🔽 Place summary OUTSIDE of committed-table! -->
   <div id="committed-summary"></div>
 
+  <!-- ===== Feature Sprint Timeline (Gantt) ===== -->
+  <div class="section-header">
+    <h2>Feature Sprint Timeline (Gantt)</h2>
+    <div>
+      <button class="collapse-btn" onclick="toggleTable('gantt-wrapper', this)">⬆ Collapse</button>
+    </div>
+  </div>
+
+  <div id="gantt-wrapper" class="gantt-wrapper">
+    <div id="gantt-container"></div>
+  </div>
+
   <div class="section-header">
     <h2>Backlog</h2>
     <div>
@@ -100,7 +113,6 @@
   <!-- Column toggler bar for backlog table -->
   <div id="backlog-column-toggles" class="column-toggles"></div>
   <div id="backlog-table" class="collapsible-section"></div>
-
 
   <script src="/static/script.js"></script>
   <script>
@@ -117,8 +129,7 @@
       window.location.href = `/export_backlog_excel${query}`;
     });
   </script>
-<div id="unique-users-count" class="unique-users-counter"></div>
-</div>
-</div>
+
+  <div id="unique-users-count" class="unique-users-counter"></div>
 </body>
 </html>
