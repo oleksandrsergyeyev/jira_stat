@@ -744,32 +744,40 @@ window.addEventListener('resize', function () {
 });
 
 function renderCommittedSummary(committedFeatures, containerId) {
-  // Use STORY-based numbers (sum_story_points) for totals and per-person
-  let totalPoints = 0;           // <- from stories
-  const perPerson = {};          // assignee -> sum of story points (from stories)
+  // Totals based on STORIES (sum per story assignee)
+  let totalPointsFromStories = 0;
+  const perPerson = {};          // assignee -> sum of story points (stories)
   const mismatchedFeatures = []; // keep comparison Feature SP vs Story sum (for insights)
-  let totalFeatureEst = 0;       // sum of feature-level estimates (for context)
+  let totalFeatureEst = 0;       // sum of feature-level estimates (context)
 
   for (const [featureId, feature] of committedFeatures) {
     const featureSP = Number(feature.story_points) || 0;       // feature estimate
-    const totalSP   = Number(feature.sum_story_points) || 0;   // sum of child stories (from backend)
-    const assignee  = (feature.assignee || "Unassigned").trim() || "Unassigned";
-
-    // ✅ Committed Load now taken from STORIES:
-    totalPoints += totalSP;
+    const storySum  = Number(feature.sum_story_points) || 0;   // backend story sum
     totalFeatureEst += featureSP;
 
-    // Attribute the story-based load to the feature's assignee
-    if (!perPerson[assignee]) perPerson[assignee] = 0;
-    perPerson[assignee] += totalSP;
+    // Prefer precise per-story details if present
+    const details = Array.isArray(feature.stories_detail) ? feature.stories_detail : null;
 
-    // Keep the “changes” table: shows difference between feature estimate and story sum
-    if (featureSP !== totalSP) {
+    if (details && details.length) {
+      for (const s of details) {
+        const pts = Number(s.story_points) || 0;
+        const who = (s.assignee || "Unassigned").trim() || "Unassigned";
+        perPerson[who] = (perPerson[who] || 0) + pts;
+        totalPointsFromStories += pts;
+      }
+    } else {
+      // Fallback (should be rare): attribute the whole storySum to feature assignee
+      const who = (feature.assignee || "Unassigned").trim() || "Unassigned";
+      perPerson[who] = (perPerson[who] || 0) + storySum;
+      totalPointsFromStories += storySum;
+    }
+
+    if (featureSP !== storySum) {
       mismatchedFeatures.push({
         summary: feature.summary || featureId,
         featureSP,
-        totalSP,
-        diff: totalSP - featureSP,
+        totalSP: storySum,
+        diff: storySum - featureSP,
         url: `https://jira-vira.volvocars.biz/browse/${featureId}`
       });
     }
@@ -782,7 +790,7 @@ function renderCommittedSummary(committedFeatures, containerId) {
       <div class="summary-section">
         <h3>Committed Load (St. P.) Summary</h3>
         <table class="summary-table">
-          <tr><th>Total Story Points (Committed, from Stories):</th><td>${totalPoints}</td></tr>
+          <tr><th>Total Story Points (Committed, from Stories):</th><td>${totalPointsFromStories}</td></tr>
         </table>
         <table class="summary-table">
           <tr><th>Assignee</th><th>Load (St. P., from Stories)</th></tr>

@@ -140,8 +140,8 @@ class Jira:
         - Does NOT filter by fixVersion here (so backlog can include other PIs).
         - Features/Epics become rows; Stories contribute to sprint columns.
         - Stories with no/unknown sprint go into a 'No Sprint' bucket.
+        - Adds stories_detail: [{key, story_points, assignee}]
         """
-        # Pull everything for the work group; keep it broad so backlog spans PIs
         jql_query = f'"Leading Work Group" = "{work_group}"'
         payload = {
             "jql": jql_query,
@@ -154,9 +154,9 @@ class Jira:
                 "customfield_14700",  # PI Scope
                 "status",
                 "priority",
-                "customfield_13801",  # Parent link (to Capability/Initiative etc)
+                "customfield_13801",  # Parent link
                 "fixVersions",
-                "customfield_10702",  # Epic Link (Stories -> Feature/Epic)
+                "customfield_10702",  # Epic Link
                 "customfield_10708",  # Story Points
                 "assignee",
             ],
@@ -169,8 +169,8 @@ class Jira:
         data = response.json() or {}
         issues = data.get("issues", [])
 
-        features = {}  # key -> feature/epic row
-        summary_cache = {}  # for parent summary resolution
+        features = {}
+        summary_cache = {}
 
         # ---------- 1) Seed rows from Features & Epics ----------
         for issue in issues:
@@ -179,45 +179,38 @@ class Jira:
             issuetype_name = (fields.get("issuetype", {}) or {}).get("name", "").lower()
 
             if issuetype_name in ("feature", "epic"):
-                # PI Scope (select field can be dict or string/None)
                 pi_scope_field = fields.get("customfield_14700")
                 if isinstance(pi_scope_field, dict):
                     pi_scope_value = pi_scope_field.get("value", "") or ""
                 else:
                     pi_scope_value = pi_scope_field or ""
 
-                # Priority
                 prio_field = fields.get("priority")
                 priority_value = (prio_field or {}).get("name", "") if isinstance(prio_field, dict) else (
                             prio_field or "")
 
-                # Parent link might be an object with 'key' or a direct key string
                 parent_link = fields.get("customfield_13801", "")
                 if isinstance(parent_link, dict):
                     parent_link_value = parent_link.get("key", "") or ""
                 else:
                     parent_link_value = parent_link or ""
 
-                # Resolve parent summary lazily via API (cached)
                 parent_summary = ""
                 if parent_link_value:
                     parent_summary = self.get_issue_summary(parent_link_value, summary_cache) or ""
 
-                # Fix Versions -> list of names
                 fix_versions = []
                 for fv in fields.get("fixVersions", []) or []:
                     name = fv.get("name")
                     if name:
                         fix_versions.append(name)
 
-                # Feature's own SP
                 feature_sp = fields.get("customfield_10708", 0)
                 try:
                     feature_sp = float(feature_sp) if feature_sp not in (None, "") else 0.0
                 except Exception:
                     feature_sp = 0.0
 
-                # Assignee
                 assignee_obj = fields.get("assignee")
                 assignee_display = assignee_obj.get("displayName") if isinstance(assignee_obj, dict) else ""
 
@@ -232,8 +225,9 @@ class Jira:
                     "linked_issues": self.extract_linked_issue_links(fields.get("issuelinks", []) or []),
                     "sprints": {},  # sprint name -> [story keys]
                     "story_points": feature_sp,  # feature's own estimate
-                    "sum_story_points": 0.0,  # sum of child stories (does NOT include feature_sp)
-                    "assignee": assignee_display,
+                    "sum_story_points": 0.0,  # sum of child stories
+                    "assignee": assignee_display,  # feature assignee (kept for reference)
+                    "stories_detail": [],  # <-- NEW: [{key, story_points, assignee}]
                 }
 
         # ---------- 2) Attach Stories to their Feature/Epic rows ----------
@@ -242,7 +236,6 @@ class Jira:
         for issue in issues:
             fields = issue.get("fields", {}) or {}
             issuetype_name = (fields.get("issuetype", {}) or {}).get("name", "").lower()
-
             if issuetype_name != "story":
                 continue
 
@@ -256,31 +249,38 @@ class Jira:
             except Exception:
                 story_points = 0.0
 
-            # If the story belongs to a seeded Feature/Epic, add its SP
-            if story_epic in features:
-                features[story_epic]["sum_story_points"] += story_points
+            # Story assignee
+            assignee_obj = fields.get("assignee")
+            story_assignee = assignee_obj.get("displayName") if isinstance(assignee_obj, dict) else ""
+            story_assignee = (story_assignee or "").strip() or "Unassigned"
 
-            # Sprint(s) can be None, string, or list of strings
+            if story_epic in features:
+                # accumulate SP
+                features[story_epic]["sum_story_points"] += story_points
+                # record detail for per-story aggregation on frontend
+                features[story_epic]["stories_detail"].append({
+                    "key": story_key,
+                    "story_points": story_points,
+                    "assignee": story_assignee,
+                })
+
+            # Sprint(s)
             raw_sprints = fields.get("customfield_10701")
 
-            # No sprint at all -> bucket into "No Sprint"
             if not raw_sprints:
                 if story_epic in features:
                     features[story_epic]["sprints"].setdefault("No Sprint", []).append(story_key)
                 continue
 
-            # Normalize to a list
             sprint_entries = raw_sprints if isinstance(raw_sprints, list) else [raw_sprints]
-
             placed_in_any = False
             for entry in sprint_entries:
-                sprint_name = self.extract_sprint_name(entry)  # returns "Sprint N" or None
+                sprint_name = self.extract_sprint_name(entry)  # "Sprint N" or None
                 if sprint_name and sprint_name != "Unknown Sprint":
                     if story_epic in features:
                         features[story_epic]["sprints"].setdefault(sprint_name, []).append(story_key)
                         placed_in_any = True
 
-            # Unrecognized/garbled sprint strings also go to "No Sprint"
             if not placed_in_any and story_epic in features:
                 features[story_epic]["sprints"].setdefault("No Sprint", []).append(story_key)
 
