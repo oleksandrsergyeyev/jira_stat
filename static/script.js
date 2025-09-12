@@ -867,6 +867,7 @@ function renderGanttTimeline(committedFeatures, sprints) {
   const host = document.getElementById('gantt-container');
   if (!host) return;
 
+  // Let CSS know how many sprint columns exist (for background guides)
   host.style.setProperty('--gantt-cols', String(sprints.length));
   host.innerHTML = '';
 
@@ -880,6 +881,7 @@ function renderGanttTimeline(committedFeatures, sprints) {
   const headLabel = document.createElement('div');
   headLabel.textContent = '';
   header.appendChild(headLabel);
+
   sprints.forEach(name => {
     const h = document.createElement('div');
     h.textContent = name;
@@ -887,62 +889,49 @@ function renderGanttTimeline(committedFeatures, sprints) {
   });
   host.appendChild(header);
 
+  // Helper
   const getCounts = (feature) =>
     sprints.map(s => Array.isArray(feature.sprints?.[s]) ? feature.sprints[s].length : 0);
 
+  // Rows: ONLY label + bar (no empty cells)
   for (const [featureId, feature] of committedFeatures) {
     const row = document.createElement('div');
     row.className = 'gantt-row';
     row.style.gridTemplateColumns = gridTemplate;
 
-    // LABEL = Feature Name only (clickable)
+    // Label (feature name with link)
     const label = document.createElement('div');
     label.className = 'gantt-label';
     const linkText = feature.summary || featureId;
-    label.innerHTML =
-      `<a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${linkText}</a>`;
+    label.innerHTML = `<a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${linkText}</a>`;
     row.appendChild(label);
 
-    // Sprint cells with centered counts
+    // Compute active span
     const counts = getCounts(feature);
-    sprints.forEach((s, i) => {
-      const cell = document.createElement('div');
-      cell.className = 'gantt-cell';
-      if (counts[i] > 0) {
-        const num = document.createElement('div');
-        num.className = 'gantt-count';
-        num.textContent = counts[i];
-        cell.appendChild(num);
-      }
-      row.appendChild(cell);
-    });
-
-    // Bar spanning first..last sprint that has stories
     const activeIdx = counts.map((c, i) => (c > 0 ? i : -1)).filter(i => i >= 0);
+
     if (activeIdx.length > 0) {
       const startIdx = activeIdx[0];
       const endIdx   = activeIdx[activeIdx.length - 1];
       const bar = document.createElement('div');
       bar.className = 'gantt-bar';
       bar.style.gridColumn = `${2 + startIdx} / ${2 + endIdx + 1}`;
-      bar.style.gridRow = '1';  // ✅ keep bar on same row as label/cells
-
-      // Put the story count text inside the bar
+      bar.style.gridRow = '1';
       const totalStories = counts.slice(startIdx, endIdx + 1).reduce((a, b) => a + b, 0);
       bar.textContent = totalStories > 0 ? totalStories : '';
-
       row.appendChild(bar);
-
     } else {
-      // Only "No Sprint"? draw a small grey bar there
+      // Only "No Sprint"
+      const noCnt = Array.isArray(feature.sprints?.['No Sprint'])
+        ? feature.sprints['No Sprint'].length
+        : 0;
       const noIdx = sprints.indexOf('No Sprint');
-      const noCnt = Array.isArray(feature.sprints?.['No Sprint']) ? feature.sprints['No Sprint'].length : 0;
       if (noIdx >= 0 && noCnt > 0) {
         const bar = document.createElement('div');
         bar.className = 'gantt-bar nosprint';
         bar.style.gridColumn = `${2 + noIdx} / ${2 + noIdx + 1}`;
-        bar.style.gridRow = '1';  // ✅ same row
-        bar.textContent = noCnt > 0 ? noCnt : '';
+        bar.style.gridRow = '1';
+        bar.textContent = noCnt;
         row.appendChild(bar);
       }
     }
@@ -950,4 +939,3 @@ function renderGanttTimeline(committedFeatures, sprints) {
     host.appendChild(row);
   }
 }
-

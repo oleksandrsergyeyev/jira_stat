@@ -388,8 +388,7 @@ table.pi-planning-table {
   background-color: #f8f8f8;
   border-top: 2px solid #999;
 }
-
-/* ===== Gantt Timeline (safe grid, no page-overlap) ===== */
+/* ===== Gantt Timeline (safe grid, compact, no overlap) ===== */
 .gantt-wrapper {
   margin-top: 10px;
   overflow-x: auto;
@@ -399,30 +398,31 @@ table.pi-planning-table {
   padding: 8px 8px 12px;
 }
 
+/* 1) No vertical gap between rows */
 #gantt-container {
   display: grid;
-  gap: 6px;               /* space between rows (header + feature rows) */
+  gap: 0; /* was 6px */
 }
 
-/* Each header & row is its own grid with same columns */
+/* 2) Each header & row share the same columns; compact height */
 .gantt-header,
 .gantt-row {
   display: grid;
   grid-template-columns: minmax(220px, 1.2fr) repeat(var(--gantt-cols, 5), 1fr);
   align-items: center;
-  position: relative;      /* lets children position safely inside the row */
-  grid-auto-rows: 28px;     /* fixed row height */
+  position: relative;
+  min-height: 26px; /* compact row height */
 }
 
-/* Header */
+/* 3) Header text */
 .gantt-header div {
   font-weight: 600;
   font-size: 12px;
   color: #333;
-  padding: 2px 6px 2px 6px;
+  padding: 2px 6px;
 }
 
-/* Row label & cells */
+/* 4) Row label (feature name link) */
 .gantt-label {
   font-size: 12px;
   color: #222;
@@ -430,55 +430,47 @@ table.pi-planning-table {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
 }
+
+/* 5) Optional sprint cell (ok if present, harmless if not) */
 .gantt-cell {
-  position: relative;         /* allow absolute centering of counts */
-  height: 24px;
+  position: relative;
+  height: 22px;               /* tighter than default */
   border-left: 1px dashed #eee;
 }
 
-/* Bar spans sprint columns within the row grid */
+/* 6) Bar spans sprint columns within the same row and centers its count text */
 .gantt-row .gantt-bar {
-  height: 18px;
-  background: #7aa9f5;                /* solid blue */
+  height: 16px;
+  background: #5794f7;        /* blue bar */
   border-radius: 8px;
   align-self: center;
-  display: flex;                      /* center number inside */
+  display: flex;               /* center number inside */
   align-items: center;
   justify-content: center;
-  color: #fff;                        /* white number text */
+  color: #fff;                 /* white number text */
   font-size: 12px;
   font-weight: 600;
   text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-  z-index: 1;               /* sit behind text if needed */
+  grid-row: 1;                 /* keep bar on same grid row as label/cells */
+  z-index: 1;
 }
 
 .gantt-row .gantt-bar.nosprint {
-  background: #aaa;                   /* grey for No Sprint */
+  background: #aaa;           /* grey for No Sprint */
   color: #fff;
 }
 
-/* kill the old count style */
-.gantt-count { display: none; }
-.gantt-dot   { display: none; }
-
-
-/* Centered story counts inside each sprint cell */
-.gantt-count {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;                               /* white numbers */
-  text-shadow: 0 1px 2px rgba(0,0,0,0.25);   /* readability on light-blue bar */
-  pointer-events: none;
-  z-index: 2; /* above the bar */
+/* 7) Hairline divider between rows without adding extra space */
+.gantt-row:not(:last-child) {
+  box-shadow: inset 0 -1px 0 #f1f1f1;
 }
 
-/* (Optional) remove dot styling if not used anymore */
-.gantt-dot { display: none; }
+/* 8) Old per-cell count/dot visuals are not used anymore */
+.gantt-count { display: none !important; }
+.gantt-dot   { display: none !important; }
 
 
 /* Hide empty or unintended tooltips so they can't show as a 1px blue line */
