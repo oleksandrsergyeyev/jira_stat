@@ -411,6 +411,7 @@ table.pi-planning-table {
   grid-template-columns: minmax(220px, 1.2fr) repeat(var(--gantt-cols, 5), 1fr);
   align-items: center;
   position: relative;      /* lets children position safely inside the row */
+  grid-auto-rows: 28px;     /* fixed row height */
 }
 
 /* Header */
@@ -431,37 +432,54 @@ table.pi-planning-table {
   white-space: nowrap;
 }
 .gantt-cell {
+  position: relative;         /* allow absolute centering of counts */
   height: 24px;
   border-left: 1px dashed #eee;
 }
 
 /* Bar spans sprint columns within the row grid */
 .gantt-row .gantt-bar {
-  height: 14px;
-  background: rgba(0,123,255,0.18);
-  border: 1px solid #7bb6ff;
+  height: 18px;
+  background: #7aa9f5;                /* solid blue */
   border-radius: 8px;
   align-self: center;
-}
-.gantt-row .gantt-bar.nosprint {
-  background: rgba(200,200,200,0.30);
-  border-color: #ccc;
+  display: flex;                      /* center number inside */
+  align-items: center;
+  justify-content: center;
+  color: #fff;                        /* white number text */
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  z-index: 1;               /* sit behind text if needed */
 }
 
-/* Dots & counts sit centered in their sprint cells */
-.gantt-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #007bff;
-  justify-self: center;
+.gantt-row .gantt-bar.nosprint {
+  background: #aaa;                   /* grey for No Sprint */
+  color: #fff;
 }
+
+/* kill the old count style */
+.gantt-count { display: none; }
+.gantt-dot   { display: none; }
+
+
+/* Centered story counts inside each sprint cell */
 .gantt-count {
-  font-size: 10px;
-  color: #007bff;
-  justify-self: center;
-  transform: translateY(-10px);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;                               /* white numbers */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.25);   /* readability on light-blue bar */
+  pointer-events: none;
+  z-index: 2; /* above the bar */
 }
+
+/* (Optional) remove dot styling if not used anymore */
+.gantt-dot { display: none; }
+
 
 /* Hide empty or unintended tooltips so they can't show as a 1px blue line */
 .custom-tooltip:empty {
