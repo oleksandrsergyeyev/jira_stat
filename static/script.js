@@ -867,16 +867,13 @@ function renderGanttTimeline(committedFeatures, sprints) {
   const host = document.getElementById('gantt-container');
   if (!host) return;
 
-  // Let CSS know how many sprint columns exist (for background guides)
+  // expose number of sprint columns to CSS
   host.style.setProperty('--gantt-cols', String(sprints.length));
   host.innerHTML = '';
 
-  const gridTemplate = `minmax(220px, 1.2fr) repeat(${sprints.length}, 1fr)`;
-
-  // Header
+  // Header (no inline gridTemplateColumns; CSS controls the layout)
   const header = document.createElement('div');
   header.className = 'gantt-header';
-  header.style.gridTemplateColumns = gridTemplate;
 
   const headLabel = document.createElement('div');
   headLabel.textContent = '';
@@ -889,36 +886,53 @@ function renderGanttTimeline(committedFeatures, sprints) {
   });
   host.appendChild(header);
 
-  // Helper
   const getCounts = (feature) =>
     sprints.map(s => Array.isArray(feature.sprints?.[s]) ? feature.sprints[s].length : 0);
 
-  // Rows: ONLY label + bar (no empty cells)
   for (const [featureId, feature] of committedFeatures) {
     const row = document.createElement('div');
     row.className = 'gantt-row';
-    row.style.gridTemplateColumns = gridTemplate;
 
-    // Label (feature name with link)
+    // Feature name (link)
     const label = document.createElement('div');
     label.className = 'gantt-label';
     const linkText = feature.summary || featureId;
     label.innerHTML = `<a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${linkText}</a>`;
     row.appendChild(label);
 
-    // Compute active span
     const counts = getCounts(feature);
     const activeIdx = counts.map((c, i) => (c > 0 ? i : -1)).filter(i => i >= 0);
 
     if (activeIdx.length > 0) {
       const startIdx = activeIdx[0];
       const endIdx   = activeIdx[activeIdx.length - 1];
+
+      // Create a bar spanning first..last sprint with stories
       const bar = document.createElement('div');
       bar.className = 'gantt-bar';
       bar.style.gridColumn = `${2 + startIdx} / ${2 + endIdx + 1}`;
       bar.style.gridRow = '1';
-      const totalStories = counts.slice(startIdx, endIdx + 1).reduce((a, b) => a + b, 0);
-      bar.textContent = totalStories > 0 ? totalStories : '';
+
+      // Tell CSS how many sprint "cells" live inside this bar
+      const spanCols = endIdx - startIdx + 1;
+      bar.style.setProperty('--span-cols', String(spanCols));
+
+      // For each sprint in the span, render a segment with one chip per story
+      for (let idx = startIdx; idx <= endIdx; idx++) {
+        const seg = document.createElement('div');
+        seg.className = 'gantt-seg';
+        const storyCount = counts[idx] || 0;
+
+        // add one chip per story
+        for (let i = 0; i < storyCount; i++) {
+          const chip = document.createElement('span');
+          chip.className = 'gantt-chip';
+          seg.appendChild(chip);
+        }
+
+        bar.appendChild(seg);
+      }
+
       row.appendChild(bar);
     } else {
       // Only "No Sprint"
@@ -931,7 +945,16 @@ function renderGanttTimeline(committedFeatures, sprints) {
         bar.className = 'gantt-bar nosprint';
         bar.style.gridColumn = `${2 + noIdx} / ${2 + noIdx + 1}`;
         bar.style.gridRow = '1';
-        bar.textContent = noCnt;
+        bar.style.setProperty('--span-cols', '1');
+
+        const seg = document.createElement('div');
+        seg.className = 'gantt-seg';
+        for (let i = 0; i < noCnt; i++) {
+          const chip = document.createElement('span');
+          chip.className = 'gantt-chip';
+          seg.appendChild(chip);
+        }
+        bar.appendChild(seg);
         row.appendChild(bar);
       }
     }

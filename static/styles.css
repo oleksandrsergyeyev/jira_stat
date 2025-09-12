@@ -388,6 +388,7 @@ table.pi-planning-table {
   background-color: #f8f8f8;
   border-top: 2px solid #999;
 }
+
 /* ===== Gantt Timeline (safe grid, compact, no overlap) ===== */
 .gantt-wrapper {
   margin-top: 10px;
@@ -401,17 +402,19 @@ table.pi-planning-table {
 /* 1) No vertical gap between rows */
 #gantt-container {
   display: grid;
-  gap: 0; /* was 6px */
+  gap: 0;
 }
 
 /* 2) Each header & row share the same columns; compact height */
 .gantt-header,
 .gantt-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1.2fr) repeat(var(--gantt-cols, 5), 1fr);
+  /* 👇 now controlled by CSS variables */
+  grid-template-columns: var(--gantt-label-col, minmax(320px, 2fr))
+                         repeat(var(--gantt-cols, 5), 1fr);
   align-items: center;
   position: relative;
-  min-height: 26px; /* compact row height */
+  min-height: 26px;
 }
 
 /* 3) Header text */
@@ -437,38 +440,55 @@ table.pi-planning-table {
 /* 5) Optional sprint cell (ok if present, harmless if not) */
 .gantt-cell {
   position: relative;
-  height: 22px;               /* tighter than default */
+  height: 22px;
   border-left: 1px dashed #eee;
 }
 
 /* 6) Bar spans sprint columns within the same row and centers its count text */
+/* Gantt bar becomes a grid so we can align segments per sprint */
 .gantt-row .gantt-bar {
   height: 16px;
-  background: #5794f7;        /* blue bar */
   border-radius: 8px;
   align-self: center;
-  display: flex;               /* center number inside */
-  align-items: center;
-  justify-content: center;
-  color: #fff;                 /* white number text */
-  font-size: 12px;
-  font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-  grid-row: 1;                 /* keep bar on same grid row as label/cells */
+
+  /* light base so gaps between chips show as “splits” */
+  background: rgba(0, 123, 255, 0.18);
+  border: 1px solid #7bb6ff;
+
+  /* instead of centering text, we layout segments per sprint */
+  display: grid;
+  grid-template-columns: repeat(var(--span-cols, 1), 1fr);
+  overflow: hidden;
+  grid-row: 1; /* same row as label */
   z-index: 1;
 }
 
+/* one grid cell per sprint inside the bar */
+.gantt-seg {
+  display: flex;          /* chips flow left→right inside a sprint */
+  gap: 2px;               /* visual split between chips */
+  padding: 2px;           /* small inset so chips don't touch the bar border */
+  align-items: stretch;
+}
+
+/* each chip = 1 story */
+.gantt-chip {
+  flex: 1 1 0;
+  min-width: 6px;         /* don’t collapse to nothing */
+  background: #007bff;
+  border-radius: 4px;
+}
+
+/* No-sprint bar uses a neutral base + chips */
 .gantt-row .gantt-bar.nosprint {
-  background: #aaa;           /* grey for No Sprint */
-  color: #fff;
+  background: rgba(170, 170, 170, 0.25);
+  border-color: #bbb;
+}
+.gantt-row .gantt-bar.nosprint .gantt-chip {
+  background: #888;
 }
 
-/* 7) Hairline divider between rows without adding extra space */
-.gantt-row:not(:last-child) {
-  box-shadow: inset 0 -1px 0 #f1f1f1;
-}
-
-/* 8) Old per-cell count/dot visuals are not used anymore */
+/* We no longer print numbers inside bars */
 .gantt-count { display: none !important; }
 .gantt-dot   { display: none !important; }
 
