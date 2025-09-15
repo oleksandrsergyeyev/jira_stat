@@ -140,7 +140,7 @@ class Jira:
         - Does NOT filter by fixVersion here (so backlog can include other PIs).
         - Features/Epics become rows; Stories contribute to sprint columns.
         - Stories with no/unknown sprint go into a 'No Sprint' bucket.
-        - Adds stories_detail: [{key, story_points, assignee}]
+        - Adds stories_detail: [{key, story_points, assignee, status}]
         """
         jql_query = f'"Leading Work Group" = "{work_group}"'
         payload = {
@@ -223,11 +223,11 @@ class Jira:
                     "parent_summary": parent_summary,
                     "fixVersions": fix_versions,
                     "linked_issues": self.extract_linked_issue_links(fields.get("issuelinks", []) or []),
-                    "sprints": {},  # sprint name -> [story keys]
-                    "story_points": feature_sp,  # feature's own estimate
+                    "sprints": {},  # sprint name -> [story keys]  (keep keys as strings for compatibility)
+                    "story_points": feature_sp,  # feature’s own estimate
                     "sum_story_points": 0.0,  # sum of child stories
                     "assignee": assignee_display,  # feature assignee (kept for reference)
-                    "stories_detail": [],  # <-- NEW: [{key, story_points, assignee}]
+                    "stories_detail": [],  # <-- includes {key, story_points, assignee, status}
                 }
 
         # ---------- 2) Attach Stories to their Feature/Epic rows ----------
@@ -252,7 +252,11 @@ class Jira:
             # Story assignee
             assignee_obj = fields.get("assignee")
             story_assignee = assignee_obj.get("displayName") if isinstance(assignee_obj, dict) else ""
-            story_assignee = (story_assignee or "").strip() or "Unassigned"
+            story_assignee = (story_assignee or "").trim() if hasattr(str, 'trim') else (story_assignee or "").strip()
+            story_assignee = story_assignee or "Unassigned"
+
+            # Story status (for Gantt chip coloring)
+            story_status = (fields.get("status", {}) or {}).get("name", "") or ""
 
             if story_epic in features:
                 # accumulate SP
@@ -262,6 +266,7 @@ class Jira:
                     "key": story_key,
                     "story_points": story_points,
                     "assignee": story_assignee,
+                    "status": story_status,  # <-- added
                 })
 
             # Sprint(s)
@@ -269,7 +274,7 @@ class Jira:
 
             if not raw_sprints:
                 if story_epic in features:
-                    features[story_epic]["sprints"].setdefault("No Sprint", []).append(story_key)
+                    features[story_epic]["sprints"].setdefault("No Sprint", []).append(story_key)  # keep keys (strings)
                 continue
 
             sprint_entries = raw_sprints if isinstance(raw_sprints, list) else [raw_sprints]
@@ -278,7 +283,7 @@ class Jira:
                 sprint_name = self.extract_sprint_name(entry)  # "Sprint N" or None
                 if sprint_name and sprint_name != "Unknown Sprint":
                     if story_epic in features:
-                        features[story_epic]["sprints"].setdefault(sprint_name, []).append(story_key)
+                        features[story_epic]["sprints"].setdefault(sprint_name, []).append(story_key)  # keep keys
                         placed_in_any = True
 
             if not placed_in_any and story_epic in features:

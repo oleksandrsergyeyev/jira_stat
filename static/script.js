@@ -863,22 +863,58 @@ function showUniqueUserCount() {
   if (el) el.textContent = count;
 }
 
+function mapStatusToClass(raw) {
+  const s = (raw || '').toLowerCase().trim();
+
+  // --- Done bucket ---
+  if (/(^|\W)(done|closed|resolved|accepted|merged)(\W|$)/.test(s)) return 'status-done';
+
+  // --- Todo / not-started bucket ---
+  if (/(^|\W)(to\s*do|todo|open|backlog|new|selected\s*for\s*development)(\W|$)/.test(s)) return 'status-todo';
+
+  // --- Everything else counts as "in progress" (review, qa, testing, etc.) ---
+  if (
+    /(progress|review|qa|test|testing|implement|develop|in\s*dev|in\s*work|doing|wip)/.test(s)
+  ) return 'status-progress';
+
+  // Fallback: treat as in-progress if it isn't clearly done or todo
+  return 'status-progress';
+}
+
 function renderGanttTimeline(committedFeatures, sprints) {
+  // --- robust mapper: many Jira names -> 3 classes ---
+  function mapStatusToClass(raw) {
+    const s = (raw || '').toLowerCase().trim();
+
+    // exact sets (common Jira workflows)
+    const DONE = new Set(['done', 'closed', 'resolved', 'accepted', 'complete', 'completed', 'merged']);
+    const TODO = new Set(['to do', 'todo', 'open', 'backlog', 'new', 'selected for development', 'ready']);
+    const INPROG_HINTS = ['progress', 'review', 'code review', 'qa', 'test', 'testing', 'verify', 'verifying', 'implement', 'develop', 'in dev', 'in work', 'doing', 'wip', 'blocked', 'on hold'];
+
+    if (DONE.has(s)) return 'status-done';
+    if (TODO.has(s)) return 'status-todo';
+    if (INPROG_HINTS.some(h => s.includes(h))) return 'status-progress';
+
+    // fallbacks for variants like "In Progress", "In Review", etc.
+    if (/^in\s*progress$/.test(s)) return 'status-progress';
+    if (/^in\s*review$/.test(s))   return 'status-progress';
+
+    // If we truly can't tell, assume TODO (safer than orange everywhere)
+    return 'status-todo';
+  }
+
   const host = document.getElementById('gantt-container');
   if (!host) return;
 
-  // expose number of sprint columns to CSS
   host.style.setProperty('--gantt-cols', String(sprints.length));
   host.innerHTML = '';
 
-  // Header (no inline gridTemplateColumns; CSS controls the layout)
+  // --- Header ---
   const header = document.createElement('div');
   header.className = 'gantt-header';
-
   const headLabel = document.createElement('div');
   headLabel.textContent = '';
   header.appendChild(headLabel);
-
   sprints.forEach(name => {
     const h = document.createElement('div');
     h.textContent = name;
@@ -886,47 +922,69 @@ function renderGanttTimeline(committedFeatures, sprints) {
   });
   host.appendChild(header);
 
-  const getCounts = (feature) =>
-    sprints.map(s => Array.isArray(feature.sprints?.[s]) ? feature.sprints[s].length : 0);
+  // Helper: get sprint-wise story objects (array of arrays aligned to sprints)
+  const getStoriesPerSprint = (feature) =>
+    sprints.map(s => {
+      const arr = feature.sprints && Array.isArray(feature.sprints[s]) ? feature.sprints[s] : [];
+      // Upgrade strings to objects, keep objects as-is
+      return arr.map(x => (typeof x === 'string' ? { key: x, status: '' } : x));
+    });
 
+  // Build one row per committed feature
   for (const [featureId, feature] of committedFeatures) {
     const row = document.createElement('div');
     row.className = 'gantt-row';
 
-    // Feature name (link)
+    // Label = Feature Name (link)
     const label = document.createElement('div');
     label.className = 'gantt-label';
     const linkText = feature.summary || featureId;
     label.innerHTML = `<a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${linkText}</a>`;
     row.appendChild(label);
 
-    const counts = getCounts(feature);
-    const activeIdx = counts.map((c, i) => (c > 0 ? i : -1)).filter(i => i >= 0);
+    // Build a fast lookup of story status from stories_detail (backend-provided)
+    const statusByKey = new Map(
+      Array.isArray(feature.stories_detail)
+        ? feature.stories_detail.map(d => [d.key, d.status || ''])
+        : []
+    );
+
+    const storiesPerSprint = getStoriesPerSprint(feature);
+    const activeIdx = storiesPerSprint
+      .map((arr, i) => (arr && arr.length ? i : -1))
+      .filter(i => i >= 0);
 
     if (activeIdx.length > 0) {
       const startIdx = activeIdx[0];
       const endIdx   = activeIdx[activeIdx.length - 1];
 
-      // Create a bar spanning first..last sprint with stories
+      // Create bar spanning first..last sprint
       const bar = document.createElement('div');
       bar.className = 'gantt-bar';
       bar.style.gridColumn = `${2 + startIdx} / ${2 + endIdx + 1}`;
       bar.style.gridRow = '1';
 
-      // Tell CSS how many sprint "cells" live inside this bar
+      // How many sprint "cells" live inside the bar
       const spanCols = endIdx - startIdx + 1;
       bar.style.setProperty('--span-cols', String(spanCols));
 
-      // For each sprint in the span, render a segment with one chip per story
+      // For each sprint within the span, create a segment and chips per story
       for (let idx = startIdx; idx <= endIdx; idx++) {
         const seg = document.createElement('div');
         seg.className = 'gantt-seg';
-        const storyCount = counts[idx] || 0;
 
-        // add one chip per story
-        for (let i = 0; i < storyCount; i++) {
+        const stories = storiesPerSprint[idx] || [];
+        for (const story of stories) {
           const chip = document.createElement('span');
           chip.className = 'gantt-chip';
+
+          // Prefer status from the story object; else lookup via stories_detail
+          const rawStatus = story.status || statusByKey.get(story.key) || '';
+          chip.classList.add(mapStatusToClass(rawStatus));
+
+          // Tooltip with key (and status if you like)
+          chip.title = story.key ? `${story.key}${rawStatus ? ' — ' + rawStatus : ''}` : (rawStatus || '');
+
           seg.appendChild(chip);
         }
 
@@ -935,12 +993,14 @@ function renderGanttTimeline(committedFeatures, sprints) {
 
       row.appendChild(bar);
     } else {
-      // Only "No Sprint"
-      const noCnt = Array.isArray(feature.sprints?.['No Sprint'])
-        ? feature.sprints['No Sprint'].length
-        : 0;
+      // Only "No Sprint" stories
       const noIdx = sprints.indexOf('No Sprint');
-      if (noIdx >= 0 && noCnt > 0) {
+      const rawNo = feature.sprints && Array.isArray(feature.sprints['No Sprint'])
+        ? feature.sprints['No Sprint']
+        : [];
+      const noStories = rawNo.map(x => (typeof x === 'string' ? { key: x, status: '' } : x));
+
+      if (noIdx >= 0 && noStories.length) {
         const bar = document.createElement('div');
         bar.className = 'gantt-bar nosprint';
         bar.style.gridColumn = `${2 + noIdx} / ${2 + noIdx + 1}`;
@@ -949,9 +1009,14 @@ function renderGanttTimeline(committedFeatures, sprints) {
 
         const seg = document.createElement('div');
         seg.className = 'gantt-seg';
-        for (let i = 0; i < noCnt; i++) {
+        for (const story of noStories) {
           const chip = document.createElement('span');
           chip.className = 'gantt-chip';
+
+          const rawStatus = story.status || statusByKey.get(story.key) || '';
+          chip.classList.add(mapStatusToClass(rawStatus));
+          chip.title = story.key ? `${story.key}${rawStatus ? ' — ' + rawStatus : ''}` : (rawStatus || '');
+
           seg.appendChild(chip);
         }
         bar.appendChild(seg);

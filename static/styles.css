@@ -450,6 +450,9 @@ table.pi-planning-table {
   height: 16px;
   border-radius: 8px;
   align-self: center;
+  display: grid;
+  grid-template-columns: repeat(var(--span-cols, 1), 1fr);
+  overflow: hidden;
 
   /* light base so gaps between chips show as “splits” */
   background: rgba(0, 123, 255, 0.18);
@@ -474,10 +477,16 @@ table.pi-planning-table {
 /* each chip = 1 story */
 .gantt-chip {
   flex: 1 1 0;
-  min-width: 6px;         /* don’t collapse to nothing */
-  background: #007bff;
+  min-width: 6px;
+  background: transparent;   /* <-- no default color */
   border-radius: 4px;
 }
+
+/* Clear, distinct status colors */
+.gantt-chip.status-todo     { background: #59b0f7; } /* gray */
+.gantt-chip.status-progress { background: #fff83b; } /* orange */
+.gantt-chip.status-done     { background: #34a853; } /* green */
+
 
 /* No-sprint bar uses a neutral base + chips */
 .gantt-row .gantt-bar.nosprint {
@@ -491,6 +500,7 @@ table.pi-planning-table {
 /* We no longer print numbers inside bars */
 .gantt-count { display: none !important; }
 .gantt-dot   { display: none !important; }
+
 
 
 /* Hide empty or unintended tooltips so they can't show as a 1px blue line */
