@@ -139,12 +139,14 @@ class Jira:
         Build PI Planning data for a given Leading Work Group.
 
         - Sprint names are normalized to canonical "Sprint N".
-        - A story is assigned to a sprint ONLY if that sprint's raw name contains the
-          PI token from `fix_version` (e.g., "25w37"). Otherwise, it goes to "No Sprint".
-        - stories_detail includes status for frontend Gantt coloring.
+        - A child issue (Story or Fault Report) is assigned to a sprint ONLY if that sprint's raw name
+          contains the PI token derived from `fix_version` (e.g., "25w37"). Otherwise it goes to "No Sprint".
+        - Rows are Features/Epics; children contribute to sprint cells & details.
+        - stories_detail includes status for frontend Gantt coloring and assignee for load summary.
+        - Fault Reports are included like Stories (0 SP if missing).
         """
 
-        # ---- PI token from fix_version, e.g. "PI_25w10" -> "25w10"
+        # ---- PI token from fix_version, e.g., "PI_25w10" -> "25w10"
         def extract_pi_token(fx: str) -> str:
             if not fx:
                 return ""
@@ -154,25 +156,22 @@ class Jira:
         pi_token = extract_pi_token(fix_version)
 
         # ---- Given arbitrary sprint representation, return (canonical, matches_pi)
-        # canonical is "Sprint <n>" (or None), matches_pi means the raw name contains pi_token
+        # canonical is "Sprint <n>" (or None), matches_pi means the raw contains pi_token
         def match_and_normalize_sprint(raw, pi_token_lc: str):
             if raw is None:
                 return (None, False)
 
-            # normalize containers
             if isinstance(raw, list):
-                # Prefer the first entry that matches the PI token
                 best = None
                 for entry in raw:
                     c, ok = match_and_normalize_sprint(entry, pi_token_lc)
                     if ok and c:
                         return (c, True)
-                    if best is None and c:  # keep a fallback canonical if none match PI
+                    if best is None and c:
                         best = c
                 return (best, False)
 
             if isinstance(raw, dict):
-                # Jira sprint objects can have 'name', 'toString', etc.
                 for k in ("name", "Name", "toString", "value"):
                     v = raw.get(k)
                     if isinstance(v, str) and v:
@@ -181,27 +180,43 @@ class Jira:
 
             s = str(raw)
 
-            # Jira often stores KV blob "..., name=QS25w37_CI_Sprint_1, ..."
+            # Jira often stores KV blob "..., name=<real name>, ..."
             name_match = re.search(r"name=([^,]+)", s, flags=re.IGNORECASE)
             raw_name = name_match.group(1) if name_match else s
             raw_name_lc = raw_name.lower()
 
-            # Does this sprint belong to this PI?
             matches_pi = bool(pi_token_lc and (pi_token_lc in raw_name_lc))
 
-            # Find the sprint number in many formats: "Sprint 1", "Sprint_1", "Sprint-1", etc.
+            # "Sprint 1", "Sprint_1", "Sprint-1", "Sprint: 1", "S1"
             m = re.search(r"(?i)sprint[\s_\-:]*#?\s*(\d+)", raw_name)
             if m:
-                canonical = f"Sprint {int(m.group(1))}"
-                return (canonical, matches_pi)
+                return (f"Sprint {int(m.group(1))}", matches_pi)
 
-            # Allow "S1" variants with separators
             m2 = re.search(r"(?i)(?:^|[_\-\s])s[\s_\-:]*#?\s*(\d+)(?:$|[_\-\s])", raw_name)
             if m2:
-                canonical = f"Sprint {int(m2.group(1))}"
-                return (canonical, matches_pi)
+                return (f"Sprint {int(m2.group(1))}", matches_pi)
 
             return (None, matches_pi)
+
+        # ---- Find a parent Feature/Epic key for an issue using issuelinks (fallback)
+        def find_parent_feature_from_links(issuelinks, known_feature_keys: set):
+            if not issuelinks:
+                return None
+            for link in issuelinks:
+                for side in ("outwardIssue", "inwardIssue"):
+                    issue = link.get(side)
+                    if not issue:
+                        continue
+                    key = issue.get("key")
+                    fields = issue.get("fields", {}) or {}
+                    itype = (fields.get("issuetype", {}) or {}).get("name", "").lower()
+                    # Prefer a link to one of the seeded Features/Epics
+                    if key and key in known_feature_keys:
+                        return key
+                    # Or accept link to a Feature/Epic not in set yet (we still attach)
+                    if key and itype in ("feature", "epic"):
+                        return key
+            return None
 
         jql_query = f'"Leading Work Group" = "{work_group}"'
         payload = {
@@ -211,7 +226,7 @@ class Jira:
                 "summary",
                 "issuetype",
                 "issuelinks",
-                "customfield_10701",  # Sprint (string/list/Jira KV blob)
+                "customfield_10701",  # Sprint
                 "customfield_14700",  # PI Scope
                 "status",
                 "priority",
@@ -282,71 +297,81 @@ class Jira:
                     "parent_summary": parent_summary,
                     "fixVersions": fix_versions,
                     "linked_issues": self.extract_linked_issue_links(fields.get("issuelinks", []) or []),
-                    "sprints": {},  # canonical sprint -> [story keys]
+                    "sprints": {},  # canonical sprint -> [issue keys]
                     "story_points": feature_sp,
-                    "sum_story_points": 0.0,  # sum of child stories
+                    "sum_story_points": 0.0,  # sum of child "story points"
                     "assignee": assignee_display,
                     "stories_detail": [],  # [{key, story_points, assignee, status}]
                 }
 
-        # ---------- 2) Attach Stories to their Feature/Epic rows ----------
+        feature_keys = set(features.keys())
         epic_link_field = "customfield_10702"
 
+        # ---------- 2) Attach Stories & Fault Reports ----------
         for issue in issues:
+            key = issue.get("key", "")
             fields = issue.get("fields", {}) or {}
             issuetype_name = (fields.get("issuetype", {}) or {}).get("name", "").lower()
-            if issuetype_name != "story":
+
+            if issuetype_name not in ("story", "fault report"):
                 continue
 
-            story_key = issue.get("key", "")
-            story_epic = fields.get(epic_link_field, "") or ""
+            # Parent resolution: Epic Link first, then via issuelinks
+            parent_key = fields.get(epic_link_field, "") or ""
+            if not parent_key:
+                parent_key = find_parent_feature_from_links(fields.get("issuelinks", []) or [], feature_keys) or ""
 
-            # Story points
-            story_points = fields.get("customfield_10708", 0)
+            if not parent_key:
+                # No parent Feature/Epic identified; skip
+                continue
+
+            # Story/Fault SP (FR usually 0)
+            sp_val = fields.get("customfield_10708", 0)
             try:
-                story_points = float(story_points) if story_points not in (None, "") else 0.0
+                sp_val = float(sp_val) if sp_val not in (None, "") else 0.0
             except Exception:
-                story_points = 0.0
+                sp_val = 0.0
 
-            # Story assignee
+            # Assignee
             assignee_obj = fields.get("assignee")
-            story_assignee = assignee_obj.get("displayName") if isinstance(assignee_obj, dict) else ""
-            story_assignee = (story_assignee or "").strip() or "Unassigned"
+            child_assignee = assignee_obj.get("displayName") if isinstance(assignee_obj, dict) else ""
+            child_assignee = (child_assignee or "").strip() or "Unassigned"
 
-            # Story status
-            story_status = (fields.get("status", {}) or {}).get("name", "") or ""
+            # Status
+            child_status = (fields.get("status", {}) or {}).get("name", "") or ""
 
-            if story_epic in features:
-                features[story_epic]["sum_story_points"] += story_points
-                features[story_epic]["stories_detail"].append({
-                    "key": story_key,
-                    "story_points": story_points,
-                    "assignee": story_assignee,
-                    "status": story_status,
+            # Sum SP (impacts summary; FR contributes 0 unless you set a value)
+            if parent_key in features:
+                features[parent_key]["sum_story_points"] += sp_val
+                features[parent_key]["stories_detail"].append({
+                    "key": key,
+                    "story_points": sp_val,
+                    "assignee": child_assignee,
+                    "status": child_status,
+                    # Optional: include type for debugging/analytics
+                    # "type": issuetype_name,
                 })
 
             # Sprint(s) -> include only those that belong to THIS PI
             raw_sprints = fields.get("customfield_10701")
-
             if not raw_sprints:
-                if story_epic in features:
-                    features[story_epic]["sprints"].setdefault("No Sprint", []).append(story_key)
+                if parent_key in features:
+                    features[parent_key]["sprints"].setdefault("No Sprint", []).append(key)
                 continue
 
             entries = raw_sprints if isinstance(raw_sprints, list) else [raw_sprints]
             placed_in_any = False
-
             for entry in entries:
                 canonical, matches_pi = match_and_normalize_sprint(entry, pi_token)
                 if canonical and matches_pi:
-                    if story_epic in features:
-                        features[story_epic]["sprints"].setdefault(canonical, []).append(story_key)
+                    if parent_key in features:
+                        features[parent_key]["sprints"].setdefault(canonical, []).append(key)
                         placed_in_any = True
 
-            if not placed_in_any and story_epic in features:
-                features[story_epic]["sprints"].setdefault("No Sprint", []).append(story_key)
+            if not placed_in_any and parent_key in features:
+                features[parent_key]["sprints"].setdefault("No Sprint", []).append(key)
 
-        # ---------- 3) Safety pass: canonicalize any stray keys ----------
+        # ---------- 3) Safety pass: canonicalize stray sprint keys ----------
         for feat in features.values():
             if not feat.get("sprints"):
                 continue
