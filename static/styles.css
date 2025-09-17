@@ -501,6 +501,27 @@ table.pi-planning-table {
 .gantt-count { display: none !important; }
 .gantt-dot   { display: none !important; }
 
+/* === Gantt Legend === */
+.gantt-legend {
+  display: flex;
+  gap: 20px;
+  margin: 6px 0 10px 6px;
+  font-size: 12px;
+  align-items: center;
+}
+
+.gantt-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gantt-legend-item .gantt-chip {
+  width: 16px;
+  height: 12px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
 
 
 /* Hide empty or unintended tooltips so they can't show as a 1px blue line */

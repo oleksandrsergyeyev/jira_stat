@@ -909,6 +909,30 @@ function renderGanttTimeline(committedFeatures, sprints) {
   host.style.setProperty('--gantt-cols', String(sprints.length));
   host.innerHTML = '';
 
+  // --- Legend row ---
+  const legend = document.createElement('div');
+  legend.className = 'gantt-legend';
+
+  const items = [
+    { cls: 'status-todo', label: 'To Do' },
+    { cls: 'status-progress', label: 'In Progress' },
+    { cls: 'status-done', label: 'Done' }
+  ];
+
+  items.forEach(item => {
+    const box = document.createElement('span');
+    box.className = 'gantt-chip ' + item.cls; // reuse chip styles
+    const lbl = document.createElement('span');
+    lbl.textContent = item.label;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'gantt-legend-item';
+    wrapper.appendChild(box);
+    wrapper.appendChild(lbl);
+    legend.appendChild(wrapper);
+  });
+
+  host.appendChild(legend);
+
   // --- Header ---
   const header = document.createElement('div');
   header.className = 'gantt-header';
@@ -921,6 +945,7 @@ function renderGanttTimeline(committedFeatures, sprints) {
     header.appendChild(h);
   });
   host.appendChild(header);
+
 
   // Helper: get sprint-wise story objects (array of arrays aligned to sprints)
   const getStoriesPerSprint = (feature) =>
