@@ -636,65 +636,64 @@ function hideLinksTypeTooltipWithDelay() {
 
 // ✅ Init depending on page
 document.addEventListener("DOMContentLoaded", () => {
-    const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
-    const isPlanning = document.getElementById("committed-table") && document.getElementById("backlog-table");
+  const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
+  const isPlanning  = document.getElementById("committed-table") && document.getElementById("backlog-table");
 
-    if (isDashboard) {
-        renderChart();
-        renderTable();
-        document.getElementById("refresh")?.addEventListener("click", () => {
-            renderChart();
-            renderTable();
-        });
-        document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
-            renderChart();
-            renderTable();
-        });
-        document.getElementById("workGroupSelect")?.addEventListener("change", () => {
-            renderChart();
-            renderTable();
-        });
+  if (isDashboard) {
+    renderChart();
+    renderTable();
+    document.getElementById("refresh")?.addEventListener("click", () => {
+      renderChart();
+      renderTable();
+    });
+    document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
+      renderChart();
+      renderTable();
+    });
+    document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+      renderChart();
+      renderTable();
+    });
+    document.getElementById("download-excel")?.addEventListener("click", () => {
+      const fixVersion = getSelectedFixVersion();
+      const workGroup  = getSelectedWorkGroup();
+      const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+      window.location.href = `/export_excel${query}`;
+    });
+  }
 
-        document.getElementById("download-excel")?.addEventListener("click", () => {
-            const fixVersion = getSelectedFixVersion();
-            const workGroup = getSelectedWorkGroup();
-            const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-            window.location.href = `/export_excel${query}`;
-        });
-    }
+  if (isPlanning) {
+    restorePlanningSettings();
+    loadPIPlanningData();
+    document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
+      savePlanningSettings();
+      loadPIPlanningData();
+    });
+    document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+      savePlanningSettings();
+      loadPIPlanningData();
+    });
+    document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
+    document.getElementById("export-committed-excel")?.addEventListener("click", function () {
+      const fixVersion = getSelectedFixVersion();
+      const workGroup  = getSelectedWorkGroup();
+      const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+      window.location.href = `/export_committed_excel${query}`;
+    });
+    document.getElementById("export-backlog-excel")?.addEventListener("click", function () {
+      const fixVersion = getSelectedFixVersion();
+      const workGroup  = getSelectedWorkGroup();
+      const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+      window.location.href = `/export_backlog_excel${query}`;
+    });
+  }
 
-    if (isPlanning) {
-        // Restore last PI/WorkGroup before first load
-        restorePlanningSettings();
-
-        loadPIPlanningData();
-
-        document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
-            savePlanningSettings();
-            loadPIPlanningData();
-        });
-        document.getElementById("workGroupSelect")?.addEventListener("change", () => {
-            savePlanningSettings();
-            loadPIPlanningData();
-        });
-        document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
-
-        // --- Export PI Planning Committed/Backlog ---
-        document.getElementById("export-committed-excel")?.addEventListener("click", function () {
-            const fixVersion = getSelectedFixVersion();
-            const workGroup = getSelectedWorkGroup();
-            const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-            window.location.href = `/export_committed_excel${query}`;
-        });
-        document.getElementById("export-backlog-excel")?.addEventListener("click", function () {
-            const fixVersion = getSelectedFixVersion();
-            const workGroup = getSelectedWorkGroup();
-            const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-            window.location.href = `/export_backlog_excel${query}`;
-        });
-    }
-    showUniqueUserCount();
+  // ✅ Register this browser, then update the UI with the server’s real count
+  sendUserIdToBackend()
+    .catch(() => {})
+    .finally(showUniqueUserCount);
 });
+
 // Ensure tooltip (if created earlier) starts hidden
 let tt = document.getElementById('custom-tooltip');
 if (tt) tt.style.display = 'none';
@@ -847,20 +846,27 @@ function getOrCreateUserId() {
 
 // Send to backend
 function sendUserIdToBackend() {
-    const userId = getOrCreateUserId();
-    fetch('/track_user', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({user_id: userId})
-    });
+  const userId = getOrCreateUserId();
+  return fetch('/track_user', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId })
+  });
 }
-sendUserIdToBackend();
 
-function showUniqueUserCount() {
-  let users = JSON.parse(localStorage.getItem("uniqueUsers") || "[]");
-  let count = users.length || 1;
-  let el = document.getElementById("unique-users-count").innerText = "Unique users: " + (count || 0);
-  if (el) el.textContent = count;
+async function showUniqueUserCount() {
+  try {
+    const res = await fetch('/unique_users', { cache: 'no-store' });
+    const data = await res.json();
+    const el = document.getElementById('unique-users-count');
+    if (el) {
+      el.textContent = `Unique users: ${Number(data.unique_users) || 0}`;
+    }
+  } catch (e) {
+    // Fail silently; don't break UI
+    const el = document.getElementById('unique-users-count');
+    if (el) el.textContent = 'Unique users: –';
+  }
 }
 
 function mapStatusToClass(raw) {
