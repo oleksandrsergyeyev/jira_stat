@@ -30,6 +30,83 @@ class Jira:
         self.jira_token = JIRA_TOKEN
         self.headers = headers
 
+    def fetch_issue(self, key, fields=None):
+        """GET a single issue with the fields we need."""
+        url = f"{JIRA_ISSUE}/{key}"
+        params = {}
+        if fields:
+            params["fields"] = ",".join(fields)
+        resp = requests.get(url, headers=self.headers, params=params)
+        if resp.status_code == 200:
+            return resp.json()
+        return None
+
+    def _seed_feature_from_issue(self, issue_json, summary_cache):
+        """Create a features[key] row from a raw issue (Feature/Epic)."""
+        fields = issue_json.get("fields", {}) or {}
+        key = issue_json.get("key", "")
+        if not key:
+            return None
+
+        issuetype_name = (fields.get("issuetype", {}) or {}).get("name", "").lower()
+        if "feature" not in issuetype_name and issuetype_name != "epic":
+            return None  # only seed features/epics
+
+        # PI Scope
+        pi_scope_field = fields.get("customfield_14700")
+        pi_scope_value = pi_scope_field.get("value", "") if isinstance(pi_scope_field, dict) else (pi_scope_field or "")
+
+        # Priority
+        prio_field = fields.get("priority")
+        priority_value = (prio_field or {}).get("name", "") if isinstance(prio_field, dict) else (prio_field or "")
+
+        # Capability parent (customfield_13801)
+        parent_link = fields.get("customfield_13801", "")
+        if isinstance(parent_link, dict):
+            parent_link_value = parent_link.get("key", "") or ""
+        else:
+            parent_link_value = parent_link or ""
+
+        parent_summary = ""
+        if parent_link_value:
+            parent_summary = self.get_issue_summary(parent_link_value, summary_cache) or ""
+
+        # FixVersions
+        fix_versions = []
+        for fv in fields.get("fixVersions", []) or []:
+            name = fv.get("name")
+            if name:
+                fix_versions.append(name)
+
+        # Feature-level SP
+        feature_sp = fields.get("customfield_10708", 0)
+        try:
+            feature_sp = float(feature_sp) if feature_sp not in (None, "") else 0.0
+        except Exception:
+            feature_sp = 0.0
+
+        # Assignee
+        assignee_obj = fields.get("assignee")
+        assignee_display = assignee_obj.get("displayName") if isinstance(assignee_obj, dict) else ""
+
+        # Build row
+        return key, {
+            "summary": fields.get("summary", "") or "",
+            "status": (fields.get("status", {}) or {}).get("name", "") or "",
+            "pi_scope": pi_scope_value,
+            "priority": priority_value,
+            "parent_link": parent_link_value,
+            "parent_summary": parent_summary,
+            "fixVersions": fix_versions,
+            "linked_issues": self.extract_linked_issue_links(fields.get("issuelinks", []) or []),
+            "sprints": {},
+            "story_points": feature_sp,
+            "sum_story_points": 0.0,
+            "assignee": assignee_display,
+            "stories_detail": [],
+        }
+
+
     def list_issues(self, fix_version, work_group):
         jql_query = (
             'type = "Fault Report" AND '
@@ -138,15 +215,16 @@ class Jira:
         """
         Build PI Planning data for a given Leading Work Group.
 
+        - Rows are Features/Epics; children (Stories/Fault Reports) contribute to sprint cells & details.
         - Sprint names are normalized to canonical "Sprint N".
-        - A child issue (Story or Fault Report) is assigned to a sprint ONLY if that sprint's raw name
-          contains the PI token derived from `fix_version` (e.g., "25w37"). Otherwise it goes to "No Sprint".
-        - Rows are Features/Epics; children contribute to sprint cells & details.
-        - stories_detail includes status for frontend Gantt coloring and assignee for load summary.
-        - Fault Reports are included like Stories (0 SP if missing).
+        - A child issue is assigned to a sprint ONLY if that sprint's raw name contains the PI token
+          derived from `fix_version` (e.g., "25w37"). Otherwise it goes to "No Sprint".
+        - Story points are counted only from *real children* (Epic Link/parent), NOT from generic issue links.
+        - If a child belongs to this work group but its parent Feature/Epic wasn't returned by the JQL,
+          we fetch and seed that parent on-the-fly so the Feature appears in the tables.
         """
 
-        # ---- PI token from fix_version, e.g., "PI_25w10" -> "25w10"
+        # ---- Extract PI token from fix_version, e.g., "PI_25w10" -> "25w10"
         def extract_pi_token(fx: str) -> str:
             if not fx:
                 return ""
@@ -155,8 +233,8 @@ class Jira:
 
         pi_token = extract_pi_token(fix_version)
 
-        # ---- Given arbitrary sprint representation, return (canonical, matches_pi)
-        # canonical is "Sprint <n>" (or None), matches_pi means the raw contains pi_token
+        # ---- Normalize sprint names and check if sprint belongs to the current PI
+        # Returns (canonical_name, matches_pi)
         def match_and_normalize_sprint(raw, pi_token_lc: str):
             if raw is None:
                 return (None, False)
@@ -198,7 +276,7 @@ class Jira:
 
             return (None, matches_pi)
 
-        # ---- Find a parent Feature/Epic key for an issue using issuelinks (fallback)
+        # ---- From issue links, try to discover a parent Feature/Epic (fallback)
         def find_parent_feature_from_links(issuelinks, known_feature_keys: set):
             if not issuelinks:
                 return None
@@ -214,10 +292,124 @@ class Jira:
                     if key and key in known_feature_keys:
                         return key
                     # Or accept link to a Feature/Epic not in set yet (we still attach)
-                    if key and itype in ("feature", "epic"):
+                    if key and (itype == "epic" or "feature" in itype):
                         return key
             return None
 
+        epic_link_field = "customfield_10702"  # Epic Link
+
+        # ---- Robust parent resolution for a Story / Fault Report
+        def resolve_parent_feature_key(fields, feature_keys: set):
+            """
+            Order:
+              1) Epic Link (customfield_10702) → may be string or object with 'key'
+              2) parent.key (company-managed projects)
+              3) issue links (prefer already-seeded features; else any linked Feature/Epic)
+            """
+            # 1) Epic Link
+            epic_val = fields.get(epic_link_field)
+            if epic_val:
+                if isinstance(epic_val, str):
+                    return epic_val
+                if isinstance(epic_val, dict):
+                    k = epic_val.get("key")
+                    if k:
+                        return k
+
+            # 2) parent
+            parent_obj = fields.get("parent")
+            if isinstance(parent_obj, dict):
+                pk = parent_obj.get("key")
+                if pk:
+                    # If we know the type and it's Feature/Epic, great; else accept anyway.
+                    itype = (((parent_obj.get("fields") or {}).get("issuetype") or {}).get("name") or "").lower()
+                    if not itype or itype == "epic" or "feature" in itype:
+                        return pk
+
+            # 3) issue links
+            cand = find_parent_feature_from_links(fields.get("issuelinks", []) or [], feature_keys)
+            if cand:
+                return cand
+
+            return ""
+
+        # ---- Fetch a single issue (for missing parents) with needed fields
+        def _fetch_issue_full(key):
+            url = f"{JIRA_ISSUE}/{key}"
+            params = {
+                "fields": ",".join([
+                    "summary", "issuetype", "issuelinks", "customfield_14700", "status", "priority",
+                    "customfield_13801",  # Capability parent
+                    "fixVersions", "customfield_10708", "assignee"
+                ])
+            }
+            resp = requests.get(url, headers=self.headers, params=params)
+            if resp.status_code == 200:
+                return resp.json()
+            return None
+
+        # ---- Turn a fetched Feature/Epic issue into a row for 'features' dict
+        def _seed_feature_from_issue(issue_json, summary_cache):
+            if not issue_json:
+                return None
+            fields = issue_json.get("fields", {}) or {}
+            key = issue_json.get("key", "")
+            if not key:
+                return None
+
+            issuetype_name = (fields.get("issuetype", {}) or {}).get("name", "").lower()
+            if issuetype_name != "epic" and "feature" not in issuetype_name:
+                return None  # only seed Features/Epics
+
+            pi_scope_field = fields.get("customfield_14700")
+            pi_scope_value = pi_scope_field.get("value", "") if isinstance(pi_scope_field, dict) else (
+                        pi_scope_field or "")
+
+            prio_field = fields.get("priority")
+            priority_value = (prio_field or {}).get("name", "") if isinstance(prio_field, dict) else (prio_field or "")
+
+            parent_link = fields.get("customfield_13801", "")
+            if isinstance(parent_link, dict):
+                parent_link_value = parent_link.get("key", "") or ""
+            else:
+                parent_link_value = parent_link or ""
+
+            parent_summary = ""
+            if parent_link_value:
+                parent_summary = self.get_issue_summary(parent_link_value, summary_cache) or ""
+
+            fix_versions = []
+            for fv in fields.get("fixVersions", []) or []:
+                name = fv.get("name")
+                if name:
+                    fix_versions.append(name)
+
+            feature_sp = fields.get("customfield_10708", 0)
+            try:
+                feature_sp = float(feature_sp) if feature_sp not in (None, "") else 0.0
+            except Exception:
+                feature_sp = 0.0
+
+            assignee_obj = fields.get("assignee")
+            assignee_display = assignee_obj.get("displayName") if isinstance(assignee_obj, dict) else ""
+
+            return key, {
+                "summary": fields.get("summary", "") or "",
+                "status": (fields.get("status", {}) or {}).get("name", "") or "",
+                "pi_scope": pi_scope_value,
+                "priority": priority_value,
+                "parent_link": parent_link_value,
+                "parent_summary": parent_summary,
+                "fixVersions": fix_versions,
+                "linked_issues": self.extract_linked_issue_links(fields.get("issuelinks", []) or []),
+                "sprints": {},  # canonical sprint -> [issue keys]
+                "story_points": feature_sp,  # feature-level estimate
+                "sum_story_points": 0.0,  # sum of child story points
+                "assignee": assignee_display,
+                "stories_detail": [],  # [{key, story_points, assignee, status}]
+            }
+
+        # ---------------- JQL: scoped to Leading Work Group ----------------
         jql_query = f'"Leading Work Group" = "{work_group}"'
         payload = {
             "jql": jql_query,
@@ -226,7 +418,7 @@ class Jira:
                 "summary",
                 "issuetype",
                 "issuelinks",
-                "customfield_10701",  # Sprint
+                "customfield_10701",  # Sprint(s)
                 "customfield_14700",  # PI Scope
                 "status",
                 "priority",
@@ -235,6 +427,7 @@ class Jira:
                 "customfield_10702",  # Epic Link
                 "customfield_10708",  # Story Points
                 "assignee",
+                "parent"  # <-- required for robust parent resolution
             ],
         }
 
@@ -248,13 +441,14 @@ class Jira:
         features = {}
         summary_cache = {}
 
-        # ---------- 1) Seed rows from Features & Epics ----------
+        # ---------- 1) Seed rows from Features & Epics returned by JQL ----------
         for issue in issues:
             key = issue.get("key", "")
             fields = issue.get("fields", {}) or {}
             issuetype_name = (fields.get("issuetype", {}) or {}).get("name", "").lower()
 
-            if issuetype_name in ("feature", "epic"):
+            # Seed if Epic OR any issuetype containing "feature" (e.g., "Enabler Feature")
+            if issuetype_name == "epic" or "feature" in issuetype_name:
                 pi_scope_field = fields.get("customfield_14700")
                 pi_scope_value = pi_scope_field.get("value", "") if isinstance(pi_scope_field, dict) else (
                             pi_scope_field or "")
@@ -297,17 +491,16 @@ class Jira:
                     "parent_summary": parent_summary,
                     "fixVersions": fix_versions,
                     "linked_issues": self.extract_linked_issue_links(fields.get("issuelinks", []) or []),
-                    "sprints": {},  # canonical sprint -> [issue keys]
+                    "sprints": {},
                     "story_points": feature_sp,
-                    "sum_story_points": 0.0,  # sum of child "story points"
+                    "sum_story_points": 0.0,
                     "assignee": assignee_display,
-                    "stories_detail": [],  # [{key, story_points, assignee, status}]
+                    "stories_detail": [],
                 }
 
         feature_keys = set(features.keys())
-        epic_link_field = "customfield_10702"
 
-        # ---------- 2) Attach Stories & Fault Reports ----------
+        # ---------- 2) Attach Stories & Fault Reports (and backfill missing parents) ----------
         for issue in issues:
             key = issue.get("key", "")
             fields = issue.get("fields", {}) or {}
@@ -316,16 +509,24 @@ class Jira:
             if issuetype_name not in ("story", "fault report"):
                 continue
 
-            # Parent resolution: Epic Link first, then via issuelinks
-            parent_key = fields.get(epic_link_field, "") or ""
-            if not parent_key:
-                parent_key = find_parent_feature_from_links(fields.get("issuelinks", []) or [], feature_keys) or ""
+            # -- Resolve parent Feature/Epic for this child
+            parent_key = resolve_parent_feature_key(fields, feature_keys)
 
-            if not parent_key:
-                # No parent Feature/Epic identified; skip
+            # -- If parent exists but wasn't seeded by JQL (e.g., parent not in this Work Group),
+            #    fetch it now so it shows in the output.
+            if parent_key and parent_key not in features:
+                parent_issue = _fetch_issue_full(parent_key)
+                seeded = _seed_feature_from_issue(parent_issue, summary_cache)
+                if seeded:
+                    pk, prow = seeded
+                    features[pk] = prow
+                    feature_keys.add(pk)
+
+            if not parent_key or parent_key not in features:
+                # No valid parent Feature/Epic to attach to
                 continue
 
-            # Story/Fault SP (FR usually 0)
+            # -- Child Story Points (only true children are counted; NOT generic issue links)
             sp_val = fields.get("customfield_10708", 0)
             try:
                 sp_val = float(sp_val) if sp_val not in (None, "") else 0.0
@@ -340,23 +541,19 @@ class Jira:
             # Status
             child_status = (fields.get("status", {}) or {}).get("name", "") or ""
 
-            # Sum SP (impacts summary; FR contributes 0 unless you set a value)
-            if parent_key in features:
-                features[parent_key]["sum_story_points"] += sp_val
-                features[parent_key]["stories_detail"].append({
-                    "key": key,
-                    "story_points": sp_val,
-                    "assignee": child_assignee,
-                    "status": child_status,
-                    # Optional: include type for debugging/analytics
-                    # "type": issuetype_name,
-                })
+            # Accumulate story points and details on the parent Feature
+            features[parent_key]["sum_story_points"] += sp_val
+            features[parent_key]["stories_detail"].append({
+                "key": key,
+                "story_points": sp_val,
+                "assignee": child_assignee,
+                "status": child_status,
+            })
 
-            # Sprint(s) -> include only those that belong to THIS PI
+            # -- Sprint placement (only sprints that belong to THIS PI)
             raw_sprints = fields.get("customfield_10701")
             if not raw_sprints:
-                if parent_key in features:
-                    features[parent_key]["sprints"].setdefault("No Sprint", []).append(key)
+                features[parent_key]["sprints"].setdefault("No Sprint", []).append(key)
                 continue
 
             entries = raw_sprints if isinstance(raw_sprints, list) else [raw_sprints]
@@ -364,14 +561,13 @@ class Jira:
             for entry in entries:
                 canonical, matches_pi = match_and_normalize_sprint(entry, pi_token)
                 if canonical and matches_pi:
-                    if parent_key in features:
-                        features[parent_key]["sprints"].setdefault(canonical, []).append(key)
-                        placed_in_any = True
+                    features[parent_key]["sprints"].setdefault(canonical, []).append(key)
+                    placed_in_any = True
 
-            if not placed_in_any and parent_key in features:
+            if not placed_in_any:
                 features[parent_key]["sprints"].setdefault("No Sprint", []).append(key)
 
-        # ---------- 3) Safety pass: canonicalize stray sprint keys ----------
+        # ---------- 3) Canonicalize sprint keys across all features ----------
         for feat in features.values():
             if not feat.get("sprints"):
                 continue
