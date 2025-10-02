@@ -634,26 +634,49 @@ function hideLinksTypeTooltipWithDelay() {
 }
 
 
-// ✅ Init depending on page
+// --- Remember Dashboard (Fault reports) selections ---
+function saveDashboardSettings() {
+  localStorage.setItem("dashboardFixVersion", getSelectedFixVersion());
+  localStorage.setItem("dashboardWorkGroup", getSelectedWorkGroup());
+}
+function restoreDashboardSettings() {
+  const fixVersion = localStorage.getItem("dashboardFixVersion");
+  const workGroup  = localStorage.getItem("dashboardWorkGroup");
+  const fixVersionSelect = document.getElementById("fixVersionSelect");
+  const workGroupSelect  = document.getElementById("workGroupSelect");
+  if (fixVersion && fixVersionSelect) fixVersionSelect.value = fixVersion;
+  if (workGroup  && workGroupSelect)  workGroupSelect.value  = workGroup;
+}
+
+// ===== Replace your existing DOMContentLoaded block with this =====
 document.addEventListener("DOMContentLoaded", () => {
   const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
   const isPlanning  = document.getElementById("committed-table") && document.getElementById("backlog-table");
 
   if (isDashboard) {
+    // Restore last used values before first render
+    restoreDashboardSettings();
+
     renderChart();
     renderTable();
+
     document.getElementById("refresh")?.addEventListener("click", () => {
       renderChart();
       renderTable();
     });
+
     document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
+      saveDashboardSettings();
       renderChart();
       renderTable();
     });
+
     document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+      saveDashboardSettings();
       renderChart();
       renderTable();
     });
+
     document.getElementById("download-excel")?.addEventListener("click", () => {
       const fixVersion = getSelectedFixVersion();
       const workGroup  = getSelectedWorkGroup();
@@ -663,8 +686,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (isPlanning) {
+    // (unchanged) PI Planning remembers its own selections
     restorePlanningSettings();
     loadPIPlanningData();
+
     document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
       savePlanningSettings();
       loadPIPlanningData();
@@ -674,6 +699,8 @@ document.addEventListener("DOMContentLoaded", () => {
       loadPIPlanningData();
     });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
+
+    // Export buttons (unchanged)
     document.getElementById("export-committed-excel")?.addEventListener("click", function () {
       const fixVersion = getSelectedFixVersion();
       const workGroup  = getSelectedWorkGroup();
@@ -688,11 +715,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ✅ Register this browser, then update the UI with the server’s real count
+  // Keep your unique-user tracking flow
   sendUserIdToBackend()
     .catch(() => {})
     .finally(showUniqueUserCount);
 });
+
 
 // Ensure tooltip (if created earlier) starts hidden
 let tt = document.getElementById('custom-tooltip');
