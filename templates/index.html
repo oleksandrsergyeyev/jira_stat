@@ -12,6 +12,7 @@
   <nav class="main-menu">
     <a href="/" class="menu-item {% if active_page == 'dashboard' %}active{% endif %}">Fault reports</a>
     <a href="/pi-planning" class="menu-item {% if active_page == 'pi-planning' %}active{% endif %}">PI Planning</a>
+    <a href="/backlog" class="menu-item {% if active_page == 'backlog' %}active{% endif %}">Backlog</a>
   </nav>
 
   <h1>Jira Fault Report Dashboard</h1>
@@ -19,7 +20,7 @@
   <div class="filters">
     <label for="workGroupSelect">Leading Work Group:</label>
     <select id="workGroupSelect">
-      <option value="ART - BCRC - BSW TFW" selected>Infra Team</option>
+      <option value="ART - BCRC - BSW TFW">Infra Team</option>
       <option value="ART - BCRC - FPT">Web Team</option>
       <option value="ART - BCRC - SysSW CI">CI Team</option>
       <option value="ART - BCRC - BSW Diag and Com">Diag and Com</option>
@@ -35,11 +36,10 @@
     <label for="fixVersionSelect">Fix Version:</label>
     <select id="fixVersionSelect">
       <option value="PI_24w49">PI_24w49</option>
-      <option value="PI_25w10" selected>PI_25w10</option>
-      <option value="QS_25w22" >QS_25w22</option>
-      <option value="QS_25w37" >QS_25w37</option>
+      <option value="PI_25w10">PI_25w10</option>
+      <option value="QS_25w22">QS_25w22</option>
+      <option value="QS_25w37">QS_25w37</option>
     </select>
-
 
     <button id="refresh">Refresh Data</button>
 
@@ -47,6 +47,30 @@
       📥 Export to Excel
     </button>
   </div>
+
+  <!-- Prefill selects from localStorage so script.js picks the right defaults -->
+  <script>
+    (function() {
+      try {
+        const ls = localStorage;
+        const savedFx = ls.getItem('selectedFixVersion') || 'PI_25w10';
+        const savedWg = ls.getItem('selectedWorkGroup')  || 'ART - BCRC - BSW TFW';
+
+        const fxSel = document.getElementById('fixVersionSelect');
+        const wgSel = document.getElementById('workGroupSelect');
+
+        function setIfExists(select, value) {
+          const has = Array.from(select.options).some(o => o.value === value);
+          if (has) select.value = value;
+        }
+        setIfExists(fxSel, savedFx);
+        setIfExists(wgSel, savedWg);
+
+        fxSel.addEventListener('change', () => ls.setItem('selectedFixVersion', fxSel.value));
+        wgSel.addEventListener('change', () => ls.setItem('selectedWorkGroup',  wgSel.value));
+      } catch(e) { /* ignore */ }
+    })();
+  </script>
 
   <div class="dashboard-container">
     <div class="chart-section">
@@ -67,7 +91,7 @@
           </tr>
         </thead>
         <tbody>
-          <!-- JS will populate rows with <td class="one-line-cell"> for Jira ID and Delegated to -->
+          <!-- JS populates rows -->
         </tbody>
       </table>
     </div>
@@ -76,12 +100,11 @@
   <script src="{{ url_for('static', filename='script.js') }}"></script>
   <script>
     document.getElementById("download-excel").addEventListener("click", function () {
-      const fixVersion = document.getElementById("fixVersionSelect")?.value || "PI_25w10";
-      const workGroup = document.getElementById("workGroupSelect")?.value || "ART - BCRC - BSW TFW";
-      const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-      window.location.href = `/export_excel${query}`;
+      const fx = document.getElementById("fixVersionSelect")?.value || "PI_25w10";
+      const wg = document.getElementById("workGroupSelect")?.value || "ART - BCRC - BSW TFW";
+      window.location.href = `/export_excel?fixVersion=${encodeURIComponent(fx)}&workGroup=${encodeURIComponent(wg)}`;
     });
   </script>
-<div id="unique-users-count" class="unique-users-counter"></div>
+  <div id="unique-users-count" class="unique-users-counter"></div>
 </body>
 </html>

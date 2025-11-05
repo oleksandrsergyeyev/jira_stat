@@ -117,13 +117,37 @@ async function loadPIPlanningData() {
 
         renderFeatureTable(committed, "committed-table", sprints);
         renderCommittedSummary(committed, "committed-summary");
-        renderFeatureTable(backlog, "backlog-table", sprints);
+        // ... after you build `backlog`
+        if (document.getElementById("backlog-table")) {
+          renderFeatureTable(backlog, "backlog-table", sprints);
+        }
         renderGanttTimeline(committed, sprints);
         applyFilter();
     } finally {
         hideLoading();
     }
 }
+
+async function loadBacklogData() {
+  showLoading();
+  try {
+    const workGroup = getSelectedWorkGroup();
+    if (!workGroup) { hideLoading(); return; }
+
+    const url = `/backlog_data?workGroup=${encodeURIComponent(workGroup)}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    // Convert dict -> array of [key, feature] pairs
+    const features = Object.entries(data);
+    // Reuse the same renderer; pass [] to hide sprint columns
+    renderFeatureTable(features, "backlog-table", []);
+    applyFilter();
+  } finally {
+    hideLoading();
+  }
+}
+
 
 // Config for columns (update if columns added/removed in future)
 const piPlanningColumns = [
@@ -648,15 +672,27 @@ function restoreDashboardSettings() {
   if (workGroup  && workGroupSelect)  workGroupSelect.value  = workGroup;
 }
 
+// --- Remember Backlog selections ---
+function saveBacklogSettings() {
+  localStorage.setItem("backlogWorkGroup", getSelectedWorkGroup());
+}
+function restoreBacklogSettings() {
+  const workGroup = localStorage.getItem("backlogWorkGroup");
+  if (workGroup) {
+    const workGroupSelect = document.getElementById("workGroupSelect");
+    if (workGroupSelect) workGroupSelect.value = workGroup;
+  }
+}
+
+
 // ===== Replace your existing DOMContentLoaded block with this =====
 document.addEventListener("DOMContentLoaded", () => {
   const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
-  const isPlanning  = document.getElementById("committed-table") && document.getElementById("backlog-table");
+  const isPlanning  = !!document.getElementById("committed-table");
+  const isBacklog   = !!document.getElementById("backlog-table") && !document.getElementById("committed-table");
 
   if (isDashboard) {
-    // Restore last used values before first render
     restoreDashboardSettings();
-
     renderChart();
     renderTable();
 
@@ -664,29 +700,19 @@ document.addEventListener("DOMContentLoaded", () => {
       renderChart();
       renderTable();
     });
-
     document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
       saveDashboardSettings();
       renderChart();
       renderTable();
     });
-
     document.getElementById("workGroupSelect")?.addEventListener("change", () => {
       saveDashboardSettings();
       renderChart();
       renderTable();
     });
-
-    document.getElementById("download-excel")?.addEventListener("click", () => {
-      const fixVersion = getSelectedFixVersion();
-      const workGroup  = getSelectedWorkGroup();
-      const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-      window.location.href = `/export_excel${query}`;
-    });
   }
 
   if (isPlanning) {
-    // (unchanged) PI Planning remembers its own selections
     restorePlanningSettings();
     loadPIPlanningData();
 
@@ -700,27 +726,33 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
 
-    // Export buttons (unchanged)
     document.getElementById("export-committed-excel")?.addEventListener("click", function () {
       const fixVersion = getSelectedFixVersion();
       const workGroup  = getSelectedWorkGroup();
       const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
       window.location.href = `/export_committed_excel${query}`;
     });
+  }
+
+  if (isBacklog) {
+    restoreBacklogSettings();
+    loadBacklogData();
+
+    document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+      saveBacklogSettings();
+      loadBacklogData();
+    });
+    document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
+
     document.getElementById("export-backlog-excel")?.addEventListener("click", function () {
-      const fixVersion = getSelectedFixVersion();
       const workGroup  = getSelectedWorkGroup();
-      const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+      const query = `?workGroup=${encodeURIComponent(workGroup)}`;
       window.location.href = `/export_backlog_excel${query}`;
     });
   }
 
-  // Keep your unique-user tracking flow
-  sendUserIdToBackend()
-    .catch(() => {})
-    .finally(showUniqueUserCount);
+  sendUserIdToBackend().catch(() => {}).finally(showUniqueUserCount);
 });
-
 
 // Ensure tooltip (if created earlier) starts hidden
 let tt = document.getElementById('custom-tooltip');

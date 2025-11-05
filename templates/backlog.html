@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>PI Planning</title>
+  <title>Backlog</title>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
@@ -39,20 +39,13 @@
 
   <nav class="main-menu">
     <a href="/" class="menu-item">Fault reports</a>
-    <a href="/pi-planning" class="menu-item active">PI Planning</a>
-    <a href="/backlog" class="menu-item">Backlog</a>
+    <a href="/pi-planning" class="menu-item">PI Planning</a>
+    <a href="/backlog" class="menu-item active">Backlog</a>
   </nav>
 
-  <h1>PI Planning Table</h1>
+  <h1>Backlog (All Not-Done Features)</h1>
 
   <div class="filters">
-    <label for="fixVersionSelect">Fix Version:</label>
-    <select id="fixVersionSelect">
-      <option value="PI_24w49">PI_24w49</option>
-      <option value="PI_25w10" selected>PI_25w10</option>
-      <option value="QS_25w22">QS_25w22</option>
-      <option value="QS_25w37">QS_25w37</option>
-    </select>
     <label for="workGroupSelect">Leading Work Group:</label>
     <select id="workGroupSelect">
       <option value="ART - BCRC - BSW TFW" selected>Infra Team</option>
@@ -67,46 +60,26 @@
       <option value="ART - BCRC - SysSW System Safety and Security">Safety & Security</option>
       <option value="ART - BCRC - Moni">TPMS</option>
     </select>
+
     <label for="globalFilter">Filter:</label>
     <input type="text" id="globalFilter" placeholder="Search table..." />
+
+    <button id="export-backlog-excel"
+      style="margin-left: 10px; padding: 10px 16px; background-color: #17a2b8; color: white; border: none; border-radius: 5px; cursor: pointer;">
+      📥 Export Backlog to Excel
+    </button>
   </div>
 
-  <div class="section-header">
-    <h2>Committed Features</h2>
-    <div>
-      <button class="collapse-btn" onclick="toggleTable('committed-table', this)">⬆ Collapse</button>
-      <button id="export-committed-excel"
-        style="margin-left: 10px; padding: 10px 16px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
-        📥 Export Committed to Excel
-      </button>
-    </div>
-  </div>
-  <!-- Column toggler bar for committed table -->
-  <div id="committed-column-toggles" class="column-toggles"></div>
-  <div id="committed-table" class="collapsible-section"></div>
-
-  <!-- Summary goes outside the table -->
-  <div id="committed-summary"></div>
-
-  <!-- ===== Feature Sprint Timeline (Gantt) ===== -->
-  <div class="section-header">
-    <h2>Feature Sprint Timeline (Gantt)</h2>
-    <div>
-      <button class="collapse-btn" onclick="toggleTable('gantt-wrapper', this)">⬆ Collapse</button>
-    </div>
-  </div>
-
-  <div id="gantt-wrapper" class="gantt-wrapper">
-    <div id="gantt-container"></div>
-  </div>
+  <!-- Column toggler bar for backlog table -->
+  <div id="backlog-column-toggles" class="column-toggles"></div>
+  <div id="backlog-table" class="collapsible-section"></div>
 
   <script src="/static/script.js"></script>
   <script>
-    document.getElementById("export-committed-excel")?.addEventListener("click", function () {
-      const fixVersion = document.getElementById("fixVersionSelect")?.value || "PI_25w10";
+    document.getElementById("export-backlog-excel")?.addEventListener("click", function () {
       const workGroup = document.getElementById("workGroupSelect")?.value || "ART - BCRC - BSW TFW";
-      const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-      window.location.href = `/export_committed_excel${query}`;
+      const query = `?workGroup=${encodeURIComponent(workGroup)}`;
+      window.location.href = `/export_backlog_excel${query}`;
     });
   </script>
 
