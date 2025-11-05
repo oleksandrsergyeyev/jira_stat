@@ -527,18 +527,22 @@ def backlog_data_service(work_group: str) -> dict:
         "status", "priority", "fixVersions", "customfield_10708", "assignee",
         "customfield_13801"  # Capability link
     ]
-    jql = f'"Leading Work Group" = "{work_group}" ORDER BY updated DESC'
-    data = _jira_search(jql, fields_needed, max_results=1000)
-    if not data:
+
+    # Narrow on the server (but don't use issuetype name to avoid env differences)
+    jql = f'"Leading Work Group" = "{work_group}" AND statusCategory != Done'
+
+    # >>> KEY CHANGE: paginate instead of taking only the first 1000
+    issues = _jira_search_all(jql, fields_needed, page_size=500, hard_cap=20000)
+    if not issues:
+        print(f"[Backlog] WG='{work_group}': no results from Jira")
         return {}
 
-    issues = data.get("issues", [])
     features: dict[str, dict] = {}
     cap_cache: dict[str, str] = {}
 
     for it in issues:
         key = it.get("key", "")
-        f = (it.get("fields") or {})
+        f = it.get("fields") or {}
         if not _is_feature_type(f):
             continue
         if _status_category_key(f) == "done":
@@ -554,15 +558,16 @@ def backlog_data_service(work_group: str) -> dict:
             "parent_summary": _get_issue_summary(cap_key, cap_cache) if cap_key else "",
             "fixVersions": _fix_versions(f),
             "linked_issues": _extract_linked_issue_links((f.get("issuelinks") or [])),
-            "sprints": {},  # not used on backlog page but keep structure consistent
+            "sprints": {},                 # not used on backlog page but kept for consistency
             "story_points": _story_points(f),
             "sum_story_points": 0.0,
             "assignee": _assignee_name(f),
             "stories_detail": [],
         }
 
-    print(f"[Backlog] WG='{work_group}': total={len(issues)} features_not_done={len(features)}")
+    print(f"[Backlog] WG='{work_group}': scanned={len(issues)} features_not_done={len(features)}")
     return features
+
 
 # ======================================================================
 #                               FLASK ROUTES
