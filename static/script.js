@@ -1,106 +1,121 @@
+/* =========================
+   PI Planning / Dashboard JS
+   ========================= */
+
 let currentSortOrder = 'asc';
 
+// --- helpers ---
+const norm = s => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+// Exclusion state: applied ONLY after user clicks "Apply"
+let activeExcludedRaw = "";
+
+// Parse multi-name input safely. Supports:
+// - ; | or newline as separators
+// - "Lastname, Firstname" with quotes
+// - bare "Lastname, Firstname" (pairs)
+function parseExcludedList(raw) {
+  if (!raw) return [];
+  raw = String(raw).trim();
+
+  const quoted = [];
+  raw = raw.replace(/"([^"]+)"/g, (_, m) => {
+    quoted.push(m.trim());
+    return `<<Q${quoted.length - 1}>>`;
+  });
+
+  let items = [];
+  if (/[;\n|]/.test(raw)) {
+    items = raw.split(/[;\n|]+/).map(s => s.trim()).filter(Boolean);
+  } else if (raw.includes(',')) {
+    const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+    if (parts.length % 2 === 0) {
+      for (let i = 0; i < parts.length; i += 2) items.push(`${parts[i]}, ${parts[i + 1]}`);
+    } else {
+      items = [raw];
+    }
+  } else {
+    items = [raw];
+  }
+
+  return items.map(s =>
+    s.replace(/<<Q(\d+)>>/g, (_, i) => quoted[Number(i)] || "")
+  ).map(norm).filter(Boolean);
+}
+function getActiveExcludedSet() { return new Set(parseExcludedList(activeExcludedRaw)); }
+
 function getSelectedFixVersion() {
-    return document.getElementById("fixVersionSelect")?.value;
+  return document.getElementById("fixVersionSelect")?.value;
 }
 function getSelectedWorkGroup() {
-    return document.getElementById("workGroupSelect")?.value;
+  return document.getElementById("workGroupSelect")?.value;
 }
 
 function applyFilter() {
-    const filterInput = document.getElementById("globalFilter");
-    if (!filterInput) return;
-
-    const filter = filterInput.value.toLowerCase();
-    document.querySelectorAll("table tbody tr").forEach(row => {
-        row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
-    });
+  const filterInput = document.getElementById("globalFilter");
+  if (!filterInput) return;
+  const filter = filterInput.value.toLowerCase();
+  document.querySelectorAll("table tbody tr").forEach(row => {
+    row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
+  });
 }
 
 function sortTable(header) {
-    const table = header.closest("table");
-    const tbody = table.querySelector("tbody");
-    const index = Array.from(header.parentNode.children).indexOf(header);
-    const rows = Array.from(tbody.querySelectorAll("tr"));
-    const ascending = !header.classList.contains("asc");
+  const table = header.closest("table");
+  const tbody = table.querySelector("tbody");
+  const index = Array.from(header.parentNode.children).indexOf(header);
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+  const ascending = !header.classList.contains("asc");
 
-    rows.sort((a, b) => {
-        const aText = a.cells[index]?.innerText.toLowerCase() || "";
-        const bText = b.cells[index]?.innerText.toLowerCase() || "";
-        return ascending ? aText.localeCompare(bText) : bText.localeCompare(aText);
-    });
+  rows.sort((a, b) => {
+    const aText = a.cells[index]?.innerText.toLowerCase() || "";
+    const bText = b.cells[index]?.innerText.toLowerCase() || "";
+    return ascending ? aText.localeCompare(bText) : bText.localeCompare(aText);
+  });
 
-    tbody.innerHTML = "";
-    rows.forEach(row => tbody.appendChild(row));
-    table.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
-    header.classList.add(ascending ? "asc" : "desc");
+  tbody.innerHTML = "";
+  rows.forEach(row => tbody.appendChild(row));
+  table.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
+  header.classList.add(ascending ? "asc" : "desc");
 }
 
 function toggleTable(id, btn) {
-    const section = document.getElementById(id);
-    const isHidden = section.style.display === "none";
-    section.style.display = isHidden ? "block" : "none";
-    btn.textContent = isHidden ? "⬆ Collapse" : "⬇ Expand";
+  const section = document.getElementById(id);
+  const isHidden = section.style.display === "none";
+  section.style.display = isHidden ? "block" : "none";
+  btn.textContent = isHidden ? "⬆ Collapse" : "⬇ Expand";
 }
 
-// --- Remember PI Planning selections ---
+// --- remember page selections ---
 function savePlanningSettings() {
-    localStorage.setItem("piPlanningFixVersion", getSelectedFixVersion());
-    localStorage.setItem("piPlanningWorkGroup", getSelectedWorkGroup());
+  localStorage.setItem("piPlanningFixVersion", getSelectedFixVersion());
+  localStorage.setItem("piPlanningWorkGroup", getSelectedWorkGroup());
 }
-
 function restorePlanningSettings() {
-    const fixVersion = localStorage.getItem("piPlanningFixVersion");
-    const workGroup = localStorage.getItem("piPlanningWorkGroup");
-
-    if (fixVersion) {
-        const fixVersionSelect = document.getElementById("fixVersionSelect");
-        if (fixVersionSelect) fixVersionSelect.value = fixVersion;
-    }
-    if (workGroup) {
-        const workGroupSelect = document.getElementById("workGroupSelect");
-        if (workGroupSelect) workGroupSelect.value = workGroup;
-    }
+  const fv = localStorage.getItem("piPlanningFixVersion");
+  const wg = localStorage.getItem("piPlanningWorkGroup");
+  if (fv) { const el = document.getElementById("fixVersionSelect"); if (el) el.value = fv; }
+  if (wg) { const el = document.getElementById("workGroupSelect");  if (el) el.value = wg; }
 }
 
-// PI Planning logic with cross-PI backlog
-function showLoading() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.style.display = 'flex';
-}
-function hideLoading() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.style.display = 'none';
-}
+function showLoading() { const o = document.getElementById('loading-overlay'); if (o) o.style.display = 'flex'; }
+function hideLoading() { const o = document.getElementById('loading-overlay'); if (o) o.style.display = 'none'; }
 
-// === Exclude assignees helpers ===
-function parseExcludedAssigneesInput() {
-  const input = document.getElementById("excludeAssigneesInput");
-  if (!input) return new Set();
-  return new Set(
-    input.value
-      .split(",")
-      .map(s => s.trim())
-      .filter(Boolean)
-      .map(s => s.toLowerCase())
-  );
-}
-function saveExcludedAssignees() {
-  const raw = document.getElementById("excludeAssigneesInput")?.value ?? "";
-  localStorage.setItem("piPlanningExcludedAssignees", raw);
-}
+// --- Exclude UI helpers (storage only; Apply controls state) ---
 function restoreExcludedAssignees() {
   const saved = localStorage.getItem("piPlanningExcludedAssignees");
-  if (saved && document.getElementById("excludeAssigneesInput")) {
-    document.getElementById("excludeAssigneesInput").value = saved;
-  }
+  const input = document.getElementById("excludeAssigneesInput");
+  if (input && saved != null) input.value = saved;
 }
-// Build <datalist> options from current data (display names)
+function persistExcludedAssigneesRaw(raw) {
+  localStorage.setItem("piPlanningExcludedAssignees", raw || "");
+}
+
+// Build <datalist> suggestions from data
 function populateAssigneeSuggestions(dataObj) {
   const dl = document.getElementById("assignee-suggestions");
   if (!dl) return;
   const seen = new Set();
-  // Collect from feature assignee and story assignees
   Object.values(dataObj || {}).forEach(f => {
     if (f.assignee) seen.add(f.assignee);
     if (Array.isArray(f.stories_detail)) {
@@ -118,86 +133,76 @@ function populateAssigneeSuggestions(dataObj) {
   });
 }
 
-
+/* ========================
+   PI Planning main loader
+   ======================== */
 async function loadPIPlanningData() {
   showLoading();
+  function getExcludedRaw() {
+    const el = document.getElementById("excludeAssigneesInput");
+    return (el?.value || "").trim();
+  }
   try {
     const fixVersion = getSelectedFixVersion();
     const workGroup  = getSelectedWorkGroup();
-    if (!fixVersion || !workGroup) {
-      hideLoading();
-      return;
-    }
+    if (!fixVersion || !workGroup) return;
 
-    const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+    const excludedRaw = getExcludedRaw();
+    const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}${
+      excludedRaw ? `&excludeAssignees=${encodeURIComponent(excludedRaw)}` : ""
+    }`;
     const response = await fetch(url, { cache: "no-store" });
     const data = await response.json();
 
-    // Build assignee suggestions from raw data (before we filter)
+    // suggestions based on RAW data
     populateAssigneeSuggestions(data);
 
-    // Read excluded assignees (case-insensitive)
-    const excluded = parseExcludedAssigneesInput();
-    const norm = s => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+    const excluded = getActiveExcludedSet();
 
-    for (const [featureId, feature] of Object.entries(data)) {
+    // 1) story-level filtering (when stories_detail is present)
+    for (const [, feature] of Object.entries(data)) {
       const details = Array.isArray(feature.stories_detail) ? feature.stories_detail : [];
 
-      // story key -> normalized assignee
       const byKeyAssignee = new Map(
-        details
-          .filter(d => d && d.key)
-          .map(d => [String(d.key), norm(d.assignee)])
+        details.filter(d => d && d.key).map(d => [String(d.key), norm(d.assignee)])
       );
 
-      // keep details whose assignee is NOT in excluded
-      const keptDetails = details.filter(d => !excluded.has(norm(d.assignee)));
+      const keptDetails = excluded.size
+        ? details.filter(d => !excluded.has(norm(d.assignee)))
+        : details.slice();
+
       feature.stories_detail = keptDetails;
+      feature.sum_story_points = keptDetails.reduce((sum, d) => sum + (Number(d.story_points) || 0), 0);
 
-      // recompute sum from kept stories
-      feature.sum_story_points = keptDetails.reduce((acc, d) => acc + (Number(d.story_points) || 0), 0);
-
-      // filter sprint keys; IMPORTANT: if assignee is unknown, KEEP the story (don’t over-filter)
       const sMap = feature.sprints || {};
       const newSprints = {};
       for (const [sprintName, arr] of Object.entries(sMap)) {
         const keptKeys = (Array.isArray(arr) ? arr : []).filter(k => {
-          const a = byKeyAssignee.get(String(k));   // undefined if we don’t know this story’s assignee
-          return !a || !excluded.has(a);            // unknown => keep; known & excluded => drop
+          if (!excluded.size) return true;
+          const a = byKeyAssignee.get(String(k)); // may be undefined if backend didn’t supply details
+          return !a || !excluded.has(a);          // unknown assignee => keep
         });
         newSprints[sprintName] = keptKeys;
       }
       feature.sprints = newSprints;
     }
 
-
+    // 2) feature-level filtering (ALWAYS available)
+    const dropFeature = f => excluded.size && excluded.has(norm(f.assignee));
 
     // Define sprint columns
     const sprints = ["Sprint 1","Sprint 2","Sprint 3","Sprint 4","Sprint 5","No Sprint"];
 
-    function featureInSelectedPI(feature, fv) {
-      return Array.isArray(feature.fixVersions) && feature.fixVersions.includes(fv);
-    }
-    function isDone(feature) {
-      return (feature.status || "").toLowerCase() === "done";
-    }
-
-    // Keep features that still have any visible work after exclusion
-    const visibleEntries = Object.entries(data).filter(([id, feature]) => {
-      const hasKeptDetails = Array.isArray(feature.stories_detail) && feature.stories_detail.length > 0;
-      const hasKeptSprintStories = Object.values(feature.sprints || {}).some(arr => Array.isArray(arr) && arr.length > 0);
-
-      // If we can’t tell (no details & empty sprint lists because we never knew assignees),
-      // be conservative and KEEP the feature:
-      const weKnowNothing = !Array.isArray(feature.stories_detail) && !feature.sprints;
-      if (weKnowNothing) return true;
-
-      return hasKeptDetails || hasKeptSprintStories;
-    });
+    const featureInSelectedPI = (feature, fv) =>
+      Array.isArray(feature.fixVersions) && feature.fixVersions.includes(fv);
+    const isDone = feature => (feature.status || "").toLowerCase() === "done";
 
     const committed = [];
     const backlog   = [];
-    for (const [key, feature] of visibleEntries) {
+
+    for (const [key, feature] of Object.entries(data)) {
+      if (dropFeature(feature)) continue; // remove entire feature by assignee
+
       if (feature.pi_scope === "Committed" && featureInSelectedPI(feature, fixVersion)) {
         committed.push([key, feature]);
       } else if (!isDone(feature)) {
@@ -205,49 +210,47 @@ async function loadPIPlanningData() {
       }
     }
 
-
-
-    // Render table + summary + gantt from filtered data
     renderFeatureTable(committed, "committed-table", sprints);
     renderCommittedSummary(committed, "committed-summary");
     renderGanttTimeline(committed, sprints);
 
-    applyFilter(); // global text filter
-  } finally {
-    hideLoading();
-  }
-}
-
-
-async function loadBacklogData() {
-  showLoading();
-  try {
-    const workGroup = getSelectedWorkGroup();
-    if (!workGroup) { hideLoading(); return; }
-
-    const url = `/backlog_data?workGroup=${encodeURIComponent(workGroup)}`;
-    const resp = await fetch(url);
-    const data = await resp.json();
-
-    // Convert dict -> array of [key, feature] pairs
-    const features = Object.entries(data);
-    // Reuse the same renderer; pass [] to hide sprint columns
-    renderFeatureTable(features, "backlog-table", []);
     applyFilter();
   } finally {
     hideLoading();
   }
 }
 
+/* =====================
+   Backlog (unchanged)
+   ===================== */
+async function loadBacklogData() {
+  showLoading();
+  try {
+    const workGroup = getSelectedWorkGroup();
+    if (!workGroup) return;
 
-// Config for columns (update if columns added/removed in future)
+    const url = `/backlog_data?workGroup=${encodeURIComponent(workGroup)}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    renderFeatureTable(Object.entries(data), "backlog-table", []);
+    applyFilter();
+  } finally {
+    hideLoading();
+  }
+}
+
+/* ======================
+   Table render + toggles
+   ====================== */
+
 const piPlanningColumns = [
   { key: 'rownum', label: '#' },
   { key: 'capability', label: 'Capability' },
   { key: 'featureid', label: 'Feature ID' },
   { key: 'featurename', label: 'Feature Name' },
   { key: 'storypoints', label: 'Feature St.P.' },
-  { key: 'totalpoints', label: 'St.P. sum' },  // NEW
+  { key: 'totalpoints', label: 'St.P. sum' },
   { key: 'assignee', label: 'Assignee' },
   { key: 'priority', label: 'Priority' },
   { key: 'status', label: 'Status' },
@@ -255,7 +258,6 @@ const piPlanningColumns = [
   { key: 'links', label: 'Links' }
 ];
 
-// Track hidden columns per table id
 const hiddenColumns = {
   'committed-table': new Set(),
   'backlog-table': new Set(),
@@ -265,13 +267,10 @@ function renderColumnToggles(containerId, sprints) {
   const togglesDiv = document.getElementById(containerId.replace('-table', '-column-toggles'));
   if (!togglesDiv) return;
 
-  // All base columns + sprints
   const columns = [...piPlanningColumns.map(col => col.label), ...sprints];
   togglesDiv.innerHTML = '';
   columns.forEach((colLabel, idx) => {
-    // Never hide row number column
     const isDisabled = idx === 0;
-    // Get current state for this column in this table
     const tableKey = containerId;
     const isHidden = hiddenColumns[tableKey]?.has(idx);
     const btn = document.createElement('button');
@@ -283,836 +282,437 @@ function renderColumnToggles(containerId, sprints) {
     btn.addEventListener('click', () => {
       if (isHidden) hiddenColumns[tableKey].delete(idx);
       else hiddenColumns[tableKey].add(idx);
-      // re-render table only
       window._rerenderFeatureTable(containerId, sprints);
-      renderColumnToggles(containerId, sprints); // update buttons state
+      renderColumnToggles(containerId, sprints);
     });
     togglesDiv.appendChild(btn);
   });
 }
 
-// Save a reference to the rendering fn so column toggles can trigger rerender
 window._rerenderFeatureTable = function(containerId, sprints) {
-  // Get features from rendered table (not ideal, but works since data is not big)
   const container = document.getElementById(containerId);
   if (!container) return;
-  const features = container._features || [];
-  renderFeatureTable(features, containerId, sprints);
-}
+  renderFeatureTable(container._features || [], containerId, sprints);
+};
 
 function renderFeatureTable(features, containerId, sprints) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
+  const container = document.getElementById(containerId);
+  if (!container) return;
 
-    container._features = features;
+  container._features = features;
+  renderColumnToggles(containerId, sprints);
 
-    renderColumnToggles(containerId, sprints);
+  const hidden = hiddenColumns[containerId] || new Set();
 
-    const hidden = hiddenColumns[containerId] || new Set();
+  const columnClasses = [
+    'col-rownum',
+    'col-capability',
+    'col-feature-id',
+    'col-feature-name',
+    'col-story-points',
+    'col-story-points',
+    'col-assignee',
+    'col-priority',
+    'col-status',
+    'col-pi-scope',
+    'col-links'
+  ];
 
-    // Define column classes (must match order of piPlanningColumns!)
-    const columnClasses = [
-      'col-rownum',
-      'col-capability',
-      'col-feature-id',
-      'col-feature-name',
-      'col-story-points',    // Feature SP
-      'col-story-points',    // Total SP ← SAME class
-      'col-assignee',
-      'col-priority',
-      'col-status',
-      'col-pi-scope',
-      'col-links'
-    ];
+  let tableHtml = '<table class="pi-planning-table"><thead><tr>';
+  const headerLabels = ['#','Capability','Feature ID','Feature Name','Feature St.P.','St.P. sum','Assignee','Prio','Status','PI Scope','Links'];
+  headerLabels.forEach((label, idx) => {
+    if (!hidden.has(idx))
+      tableHtml += `<th class="${columnClasses[idx]}" onclick="sortTable(this)">${label}</th>`;
+  });
+  sprints.forEach((sprint, i) => {
+    if (!hidden.has(piPlanningColumns.length + i))
+      tableHtml += `<th class="story-cell">${sprint}</th>`;
+  });
+  tableHtml += '</tr></thead><tbody>';
 
-    // HEADER
-    let tableHtml = '<table class="pi-planning-table"><thead><tr>';
-    const headerLabels = [
-      '#',
-      'Capability',
-      'Feature ID',
-      'Feature Name',
-      'Feature St.P.',
-      'St.P. sum',
-      'Assignee',
-      'Prio',
-      'Status',
-      'PI Scope',
-      'Links'
-    ];
-    headerLabels.forEach((colLabel, idx) => {
-        if (!hidden.has(idx))
-            tableHtml += `<th class="${columnClasses[idx]}" onclick="sortTable(this)">${colLabel}</th>`;
-    });
+  let rowIndex = 1;
+  for (const [featureId, feature] of features) {
+    tableHtml += '<tr>';
+    let colIdx = 0;
 
-    // Sprint columns
-    sprints.forEach((sprint, i) => {
-        if (!hidden.has(piPlanningColumns.length + i))
-            tableHtml += `<th class="story-cell">${sprint}</th>`;
-    });
-    tableHtml += '</tr></thead><tbody>';
-
-    // ROWS
-    let rowIndex = 1;
-    for (const [featureId, feature] of features) {
-        tableHtml += '<tr>';
-        let colIdx = 0;
-
-        // Row number
-        if (!hidden.has(colIdx++)) tableHtml += `<td class="col-rownum">${rowIndex}</td>`;
-        // Capability
-        if (!hidden.has(colIdx++)) {
-            const capCell = feature.parent_link
-              ? `<a href="https://jira-vira.volvocars.biz/browse/${feature.parent_link}" target="_blank">${feature.parent_summary || feature.parent_link}</a>`
-              : "";
-            tableHtml += `<td class="col-capability">${capCell}</td>`;
-        }
-        // Feature ID
-        if (!hidden.has(colIdx++))
-            tableHtml += `<td class="col-feature-id"><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a></td>`;
-        // Feature Name
-        if (!hidden.has(colIdx++))
-            tableHtml += `<td class="col-feature-name"><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>`;
-        // Feature Story Points
-        if (!hidden.has(colIdx++)) {
-            let sp = feature.story_points ?? "";
-            if (sp && !isNaN(Number(sp))) sp = parseFloat(sp);
-            tableHtml += `<td class="col-story-points">${sp !== "" ? sp : ""}</td>`;
-        }
-        // Total Story Points (feature’s stories)
-        if (!hidden.has(colIdx++)) {
-            let total = feature.sum_story_points ?? "";
-            if (total && !isNaN(Number(total))) total = parseFloat(total);
-            tableHtml += `<td class="col-story-points">${total !== "" ? total : ""}</td>`;
-        }
-        // Assignee
-        if (!hidden.has(colIdx++))
-            tableHtml += `<td class="col-assignee">${feature.assignee || ""}</td>`;
-        // Priority
-        if (!hidden.has(colIdx++))
-            tableHtml += `<td class="col-priority">${feature.priority || ""}</td>`;
-        // Status
-        if (!hidden.has(colIdx++))
-            tableHtml += `<td class="col-status">${feature.status || ""}</td>`;
-        // PI Scope
-        if (!hidden.has(colIdx++))
-            tableHtml += `<td class="col-pi-scope">${feature.pi_scope || ""}</td>`;
-        // Links (badge style)
-        if (!hidden.has(colIdx++)) {
-            const linksArr = feature.linked_issues || [];
-            const linksByType = {};
-            for (const link of linksArr) {
-                const type = link.link_type || "Other";
-                if (!linksByType[type]) linksByType[type] = [];
-                linksByType[type].push(link);
-            }
-            let badgesHtml = "";
-            Object.entries(linksByType).forEach(([type, links]) => {
-                badgesHtml += `
-                  <span class="links-type-badge" tabindex="0"
-                        data-links='${JSON.stringify(links)}'
-                        data-type="${type}">
-                    ${type} <span class="badge-count">(${links.length})</span>
-                  </span>
-                `;
-            });
-            tableHtml += `<td class="col-links">${badgesHtml}</td>`;
-        }
-
-        // Sprints
-        sprints.forEach((sprint, i) => {
-            if (!hidden.has(piPlanningColumns.length + i)) {
-                let stories = Array.isArray(feature.sprints[sprint]) ? feature.sprints[sprint] : [];
-                stories = stories.filter(storyKey =>
-                    typeof storyKey === "string" && !!storyKey && storyKey.trim() !== "" && storyKey !== "null" && storyKey !== "undefined"
-                );
-                if (stories.length) {
-                    tableHtml += `<td class="story-cell"><span class="story-badge" tabindex="0" data-stories='${JSON.stringify(stories)}'>${stories.length}</span></td>`;
-                } else {
-                    tableHtml += `<td class="story-cell"></td>`;
-                }
-            }
-        });
-        tableHtml += '</tr>';
-        rowIndex++;
+    if (!hidden.has(colIdx++)) tableHtml += `<td class="col-rownum">${rowIndex}</td>`;
+    if (!hidden.has(colIdx++)) {
+      const capCell = feature.parent_link
+        ? `<a href="https://jira-vira.volvocars.biz/browse/${feature.parent_link}" target="_blank">${feature.parent_summary || feature.parent_link}</a>`
+        : "";
+      tableHtml += `<td class="col-capability">${capCell}</td>`;
     }
-
-    // ===== Totals row (Committed table only) =====
-    if (containerId === 'committed-table') {
-        // Compute totals from current features
-        let totalFeatureSP = 0;
-        let totalStoriesSP = 0;
-        for (const [, feature] of features) {
-            const fsp = Number(feature.story_points) || 0;
-            const tsp = Number(feature.sum_story_points) || 0;
-            totalFeatureSP += fsp;
-            totalStoriesSP += tsp;
-        }
-
-        // Build totals row respecting hidden columns
-        tableHtml += '<tr class="totals-row">';
-        let colIdx = 0;
-        headerLabels.forEach((label, idx) => {
-            if (hidden.has(idx)) { colIdx++; return; }
-
-            // Put the word "Total" in the Feature Name column if visible,
-            // otherwise put it into the first visible column.
-            const isFeatureNameCol = (idx === 3);
-            const isFeatureSPCol   = (idx === 4);
-            const isStoriesSPCol   = (idx === 5);
-
-            let cellContent = '';
-            if (isFeatureNameCol) {
-                cellContent = 'Total';
-            } else if (isFeatureSPCol) {
-                cellContent = String(totalFeatureSP);
-            } else if (isStoriesSPCol) {
-                cellContent = String(totalStoriesSP);
-            } else if (idx === 0) {
-                // If feature name is hidden, at least label the first visible col
-                // (we'll overwrite with "Total" only when Feature Name is hidden)
-                cellContent = '';
-            }
-
-            tableHtml += `<td class="${columnClasses[idx]}">${cellContent}</td>`;
-            colIdx++;
-        });
-
-        // Sprint columns remain empty by request
-        sprints.forEach((sprint, i) => {
-            if (!hidden.has(piPlanningColumns.length + i)) {
-                tableHtml += `<td class="story-cell"></td>`;
-            }
-        });
-
-        tableHtml += '</tr>';
+    if (!hidden.has(colIdx++))
+      tableHtml += `<td class="col-feature-id"><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a></td>`;
+    if (!hidden.has(colIdx++))
+      tableHtml += `<td class="col-feature-name"><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>`;
+    if (!hidden.has(colIdx++)) {
+      let sp = feature.story_points ?? "";
+      if (sp && !isNaN(Number(sp))) sp = parseFloat(sp);
+      tableHtml += `<td class="col-story-points">${sp !== "" ? sp : ""}</td>`;
     }
-
-    tableHtml += '</tbody></table>';
-    container.innerHTML = tableHtml;
-
-    // Tooltip logic unchanged
-    document.querySelectorAll('.story-badge').forEach(badge => {
-        badge.addEventListener('mouseenter', showCustomTooltip);
-        badge.addEventListener('focus', showCustomTooltip);
-        badge.addEventListener('mouseleave', hideCustomTooltipWithDelay);
-        badge.addEventListener('blur', hideCustomTooltipWithDelay);
-    });
-
-    document.querySelectorAll('.links-type-badge').forEach(badge => {
-        badge.addEventListener('mouseenter', showLinksTypeTooltip);
-        badge.addEventListener('focus', showLinksTypeTooltip);
-        badge.addEventListener('mouseleave', hideLinksTypeTooltipWithDelay);
-        badge.addEventListener('blur', hideLinksTypeTooltipWithDelay);
-    });
-
-    let tooltip = document.getElementById('custom-tooltip');
-    if (!tooltip) {
-        tooltip = document.createElement('div');
-        tooltip.id = 'custom-tooltip';
-        tooltip.className = 'custom-tooltip';
-        tooltip.style.display = 'none';
-        document.body.appendChild(tooltip);
+    if (!hidden.has(colIdx++)) {
+      let total = feature.sum_story_points ?? "";
+      if (total && !isNaN(Number(total))) total = parseFloat(total);
+      tableHtml += `<td class="col-story-points">${total !== "" ? total : ""}</td>`;
     }
-    tooltip.addEventListener('mouseenter', () => {
-        clearTimeout(tooltip._hideTimeout);
-    });
-    tooltip.addEventListener('mouseleave', hideCustomTooltipWithDelay);
-}
-
-
-function showCustomTooltip(event) {
-    const badge = event.currentTarget;
-    let stories = [];
-    try {
-        stories = JSON.parse(badge.getAttribute('data-stories')) || [];
-    } catch { }
-    stories = stories.filter(storyKey =>
-        !!storyKey && typeof storyKey === "string" && storyKey.trim() !== "" && !/^null|undefined$/i.test(storyKey)
-    );
-    if (!stories.length) return;
-    let tooltip = document.getElementById('custom-tooltip');
-    if (!tooltip) return;
-
-    tooltip.innerHTML = stories.map(key =>
-        `<a href="https://jira-vira.volvocars.biz/browse/${key}" target="_blank">${key}</a>`
-    ).join('');
-    tooltip.style.display = 'block';
-
-    // Position below badge, centered, and FIXED, so it doesn't move with mouse
-    const rect = badge.getBoundingClientRect();
-    const scrollY = window.scrollY !== undefined ? window.scrollY : window.pageYOffset;
-    const scrollX = window.scrollX !== undefined ? window.scrollX : window.pageXOffset;
-    tooltip.style.left = (rect.left + scrollX + rect.width / 2 - tooltip.offsetWidth / 2) + "px";
-    tooltip.style.top = (rect.bottom + scrollY + 6) + "px";
-}
-
-function hideCustomTooltipWithDelay() {
-    let tooltip = document.getElementById('custom-tooltip');
-    if (tooltip) {
-        clearTimeout(tooltip._hideTimeout);
-        tooltip._hideTimeout = setTimeout(() => {
-            tooltip.style.display = 'none';
-        }, 250);
-    }
-}
-
-
-// Tooltip helpers
-function handleStoryBadgeHover(event) {
-    const badge = event.currentTarget;
-    let stories = [];
-    try {
-        stories = JSON.parse(badge.getAttribute('data-stories')) || [];
-    } catch { }
-    stories = stories.filter(storyKey =>
-        !!storyKey && typeof storyKey === "string" && storyKey.trim() !== "" && !/^null|undefined$/i.test(storyKey)
-    );
-    if (!stories.length) return;
-    let tooltip = document.getElementById('custom-tooltip');
-    if (!tooltip) {
-        tooltip = document.createElement('div');
-        tooltip.id = 'custom-tooltip';
-        tooltip.style.position = 'fixed';
-        tooltip.style.zIndex = 9999;
-        tooltip.style.background = '#fff';
-        tooltip.style.border = '1px solid #007bff';
-        tooltip.style.borderRadius = '8px';
-        tooltip.style.padding = '10px 16px';
-        tooltip.style.boxShadow = '0 4px 16px rgba(0,0,0,0.13)';
-        tooltip.style.fontSize = '14px';
-        tooltip.style.maxWidth = '350px';
-        tooltip.style.pointerEvents = 'none';
-        tooltip.style.whiteSpace = 'pre-line';
-        tooltip.style.display = 'none';
-        document.body.appendChild(tooltip);
-    }
-    tooltip.innerHTML = stories.map(key =>
-        `<a href="https://jira-vira.volvocars.biz/browse/${key}" target="_blank" style="color:#007bff;display:block;margin:2px 0;">${key}</a>`
-    ).join('');
-    tooltip.style.display = 'block';
-
-    const rect = badge.getBoundingClientRect();
-    tooltip.style.left = (rect.left + window.scrollX + rect.width/2) + "px";
-    tooltip.style.top = (rect.bottom + window.scrollY + 8) + "px";
-}
-function hideCustomTooltip() {
-    let tooltip = document.getElementById('custom-tooltip');
-    if (tooltip) tooltip.style.display = 'none';
-}
-function moveCustomTooltip(event) {
-    let tooltip = document.getElementById('custom-tooltip');
-    if (tooltip && tooltip.style.display === 'block') {
-        tooltip.style.left = (event.clientX + 20) + "px";
-        tooltip.style.top = (event.clientY + 10) + "px";
-    }
-}
-
-// Fault Report Dashboard support (unchanged)
-async function fetchData() {
-    const version = getSelectedFixVersion();
-    const workGroup = getSelectedWorkGroup();
-    const response = await fetch(`/stats?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}`);
-    return await response.json();
-}
-
-async function fetchIssues() {
-    const version = getSelectedFixVersion();
-    const workGroup = getSelectedWorkGroup();
-    const response = await fetch(`/issue_data?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}`);
-    return await response.json();
-}
-
-async function renderChart() {
-    const stats = await fetchData();
-    const labels = Object.keys(stats);
-    const counts = Object.values(stats);
-
-    if (window.myChart) window.myChart.destroy();
-
-    const ctx = document.getElementById("statsChart").getContext("2d");
-    window.myChart = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Class Count",
-                data: counts,
-                backgroundColor: "rgba(75, 192, 192, 0.5)",
-                borderColor: "rgba(75, 192, 192, 1)",
-                borderWidth: 1,
-                barThickness: 40
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        font: { size: 16 },
-                        stepSize: 1,
-                        callback: value => Number.isInteger(value) ? value : null
-                    }
-                },
-                x: {
-                    ticks: { font: { size: 14 } }
-                }
-            },
-            plugins: {
-                legend: {
-                    labels: { font: { size: 18 } }
-                }
-            }
-        }
-    });
-}
-
-async function renderTable() {
-    const issues = await fetchIssues();
-    const tbody = document.querySelector("#issueTable tbody");
-    if (!tbody) return;
-    tbody.innerHTML = "";
-
-    issues.forEach(issue => {
-        const linksHtml = (issue.linked_features || []).map(link =>
-            `<a href="${link.url}" target="_blank">${link.key}</a>`).join(" ");
-        const featureNames = (issue.linked_features || []).map(link =>
-            `${link.summary}`).join("; ");
-
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td class="one-line-cell"><a href="https://jira-vira.volvocars.biz/browse/${issue.key}" target="_blank">${issue.key}</a></td>
-            <td>${issue.summary}</td>
-            <td>${issue.status.name || issue.status}</td>
-            <td class="hide-labels">${(Array.isArray(issue.labels) ? issue.labels.join(", ") : "")}</td>
-            <td class="${issue.classes.length === 0 ? 'no-class' : ''}">
-                ${(Array.isArray(issue.classes) && issue.classes.length > 0) ? issue.classes.join(", ") : ""}
-            </td>
-            <td class="one-line-cell">${linksHtml}</td>
-            <td>${featureNames}</td>
+    if (!hidden.has(colIdx++))
+      tableHtml += `<td class="col-assignee">${feature.assignee || ""}</td>`;
+    if (!hidden.has(colIdx++))
+      tableHtml += `<td class="col-priority">${feature.priority || ""}</td>`;
+    if (!hidden.has(colIdx++))
+      tableHtml += `<td class="col-status">${feature.status || ""}</td>`;
+    if (!hidden.has(colIdx++))
+      tableHtml += `<td class="col-pi-scope">${feature.pi_scope || ""}</td>`;
+    if (!hidden.has(colIdx++)) {
+      const linksArr = feature.linked_issues || [];
+      const linksByType = {};
+      for (const link of linksArr) {
+        const type = link.link_type || "Other";
+        (linksByType[type] ||= []).push(link);
+      }
+      let badgesHtml = "";
+      Object.entries(linksByType).forEach(([type, links]) => {
+        badgesHtml += `
+          <span class="links-type-badge" tabindex="0"
+                data-links='${JSON.stringify(links)}'
+                data-type="${type}">
+            ${type} <span class="badge-count">(${links.length})</span>
+          </span>
         `;
-        tbody.appendChild(row);
+      });
+      tableHtml += `<td class="col-links">${badgesHtml}</td>`;
+    }
+
+    sprints.forEach((sprint, i) => {
+      if (!hidden.has(piPlanningColumns.length + i)) {
+        let stories = Array.isArray(feature.sprints[sprint]) ? feature.sprints[sprint] : [];
+        stories = stories.filter(k => typeof k === "string" && k.trim() && !/^null|undefined$/i.test(k));
+        tableHtml += stories.length
+          ? `<td class="story-cell"><span class="story-badge" tabindex="0" data-stories='${JSON.stringify(stories)}'>${stories.length}</span></td>`
+          : `<td class="story-cell"></td>`;
+      }
     });
 
-    document.getElementById("sortClasses")?.addEventListener("click", sortTableByClass);
+    tableHtml += '</tr>';
+    rowIndex++;
+  }
+
+  if (containerId === 'committed-table') {
+    let totalFeatureSP = 0;
+    let totalStoriesSP = 0;
+    for (const [, feature] of features) {
+      totalFeatureSP += Number(feature.story_points) || 0;
+      totalStoriesSP += Number(feature.sum_story_points) || 0;
+    }
+
+    tableHtml += '<tr class="totals-row">';
+    headerLabels.forEach((_, idx) => {
+      if (hidden.has(idx)) return;
+      const isFeatureNameCol = idx === 3;
+      const isFeatureSPCol = idx === 4;
+      const isStoriesSPCol = idx === 5;
+      let content = '';
+      if (isFeatureNameCol) content = 'Total';
+      else if (isFeatureSPCol) content = String(totalFeatureSP);
+      else if (isStoriesSPCol) content = String(totalStoriesSP);
+      tableHtml += `<td class="${columnClasses[idx]}">${content}</td>`;
+    });
+    sprints.forEach((_, i) => {
+      if (!hidden.has(piPlanningColumns.length + i)) tableHtml += `<td class="story-cell"></td>`;
+    });
+    tableHtml += '</tr>';
+  }
+
+  tableHtml += '</tbody></table>';
+  container.innerHTML = tableHtml;
+
+  // tooltips for story counts and link badges
+  document.querySelectorAll('.story-badge').forEach(b => {
+    b.addEventListener('mouseenter', onStoryBadgeEnter);
+    b.addEventListener('focus', onStoryBadgeEnter);
+    b.addEventListener('mouseleave', hideTooltipDelayed);
+    b.addEventListener('blur', hideTooltipDelayed);
+  });
+  document.querySelectorAll('.links-type-badge').forEach(b => {
+    b.addEventListener('mouseenter', onLinksBadgeEnter);
+    b.addEventListener('focus', onLinksBadgeEnter);
+    b.addEventListener('mouseleave', hideTooltipDelayed);
+    b.addEventListener('blur', hideTooltipDelayed);
+  });
+
+  ensureTooltip();
 }
 
+/* ==============
+   Tooltip logic
+   ============== */
+function ensureTooltip() {
+  let t = document.getElementById('custom-tooltip');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'custom-tooltip';
+    t.className = 'custom-tooltip';
+    t.style.display = 'none';
+    document.body.appendChild(t);
+  }
+  return t;
+}
+function positionTooltipUnder(el, tooltip) {
+  const rect = el.getBoundingClientRect();
+  tooltip.style.position = 'fixed';
+  tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + "px";
+  tooltip.style.top  = (rect.bottom + 6) + "px";
+}
+function onStoryBadgeEnter(e) {
+  const badge = e.currentTarget;
+  const tooltip = ensureTooltip();
+  let stories = [];
+  try { stories = JSON.parse(badge.getAttribute('data-stories')) || []; } catch {}
+  stories = stories.filter(k => k && typeof k === 'string');
+  if (!stories.length) return;
+  tooltip.innerHTML = stories.map(k =>
+    `<a href="https://jira-vira.volvocars.biz/browse/${k}" target="_blank">${k}</a>`
+  ).join('');
+  tooltip.style.display = 'block';
+  positionTooltipUnder(badge, tooltip);
+}
+function onLinksBadgeEnter(e) {
+  const badge = e.currentTarget;
+  const tooltip = ensureTooltip();
+  let links = [];
+  try { links = JSON.parse(badge.getAttribute('data-links')) || []; } catch {}
+  if (!links.length) return;
+  tooltip.innerHTML = links.map(l =>
+    `<a href="${l.url}" target="_blank">${l.key}${l.summary ? ': ' + l.summary : ''}</a>`
+  ).join('');
+  tooltip.style.display = 'block';
+  positionTooltipUnder(badge, tooltip);
+}
+function hideTooltipDelayed() {
+  const t = document.getElementById('custom-tooltip');
+  if (!t) return;
+  clearTimeout(t._hideTimeout);
+  t._hideTimeout = setTimeout(() => { t.style.display = 'none'; }, 250);
+}
+
+/* =========================
+   Fault Report (dashboard)
+   ========================= */
+async function fetchData() {
+  const version = getSelectedFixVersion();
+  const workGroup = getSelectedWorkGroup();
+  const response = await fetch(`/stats?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}`);
+  return await response.json();
+}
+async function fetchIssues() {
+  const version = getSelectedFixVersion();
+  const workGroup = getSelectedWorkGroup();
+  const response = await fetch(`/issue_data?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}`);
+  return await response.json();
+}
+async function renderChart() {
+  const stats = await fetchData();
+  const labels = Object.keys(stats);
+  const counts = Object.values(stats);
+
+  if (window.myChart) window.myChart.destroy();
+
+  const ctx = document.getElementById("statsChart").getContext("2d");
+  window.myChart = new Chart(ctx, {
+    type: "bar",
+    data: { labels, datasets: [{ label: "Class Count", data: counts, backgroundColor: "rgba(75, 192, 192, 0.5)", borderColor: "rgba(75, 192, 192, 1)", borderWidth: 1, barThickness: 40 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: true, ticks: { font: { size: 16 }, stepSize: 1, callback: v => Number.isInteger(v) ? v : null } },
+        x: { ticks: { font: { size: 14 } } }
+      },
+      plugins: { legend: { labels: { font: { size: 18 } } } }
+    }
+  });
+}
+async function renderTable() {
+  const issues = await fetchIssues();
+  const tbody = document.querySelector("#issueTable tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  issues.forEach(issue => {
+    const linksHtml = (issue.linked_features || []).map(l => `<a href="${l.url}" target="_blank">${l.key}</a>`).join(" ");
+    const featureNames = (issue.linked_features || []).map(l => `${l.summary}`).join("; ");
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td class="one-line-cell"><a href="https://jira-vira.volvocars.biz/browse/${issue.key}" target="_blank">${issue.key}</a></td>
+      <td>${issue.summary}</td>
+      <td>${issue.status.name || issue.status}</td>
+      <td class="hide-labels">${Array.isArray(issue.labels) ? issue.labels.join(", ") : ""}</td>
+      <td class="${issue.classes.length === 0 ? 'no-class' : ''}">${(Array.isArray(issue.classes) && issue.classes.length > 0) ? issue.classes.join(", ") : ""}</td>
+      <td class="one-line-cell">${linksHtml}</td>
+      <td>${featureNames}</td>
+    `;
+    tbody.appendChild(row);
+  });
+  document.getElementById("sortClasses")?.addEventListener("click", sortTableByClass);
+}
 function sortTableByClass() {
-    currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
-    const tbody = document.querySelector("#issueTable tbody");
-    const rows = Array.from(tbody.querySelectorAll("tr"));
-    rows.sort((a, b) => {
-        const aClass = a.cells[4].innerText.toLowerCase();
-        const bClass = b.cells[4].innerText.toLowerCase();
-        return currentSortOrder === 'asc' ? aClass.localeCompare(bClass) : bClass.localeCompare(aClass);
-    });
-    rows.forEach(row => tbody.appendChild(row));
-    document.getElementById("sortClasses").innerText =
-        `Classes ${currentSortOrder === 'asc' ? '▲' : '▼'}`;
+  currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+  const tbody = document.querySelector("#issueTable tbody");
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+  rows.sort((a, b) => {
+    const aClass = a.cells[4].innerText.toLowerCase();
+    const bClass = b.cells[4].innerText.toLowerCase();
+    return currentSortOrder === 'asc' ? aClass.localeCompare(bClass) : bClass.localeCompare(aClass);
+  });
+  rows.forEach(row => tbody.appendChild(row));
+  const btn = document.getElementById("sortClasses");
+  if (btn) btn.innerText = `Classes ${currentSortOrder === 'asc' ? '▲' : '▼'}`;
 }
 
-
-function showLinksTypeTooltip(event) {
-    const badge = event.currentTarget;
-    let links = [];
-    try {
-        links = JSON.parse(badge.getAttribute('data-links')) || [];
-    } catch { }
-    if (!links.length) return;
-    let tooltip = document.getElementById('custom-tooltip');
-    if (!tooltip) {
-        tooltip = document.createElement('div');
-        tooltip.id = 'custom-tooltip';
-        tooltip.className = 'custom-tooltip';
-        tooltip.style.display = 'none';
-        document.body.appendChild(tooltip);
-    }
-    tooltip.innerHTML = links.map(link =>
-        `<a href="${link.url}" target="_blank">${link.key}${link.summary ? ': ' + link.summary : ''}</a>`
-    ).join('');
-    tooltip.style.display = 'block';
-
-    // Position below badge, centered and fixed
-    positionTooltipUnderBadge(badge, tooltip);
-}
-
-function hideLinksTypeTooltipWithDelay() {
-    let tooltip = document.getElementById('custom-tooltip');
-    if (tooltip) {
-        clearTimeout(tooltip._hideTimeout);
-        tooltip._hideTimeout = setTimeout(() => {
-            tooltip.style.display = 'none';
-        }, 250);
-    }
-}
-
-
-// --- Remember Dashboard (Fault reports) selections ---
+/* ==========================
+   Remember other selections
+   ========================== */
 function saveDashboardSettings() {
   localStorage.setItem("dashboardFixVersion", getSelectedFixVersion());
   localStorage.setItem("dashboardWorkGroup", getSelectedWorkGroup());
 }
 function restoreDashboardSettings() {
-  const fixVersion = localStorage.getItem("dashboardFixVersion");
-  const workGroup  = localStorage.getItem("dashboardWorkGroup");
-  const fixVersionSelect = document.getElementById("fixVersionSelect");
-  const workGroupSelect  = document.getElementById("workGroupSelect");
-  if (fixVersion && fixVersionSelect) fixVersionSelect.value = fixVersion;
-  if (workGroup  && workGroupSelect)  workGroupSelect.value  = workGroup;
+  const fv = localStorage.getItem("dashboardFixVersion");
+  const wg = localStorage.getItem("dashboardWorkGroup");
+  if (fv) { const el = document.getElementById("fixVersionSelect"); if (el) el.value = fv; }
+  if (wg) { const el = document.getElementById("workGroupSelect");  if (el) el.value = wg; }
 }
-
-// --- Remember Backlog selections ---
 function saveBacklogSettings() {
   localStorage.setItem("backlogWorkGroup", getSelectedWorkGroup());
 }
 function restoreBacklogSettings() {
-  const workGroup = localStorage.getItem("backlogWorkGroup");
-  if (workGroup) {
-    const workGroupSelect = document.getElementById("workGroupSelect");
-    if (workGroupSelect) workGroupSelect.value = workGroup;
-  }
+  const wg = localStorage.getItem("backlogWorkGroup");
+  if (wg) { const el = document.getElementById("workGroupSelect"); if (el) el.value = wg; }
 }
 
-
+/* ===============
+   Page bootstrap
+   =============== */
 document.addEventListener("DOMContentLoaded", () => {
   const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
   const isPlanning  = !!document.getElementById("committed-table");
   const isBacklog   = !!document.getElementById("backlog-table") && !document.getElementById("committed-table");
 
-  // ----- Dashboard -----
   if (isDashboard) {
     restoreDashboardSettings();
-    renderChart();
-    renderTable();
-
-    document.getElementById("refresh")?.addEventListener("click", () => {
-      renderChart();
-      renderTable();
-    });
-    document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
-      saveDashboardSettings();
-      renderChart();
-      renderTable();
-    });
-    document.getElementById("workGroupSelect")?.addEventListener("change", () => {
-      saveDashboardSettings();
-      renderChart();
-      renderTable();
-    });
+    renderChart(); renderTable();
+    document.getElementById("refresh")?.addEventListener("click", () => { renderChart(); renderTable(); });
+    document.getElementById("fixVersionSelect")?.addEventListener("change", () => { saveDashboardSettings(); renderChart(); renderTable(); });
+    document.getElementById("workGroupSelect")?.addEventListener("change", () => { saveDashboardSettings(); renderChart(); renderTable(); });
   }
 
-  // ----- PI Planning -----
   if (isPlanning) {
     restorePlanningSettings();
-    restoreExcludedAssignees();
+    restoreExcludedAssignees();       // show only
+    activeExcludedRaw = "";           // start with FULL LIST
     loadPIPlanningData();
 
-    document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
-      savePlanningSettings();
-      loadPIPlanningData();
-    });
-    document.getElementById("workGroupSelect")?.addEventListener("change", () => {
-      savePlanningSettings();
-      loadPIPlanningData();
-    });
+    document.getElementById("fixVersionSelect")?.addEventListener("change", () => { savePlanningSettings(); loadPIPlanningData(); });
+    document.getElementById("workGroupSelect")?.addEventListener("change", () => { savePlanningSettings(); loadPIPlanningData(); });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
 
     document.getElementById("apply-exclude")?.addEventListener("click", () => {
-      saveExcludedAssignees();
+      activeExcludedRaw = document.getElementById("excludeAssigneesInput")?.value || "";
+      persistExcludedAssigneesRaw(activeExcludedRaw);
       loadPIPlanningData();
     });
     document.getElementById("excludeAssigneesInput")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-        saveExcludedAssignees();
+        activeExcludedRaw = document.getElementById("excludeAssigneesInput")?.value || "";
+        persistExcludedAssigneesRaw(activeExcludedRaw);
         loadPIPlanningData();
       }
     });
     document.getElementById("clear-exclude")?.addEventListener("click", () => {
       const el = document.getElementById("excludeAssigneesInput");
       if (el) el.value = "";
-      saveExcludedAssignees();
+      activeExcludedRaw = "";
+      persistExcludedAssigneesRaw(activeExcludedRaw);
       loadPIPlanningData();
     });
 
     document.getElementById("export-committed-excel")?.addEventListener("click", function () {
-      const fixVersion = getSelectedFixVersion();
-      const workGroup  = getSelectedWorkGroup();
-      const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-      window.location.href = `/export_committed_excel${query}`;
+      const fv = getSelectedFixVersion();
+      const wg = getSelectedWorkGroup();
+      window.location.href = `/export_committed_excel?fixVersion=${encodeURIComponent(fv)}&workGroup=${encodeURIComponent(wg)}`;
     });
   }
 
-  // ----- Backlog -----
   if (isBacklog) {
     restoreBacklogSettings();
     loadBacklogData();
-
-    document.getElementById("workGroupSelect")?.addEventListener("change", () => {
-      saveBacklogSettings();
-      loadBacklogData();
-    });
+    document.getElementById("workGroupSelect")?.addEventListener("change", () => { saveBacklogSettings(); loadBacklogData(); });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
-
     document.getElementById("export-backlog-excel")?.addEventListener("click", function () {
-      const workGroup  = getSelectedWorkGroup();
-      const query = `?workGroup=${encodeURIComponent(workGroup)}`;
-      window.location.href = `/export_backlog_excel${query}`;
+      const wg = getSelectedWorkGroup();
+      window.location.href = `/export_backlog_excel?workGroup=${encodeURIComponent(wg)}`;
     });
   }
 
-  // user tracking (run once)
   sendUserIdToBackend().catch(() => {}).finally(showUniqueUserCount);
 });
 
-
-// Ensure tooltip (if created earlier) starts hidden
-let tt = document.getElementById('custom-tooltip');
-if (tt) tt.style.display = 'none';
-
-let lastTooltipBadge = null;
-
-function showCustomTooltip(event) {
-    const badge = event.currentTarget;
-    lastTooltipBadge = badge; // <-- track for reposition
-    let stories = [];
-    try {
-        stories = JSON.parse(badge.getAttribute('data-stories')) || [];
-    } catch { }
-    stories = stories.filter(storyKey =>
-        !!storyKey && typeof storyKey === "string" && storyKey.trim() !== "" && !/^null|undefined$/i.test(storyKey)
-    );
-    if (!stories.length) return;
-    let tooltip = document.getElementById('custom-tooltip');
-    if (!tooltip) return;
-
-    tooltip.innerHTML = stories.map(key =>
-        `<a href="https://jira-vira.volvocars.biz/browse/${key}" target="_blank">${key}</a>`
-    ).join('');
-    tooltip.style.display = 'block';
-
-    // Position below badge, centered
-    positionTooltipUnderBadge(badge, tooltip);
-}
-
-// Helper for correct positioning
-function positionTooltipUnderBadge(badge, tooltip) {
-    const rect = badge.getBoundingClientRect();
-    const scrollY = window.scrollY !== undefined ? window.scrollY : window.pageYOffset;
-    const scrollX = window.scrollX !== undefined ? window.scrollX : window.pageXOffset;
-    tooltip.style.position = 'fixed';
-    tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + "px";
-    tooltip.style.top = (rect.bottom + 6) + "px";
-}
-
-// Update tooltip position on scroll and resize
-window.addEventListener('scroll', function () {
-    let tooltip = document.getElementById('custom-tooltip');
-    if (tooltip && tooltip.style.display === 'block' && lastTooltipBadge) {
-        positionTooltipUnderBadge(lastTooltipBadge, tooltip);
-    }
-});
-window.addEventListener('resize', function () {
-    let tooltip = document.getElementById('custom-tooltip');
-    if (tooltip && tooltip.style.display === 'block' && lastTooltipBadge) {
-        positionTooltipUnderBadge(lastTooltipBadge, tooltip);
-    }
-});
-
-function renderCommittedSummary(committedFeatures, containerId) {
-  // Totals based on STORIES (sum per story assignee)
-  let totalPointsFromStories = 0;
-  const perPerson = {};          // assignee -> sum of story points (stories)
-  const mismatchedFeatures = []; // keep comparison Feature SP vs Story sum (for insights)
-  let totalFeatureEst = 0;       // sum of feature-level estimates (context)
-
-  for (const [featureId, feature] of committedFeatures) {
-    const featureSP = Number(feature.story_points) || 0;       // feature estimate
-    const storySum  = Number(feature.sum_story_points) || 0;   // backend story sum
-    totalFeatureEst += featureSP;
-
-    // Prefer precise per-story details if present
-    const details = Array.isArray(feature.stories_detail) ? feature.stories_detail : null;
-
-    if (details && details.length) {
-      for (const s of details) {
-        const pts = Number(s.story_points) || 0;
-        const who = (s.assignee || "Unassigned").trim() || "Unassigned";
-        perPerson[who] = (perPerson[who] || 0) + pts;
-        totalPointsFromStories += pts;
-      }
-    } else {
-      // Fallback (should be rare): attribute the whole storySum to feature assignee
-      const who = (feature.assignee || "Unassigned").trim() || "Unassigned";
-      perPerson[who] = (perPerson[who] || 0) + storySum;
-      totalPointsFromStories += storySum;
-    }
-
-    if (featureSP !== storySum) {
-      mismatchedFeatures.push({
-        summary: feature.summary || featureId,
-        featureSP,
-        totalSP: storySum,
-        diff: storySum - featureSP,
-        url: `https://jira-vira.volvocars.biz/browse/${featureId}`
-      });
-    }
-  }
-
-  const totalDifference = mismatchedFeatures.reduce((sum, f) => sum + f.diff, 0);
-
-  const html = `
-    <div class="summary-section-wrapper">
-      <div class="summary-section">
-        <h3>Committed Load (St. P.) Summary</h3>
-        <table class="summary-table">
-          <tr><th>Total Story Points (Committed, from Stories):</th><td>${totalPointsFromStories}</td></tr>
-        </table>
-        <table class="summary-table">
-          <tr><th>Assignee</th><th>Load (St. P., from Stories)</th></tr>
-          ${Object.entries(perPerson)
-            .sort((a, b) => b[1] - a[1])
-            .map(([assignee, points]) => `<tr><td>${assignee}</td><td>${points}</td></tr>`)
-            .join("")}
-        </table>
-      </div>
-
-      <div class="summary-section">
-        <h3>Story Point Changes</h3>
-        <table class="summary-table">
-          <tr><th>Context:</th><td>Feature estimate total = ${totalFeatureEst}</td></tr>
-        </table>
-        <table class="summary-table">
-          <tr><th>Feature</th><th>Feature St.P.</th><th>St.P. sum (Stories)</th><th>Δ Diff</th></tr>
-          ${mismatchedFeatures.map(f => `
-            <tr>
-              <td><a href="${f.url}" target="_blank">${f.summary}</a></td>
-              <td>${f.featureSP}</td>
-              <td>${f.totalSP}</td>
-              <td>${f.diff}</td>
-            </tr>
-          `).join("")}
-          <tr class="summary-total-diff">
-            <td colspan="3" style="text-align: right;"><strong>Sum of Differences:</strong></td>
-            <td><strong>${totalDifference}</strong></td>
-          </tr>
-        </table>
-      </div>
-    </div>
-  `;
-
-  const container = document.getElementById(containerId);
-  if (container) container.innerHTML = html;
-}
-
-
+/* ================
+   User tracking UI
+   ================ */
 function getOrCreateUserId() {
-    let uid = localStorage.getItem('user_id');
-    if (!uid) {
-        // Simple random id
-        uid = Math.random().toString(36).substring(2) + Date.now();
-        localStorage.setItem('user_id', uid);
-    }
-    return uid;
+  let uid = localStorage.getItem('user_id');
+  if (!uid) { uid = Math.random().toString(36).substring(2) + Date.now(); localStorage.setItem('user_id', uid); }
+  return uid;
 }
-
-// Send to backend
 function sendUserIdToBackend() {
-  const userId = getOrCreateUserId();
   return fetch('/track_user', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: userId })
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: getOrCreateUserId() })
   });
 }
-
 async function showUniqueUserCount() {
   try {
     const res = await fetch('/unique_users', { cache: 'no-store' });
     const data = await res.json();
     const el = document.getElementById('unique-users-count');
-    if (el) {
-      el.textContent = `Unique users: ${Number(data.unique_users) || 0}`;
-    }
-  } catch (e) {
-    // Fail silently; don't break UI
+    if (el) el.textContent = `Unique users: ${Number(data.unique_users) || 0}`;
+  } catch {
     const el = document.getElementById('unique-users-count');
     if (el) el.textContent = 'Unique users: –';
   }
 }
 
-function mapStatusToClass(raw) {
-  const s = (raw || '').toLowerCase().trim();
-
-  // --- Done bucket ---
-  if (/(^|\W)(done|closed|resolved|accepted|merged)(\W|$)/.test(s)) return 'status-done';
-
-  // --- Todo / not-started bucket ---
-  if (/(^|\W)(to\s*do|todo|open|backlog|new|selected\s*for\s*development)(\W|$)/.test(s)) return 'status-todo';
-
-  // --- Everything else counts as "in progress" (review, qa, testing, etc.) ---
-  if (
-    /(progress|review|qa|test|testing|implement|develop|in\s*dev|in\s*work|doing|wip)/.test(s)
-  ) return 'status-progress';
-
-  // Fallback: treat as in-progress if it isn't clearly done or todo
-  return 'status-progress';
-}
-
+/* =====================
+   Gantt (committed only)
+   ===================== */
 function renderGanttTimeline(committedFeatures, sprints) {
-  // --- robust mapper: many Jira names -> 3 classes ---
-  function mapStatusToClass(raw) {
-    const s = (raw || '').toLowerCase().trim();
-
-    // exact sets (common Jira workflows)
-    const DONE = new Set(['done', 'closed', 'resolved', 'accepted', 'complete', 'completed', 'merged']);
-    const TODO = new Set(['to do', 'todo', 'open', 'backlog', 'new', 'selected for development', 'ready']);
-    const INPROG_HINTS = ['progress', 'review', 'code review', 'qa', 'test', 'testing', 'verify', 'verifying', 'implement', 'develop', 'in dev', 'in work', 'doing', 'wip', 'blocked', 'on hold'];
-
-    if (DONE.has(s)) return 'status-done';
-    if (TODO.has(s)) return 'status-todo';
-    if (INPROG_HINTS.some(h => s.includes(h))) return 'status-progress';
-
-    // fallbacks for variants like "In Progress", "In Review", etc.
-    if (/^in\s*progress$/.test(s)) return 'status-progress';
-    if (/^in\s*review$/.test(s))   return 'status-progress';
-
-    // If we truly can't tell, assume TODO (safer than orange everywhere)
-    return 'status-todo';
-  }
-
   const host = document.getElementById('gantt-container');
   if (!host) return;
 
+  // Prepare container
   host.style.setProperty('--gantt-cols', String(sprints.length));
   host.innerHTML = '';
 
-  // --- Legend row ---
+  // ---- Legend
   const legend = document.createElement('div');
   legend.className = 'gantt-legend';
-
-  const items = [
-    { cls: 'status-todo', label: 'To Do' },
+  [
+    { cls: 'status-todo',     label: 'To Do' },
     { cls: 'status-progress', label: 'In Progress' },
-    { cls: 'status-done', label: 'Done' }
-  ];
-
-  items.forEach(item => {
+    { cls: 'status-done',     label: 'Done' }
+  ].forEach(item => {
+    const w = document.createElement('div');
+    w.className = 'gantt-legend-item';
     const box = document.createElement('span');
-    box.className = 'gantt-chip ' + item.cls; // reuse chip styles
+    box.className = 'gantt-chip ' + item.cls;
     const lbl = document.createElement('span');
     lbl.textContent = item.label;
-    const wrapper = document.createElement('div');
-    wrapper.className = 'gantt-legend-item';
-    wrapper.appendChild(box);
-    wrapper.appendChild(lbl);
-    legend.appendChild(wrapper);
+    w.appendChild(box); w.appendChild(lbl);
+    legend.appendChild(w);
   });
-
   host.appendChild(legend);
 
-  // --- Header ---
+  // ---- Header
   const header = document.createElement('div');
   header.className = 'gantt-header';
   const headLabel = document.createElement('div');
@@ -1125,104 +725,83 @@ function renderGanttTimeline(committedFeatures, sprints) {
   });
   host.appendChild(header);
 
+  // Helpers
+  const normalizeItem = (x) =>
+    typeof x === 'string' ? { key: x, status: '' } : { key: x?.key || '', status: x?.status || '' };
 
-  // Helper: get sprint-wise story objects (array of arrays aligned to sprints)
-  const getStoriesPerSprint = (feature) =>
-    sprints.map(s => {
-      const arr = feature.sprints && Array.isArray(feature.sprints[s]) ? feature.sprints[s] : [];
-      // Upgrade strings to objects, keep objects as-is
-      return arr.map(x => (typeof x === 'string' ? { key: x, status: '' } : x));
-    });
+  const buildStatusMap = (feature) => {
+    const m = new Map();
+    if (Array.isArray(feature.stories_detail)) {
+      feature.stories_detail.forEach(d => { if (d && d.key) m.set(String(d.key), d.status || ''); });
+    }
+    return m;
+  };
 
-  // Build one row per committed feature
+  // ---- Rows
   for (const [featureId, feature] of committedFeatures) {
     const row = document.createElement('div');
     row.className = 'gantt-row';
 
-    // Label = Feature Name (link)
+    // left label
     const label = document.createElement('div');
     label.className = 'gantt-label';
-    const linkText = feature.summary || featureId;
-    label.innerHTML = `<a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${linkText}</a>`;
+    label.innerHTML = `<a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary || featureId}</a>`;
     row.appendChild(label);
 
-    // Build a fast lookup of story status from stories_detail (backend-provided)
-    const statusByKey = new Map(
-      Array.isArray(feature.stories_detail)
-        ? feature.stories_detail.map(d => [d.key, d.status || ''])
-        : []
-    );
+    const statusByKey = buildStatusMap(feature);
 
-    const storiesPerSprint = getStoriesPerSprint(feature);
+    // per-sprint stories (aligned to 'sprints' order)
+    const storiesPerSprint = sprints.map(s => {
+      const arr = feature.sprints && Array.isArray(feature.sprints[s]) ? feature.sprints[s] : [];
+      return arr.map(normalizeItem);
+    });
+
     const activeIdx = storiesPerSprint
       .map((arr, i) => (arr && arr.length ? i : -1))
       .filter(i => i >= 0);
 
-    if (activeIdx.length > 0) {
-      const startIdx = activeIdx[0];
-      const endIdx   = activeIdx[activeIdx.length - 1];
-
-      // Create bar spanning first..last sprint
+    if (activeIdx.length) {
+      const start = activeIdx[0];
+      const end   = activeIdx[activeIdx.length - 1];
       const bar = document.createElement('div');
       bar.className = 'gantt-bar';
-      bar.style.gridColumn = `${2 + startIdx} / ${2 + endIdx + 1}`;
-      bar.style.gridRow = '1';
+      bar.style.gridColumnStart = 2 + start;
+      bar.style.gridColumnEnd   = 2 + end + 1;
+      bar.style.setProperty('--span-cols', String(end - start + 1));
 
-      // How many sprint "cells" live inside the bar
-      const spanCols = endIdx - startIdx + 1;
-      bar.style.setProperty('--span-cols', String(spanCols));
-
-      // For each sprint within the span, create a segment and chips per story
-      for (let idx = startIdx; idx <= endIdx; idx++) {
+      for (let i = start; i <= end; i++) {
         const seg = document.createElement('div');
         seg.className = 'gantt-seg';
-
-        const stories = storiesPerSprint[idx] || [];
-        for (const story of stories) {
+        (storiesPerSprint[i] || []).forEach(story => {
           const chip = document.createElement('span');
-          chip.className = 'gantt-chip';
-
-          // Prefer status from the story object; else lookup via stories_detail
-          const rawStatus = story.status || statusByKey.get(story.key) || '';
-          chip.classList.add(mapStatusToClass(rawStatus));
-
-          // Tooltip with key (and status if you like)
-          chip.title = story.key ? `${story.key}${rawStatus ? ' — ' + rawStatus : ''}` : (rawStatus || '');
-
+          const st = statusByKey.get(story.key) || story.status || '';
+          chip.className = 'gantt-chip ' + mapStatusToClass(st);
+          chip.title = story.key || '';
           seg.appendChild(chip);
-        }
-
+        });
         bar.appendChild(seg);
       }
-
       row.appendChild(bar);
     } else {
-      // Only "No Sprint" stories
+      // Only “No Sprint” bucket has stories
       const noIdx = sprints.indexOf('No Sprint');
-      const rawNo = feature.sprints && Array.isArray(feature.sprints['No Sprint'])
-        ? feature.sprints['No Sprint']
-        : [];
-      const noStories = rawNo.map(x => (typeof x === 'string' ? { key: x, status: '' } : x));
-
-      if (noIdx >= 0 && noStories.length) {
+      const raw = (feature.sprints && feature.sprints['No Sprint']) || [];
+      if (noIdx >= 0 && raw.length) {
         const bar = document.createElement('div');
         bar.className = 'gantt-bar nosprint';
-        bar.style.gridColumn = `${2 + noIdx} / ${2 + noIdx + 1}`;
-        bar.style.gridRow = '1';
+        bar.style.gridColumnStart = 2 + noIdx;
+        bar.style.gridColumnEnd   = 2 + noIdx + 1;
         bar.style.setProperty('--span-cols', '1');
 
         const seg = document.createElement('div');
         seg.className = 'gantt-seg';
-        for (const story of noStories) {
+        raw.map(normalizeItem).forEach(story => {
           const chip = document.createElement('span');
-          chip.className = 'gantt-chip';
-
-          const rawStatus = story.status || statusByKey.get(story.key) || '';
-          chip.classList.add(mapStatusToClass(rawStatus));
-          chip.title = story.key ? `${story.key}${rawStatus ? ' — ' + rawStatus : ''}` : (rawStatus || '');
-
+          const st = statusByKey.get(story.key) || story.status || '';
+          chip.className = 'gantt-chip ' + mapStatusToClass(st);
+          chip.title = story.key || '';
           seg.appendChild(chip);
-        }
+        });
         bar.appendChild(seg);
         row.appendChild(bar);
       }
