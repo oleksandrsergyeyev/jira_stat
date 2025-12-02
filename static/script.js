@@ -73,60 +73,151 @@ function hideLoading() {
     if (overlay) overlay.style.display = 'none';
 }
 
-async function loadPIPlanningData() {
-    showLoading();
-    try {
-        const fixVersion = getSelectedFixVersion();
-        const workGroup = getSelectedWorkGroup();
-        if (!fixVersion || !workGroup) {
-            hideLoading();
-            return;
-        }
-
-        const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-        const response = await fetch(url);
-        const data = await response.json();
-
-        const sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5", "No Sprint"];
-        const committed = [];
-        const backlog = [];
-
-        function featureInSelectedPI(feature, fixVersion) {
-            return Array.isArray(feature.fixVersions) && feature.fixVersions.includes(fixVersion);
-        }
-
-        for (const [key, feature] of Object.entries(data)) {
-            if (
-                feature.pi_scope === "Committed" &&
-                featureInSelectedPI(feature, fixVersion)
-            ) {
-                committed.push([key, feature]);
-            }
-        }
-        const committedKeys = new Set(committed.map(([key]) => key));
-
-        for (const [key, feature] of Object.entries(data)) {
-            if (
-                feature.status &&
-                feature.status.toLowerCase() !== "done" &&
-                !committedKeys.has(key)
-            ) {
-                backlog.push([key, feature]);
-            }
-        }
-
-        renderFeatureTable(committed, "committed-table", sprints);
-        renderCommittedSummary(committed, "committed-summary");
-        // ... after you build `backlog`
-        if (document.getElementById("backlog-table")) {
-          renderFeatureTable(backlog, "backlog-table", sprints);
-        }
-        renderGanttTimeline(committed, sprints);
-        applyFilter();
-    } finally {
-        hideLoading();
-    }
+// === Exclude assignees helpers ===
+function parseExcludedAssigneesInput() {
+  const input = document.getElementById("excludeAssigneesInput");
+  if (!input) return new Set();
+  return new Set(
+    input.value
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(s => s.toLowerCase())
+  );
 }
+function saveExcludedAssignees() {
+  const raw = document.getElementById("excludeAssigneesInput")?.value ?? "";
+  localStorage.setItem("piPlanningExcludedAssignees", raw);
+}
+function restoreExcludedAssignees() {
+  const saved = localStorage.getItem("piPlanningExcludedAssignees");
+  if (saved && document.getElementById("excludeAssigneesInput")) {
+    document.getElementById("excludeAssigneesInput").value = saved;
+  }
+}
+// Build <datalist> options from current data (display names)
+function populateAssigneeSuggestions(dataObj) {
+  const dl = document.getElementById("assignee-suggestions");
+  if (!dl) return;
+  const seen = new Set();
+  // Collect from feature assignee and story assignees
+  Object.values(dataObj || {}).forEach(f => {
+    if (f.assignee) seen.add(f.assignee);
+    if (Array.isArray(f.stories_detail)) {
+      f.stories_detail.forEach(s => {
+        const who = (s.assignee || "").trim();
+        if (who) seen.add(who);
+      });
+    }
+  });
+  dl.innerHTML = "";
+  Array.from(seen).sort((a,b)=>a.localeCompare(b)).forEach(name => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    dl.appendChild(opt);
+  });
+}
+
+
+async function loadPIPlanningData() {
+  showLoading();
+  try {
+    const fixVersion = getSelectedFixVersion();
+    const workGroup  = getSelectedWorkGroup();
+    if (!fixVersion || !workGroup) {
+      hideLoading();
+      return;
+    }
+
+    const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
+    const response = await fetch(url, { cache: "no-store" });
+    const data = await response.json();
+
+    // Build assignee suggestions from raw data (before we filter)
+    populateAssigneeSuggestions(data);
+
+    // Read excluded assignees (case-insensitive)
+    const excluded = parseExcludedAssigneesInput();
+    const norm = s => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+    for (const [featureId, feature] of Object.entries(data)) {
+      const details = Array.isArray(feature.stories_detail) ? feature.stories_detail : [];
+
+      // story key -> normalized assignee
+      const byKeyAssignee = new Map(
+        details
+          .filter(d => d && d.key)
+          .map(d => [String(d.key), norm(d.assignee)])
+      );
+
+      // keep details whose assignee is NOT in excluded
+      const keptDetails = details.filter(d => !excluded.has(norm(d.assignee)));
+      feature.stories_detail = keptDetails;
+
+      // recompute sum from kept stories
+      feature.sum_story_points = keptDetails.reduce((acc, d) => acc + (Number(d.story_points) || 0), 0);
+
+      // filter sprint keys; IMPORTANT: if assignee is unknown, KEEP the story (don’t over-filter)
+      const sMap = feature.sprints || {};
+      const newSprints = {};
+      for (const [sprintName, arr] of Object.entries(sMap)) {
+        const keptKeys = (Array.isArray(arr) ? arr : []).filter(k => {
+          const a = byKeyAssignee.get(String(k));   // undefined if we don’t know this story’s assignee
+          return !a || !excluded.has(a);            // unknown => keep; known & excluded => drop
+        });
+        newSprints[sprintName] = keptKeys;
+      }
+      feature.sprints = newSprints;
+    }
+
+
+
+    // Define sprint columns
+    const sprints = ["Sprint 1","Sprint 2","Sprint 3","Sprint 4","Sprint 5","No Sprint"];
+
+    function featureInSelectedPI(feature, fv) {
+      return Array.isArray(feature.fixVersions) && feature.fixVersions.includes(fv);
+    }
+    function isDone(feature) {
+      return (feature.status || "").toLowerCase() === "done";
+    }
+
+    // Keep features that still have any visible work after exclusion
+    const visibleEntries = Object.entries(data).filter(([id, feature]) => {
+      const hasKeptDetails = Array.isArray(feature.stories_detail) && feature.stories_detail.length > 0;
+      const hasKeptSprintStories = Object.values(feature.sprints || {}).some(arr => Array.isArray(arr) && arr.length > 0);
+
+      // If we can’t tell (no details & empty sprint lists because we never knew assignees),
+      // be conservative and KEEP the feature:
+      const weKnowNothing = !Array.isArray(feature.stories_detail) && !feature.sprints;
+      if (weKnowNothing) return true;
+
+      return hasKeptDetails || hasKeptSprintStories;
+    });
+
+    const committed = [];
+    const backlog   = [];
+    for (const [key, feature] of visibleEntries) {
+      if (feature.pi_scope === "Committed" && featureInSelectedPI(feature, fixVersion)) {
+        committed.push([key, feature]);
+      } else if (!isDone(feature)) {
+        backlog.push([key, feature]);
+      }
+    }
+
+
+
+    // Render table + summary + gantt from filtered data
+    renderFeatureTable(committed, "committed-table", sprints);
+    renderCommittedSummary(committed, "committed-summary");
+    renderGanttTimeline(committed, sprints);
+
+    applyFilter(); // global text filter
+  } finally {
+    hideLoading();
+  }
+}
+
 
 async function loadBacklogData() {
   showLoading();
@@ -685,12 +776,12 @@ function restoreBacklogSettings() {
 }
 
 
-// ===== Replace your existing DOMContentLoaded block with this =====
 document.addEventListener("DOMContentLoaded", () => {
   const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
   const isPlanning  = !!document.getElementById("committed-table");
   const isBacklog   = !!document.getElementById("backlog-table") && !document.getElementById("committed-table");
 
+  // ----- Dashboard -----
   if (isDashboard) {
     restoreDashboardSettings();
     renderChart();
@@ -712,8 +803,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ----- PI Planning -----
   if (isPlanning) {
     restorePlanningSettings();
+    restoreExcludedAssignees();
     loadPIPlanningData();
 
     document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
@@ -726,6 +819,23 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
 
+    document.getElementById("apply-exclude")?.addEventListener("click", () => {
+      saveExcludedAssignees();
+      loadPIPlanningData();
+    });
+    document.getElementById("excludeAssigneesInput")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        saveExcludedAssignees();
+        loadPIPlanningData();
+      }
+    });
+    document.getElementById("clear-exclude")?.addEventListener("click", () => {
+      const el = document.getElementById("excludeAssigneesInput");
+      if (el) el.value = "";
+      saveExcludedAssignees();
+      loadPIPlanningData();
+    });
+
     document.getElementById("export-committed-excel")?.addEventListener("click", function () {
       const fixVersion = getSelectedFixVersion();
       const workGroup  = getSelectedWorkGroup();
@@ -734,6 +844,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ----- Backlog -----
   if (isBacklog) {
     restoreBacklogSettings();
     loadBacklogData();
@@ -751,8 +862,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // user tracking (run once)
   sendUserIdToBackend().catch(() => {}).finally(showUniqueUserCount);
 });
+
 
 // Ensure tooltip (if created earlier) starts hidden
 let tt = document.getElementById('custom-tooltip');
