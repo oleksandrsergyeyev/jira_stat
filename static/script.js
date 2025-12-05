@@ -201,18 +201,38 @@ async function loadPIPlanningData() {
     const backlog   = [];
 
     for (const [key, feature] of Object.entries(data)) {
-      if (dropFeature(feature)) continue; // remove entire feature by assignee
+      if (dropFeature(feature)) continue;
 
-      if (feature.pi_scope === "Committed" && featureInSelectedPI(feature, fixVersion)) {
+      const scope = (feature.pi_scope || "").toLowerCase();
+      const inPI = Array.isArray(feature.fixVersions)
+        ? feature.fixVersions.includes(fixVersion)
+        : false;
+
+      const hasStories = Array.isArray(feature.stories_detail) && feature.stories_detail.length > 0;
+
+      if (scope.startsWith("committed") && (inPI || hasStories)) {
         committed.push([key, feature]);
       } else if (!isDone(feature)) {
         backlog.push([key, feature]);
       }
     }
 
+    console.log("Committed count for table/Gantt:", committed.length);
+
+
     renderFeatureTable(committed, "committed-table", sprints);
-    renderCommittedSummary(committed, "committed-summary");
+
+    // Don't let summary kill the Gantt
+    try {
+      if (typeof renderCommittedSummary === "function") {
+        renderCommittedSummary(committed, "committed-summary");
+      }
+    } catch (e) {
+      console.error("renderCommittedSummary failed, skipping summary:", e);
+    }
+
     renderGanttTimeline(committed, sprints);
+
 
     applyFilter();
   } finally {
@@ -682,124 +702,166 @@ async function showUniqueUserCount() {
   }
 }
 
+function mapStatusToClass(status) {
+  const s = (status || "").toLowerCase();
+
+  if (s.includes("in progress") || s.includes("doing") || s.includes("wip")) {
+    return "status-progress";
+  }
+  if (s.includes("done") || s.includes("resolved") || s.includes("closed")) {
+    return "status-done";
+  }
+  return "status-todo";
+}
+
+
+
 /* =====================
    Gantt (committed only)
    ===================== */
 function renderGanttTimeline(committedFeatures, sprints) {
-  const host = document.getElementById('gantt-container');
+  const host = document.getElementById("gantt-container");
   if (!host) return;
 
-  // Prepare container
-  host.style.setProperty('--gantt-cols', String(sprints.length));
-  host.innerHTML = '';
+  // Debug: see in console how many features we got
+  console.log(
+    "[Gantt] committedFeatures:",
+    Array.isArray(committedFeatures) ? committedFeatures.length : committedFeatures
+  );
+
+  host.style.setProperty("--gantt-cols", String(sprints.length));
+  host.innerHTML = "";
+
+  // --- helper: map status -> CSS class (inline, no external dependency)
+  const mapStatus = (status) => {
+    const s = (status || "").toLowerCase();
+    if (s.includes("in progress") || s.includes("doing") || s.includes("wip")) return "status-progress";
+    if (s.includes("done") || s.includes("resolved") || s.includes("closed")) return "status-done";
+    return "status-todo";
+  };
+
+  const normalizeItem = (x) =>
+    typeof x === "string" ? { key: x, status: "" } : { key: x?.key || "", status: x?.status || "" };
+
+  const buildStatusMap = (feature) => {
+    const m = new Map();
+    if (Array.isArray(feature.stories_detail)) {
+      feature.stories_detail.forEach((d) => {
+        if (d && d.key) m.set(String(d.key), d.status || "");
+      });
+    }
+    return m;
+  };
 
   // ---- Legend
-  const legend = document.createElement('div');
-  legend.className = 'gantt-legend';
+  const legend = document.createElement("div");
+  legend.className = "gantt-legend";
   [
-    { cls: 'status-todo',     label: 'To Do' },
-    { cls: 'status-progress', label: 'In Progress' },
-    { cls: 'status-done',     label: 'Done' }
-  ].forEach(item => {
-    const w = document.createElement('div');
-    w.className = 'gantt-legend-item';
-    const box = document.createElement('span');
-    box.className = 'gantt-chip ' + item.cls;
-    const lbl = document.createElement('span');
+    { cls: "status-todo", label: "To Do" },
+    { cls: "status-progress", label: "In Progress" },
+    { cls: "status-done", label: "Done" },
+  ].forEach((item) => {
+    const w = document.createElement("div");
+    w.className = "gantt-legend-item";
+    const box = document.createElement("span");
+    box.className = "gantt-chip " + item.cls;
+    const lbl = document.createElement("span");
     lbl.textContent = item.label;
-    w.appendChild(box); w.appendChild(lbl);
+    w.appendChild(box);
+    w.appendChild(lbl);
     legend.appendChild(w);
   });
   host.appendChild(legend);
 
   // ---- Header
-  const header = document.createElement('div');
-  header.className = 'gantt-header';
-  const headLabel = document.createElement('div');
-  headLabel.textContent = '';
+  const header = document.createElement("div");
+  header.className = "gantt-header";
+  const headLabel = document.createElement("div");
+  headLabel.textContent = "";
   header.appendChild(headLabel);
-  sprints.forEach(name => {
-    const h = document.createElement('div');
+  sprints.forEach((name) => {
+    const h = document.createElement("div");
     h.textContent = name;
     header.appendChild(h);
   });
   host.appendChild(header);
 
-  // Helpers
-  const normalizeItem = (x) =>
-    typeof x === 'string' ? { key: x, status: '' } : { key: x?.key || '', status: x?.status || '' };
-
-  const buildStatusMap = (feature) => {
-    const m = new Map();
-    if (Array.isArray(feature.stories_detail)) {
-      feature.stories_detail.forEach(d => { if (d && d.key) m.set(String(d.key), d.status || ''); });
-    }
-    return m;
-  };
+  // If somehow no committed features – show a message instead of “nothing”
+  if (!Array.isArray(committedFeatures) || committedFeatures.length === 0) {
+    const msg = document.createElement("div");
+    msg.style.padding = "8px 6px";
+    msg.style.fontSize = "12px";
+    msg.style.color = "#666";
+    msg.textContent = "No committed features to display in Gantt.";
+    host.appendChild(msg);
+    return;
+  }
 
   // ---- Rows
   for (const [featureId, feature] of committedFeatures) {
-    const row = document.createElement('div');
-    row.className = 'gantt-row';
+    const row = document.createElement("div");
+    row.className = "gantt-row";
 
     // left label
-    const label = document.createElement('div');
-    label.className = 'gantt-label';
-    label.innerHTML = `<a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary || featureId}</a>`;
+    const label = document.createElement("div");
+    label.className = "gantt-label";
+    label.innerHTML = `<a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${
+      feature.summary || featureId
+    }</a>`;
     row.appendChild(label);
 
     const statusByKey = buildStatusMap(feature);
 
     // per-sprint stories (aligned to 'sprints' order)
-    const storiesPerSprint = sprints.map(s => {
+    const storiesPerSprint = sprints.map((s) => {
       const arr = feature.sprints && Array.isArray(feature.sprints[s]) ? feature.sprints[s] : [];
       return arr.map(normalizeItem);
     });
 
     const activeIdx = storiesPerSprint
       .map((arr, i) => (arr && arr.length ? i : -1))
-      .filter(i => i >= 0);
+      .filter((i) => i >= 0);
 
     if (activeIdx.length) {
       const start = activeIdx[0];
-      const end   = activeIdx[activeIdx.length - 1];
-      const bar = document.createElement('div');
-      bar.className = 'gantt-bar';
+      const end = activeIdx[activeIdx.length - 1];
+      const bar = document.createElement("div");
+      bar.className = "gantt-bar";
       bar.style.gridColumnStart = 2 + start;
-      bar.style.gridColumnEnd   = 2 + end + 1;
-      bar.style.setProperty('--span-cols', String(end - start + 1));
+      bar.style.gridColumnEnd = 2 + end + 1;
+      bar.style.setProperty("--span-cols", String(end - start + 1));
 
       for (let i = start; i <= end; i++) {
-        const seg = document.createElement('div');
-        seg.className = 'gantt-seg';
-        (storiesPerSprint[i] || []).forEach(story => {
-          const chip = document.createElement('span');
-          const st = statusByKey.get(story.key) || story.status || '';
-          chip.className = 'gantt-chip ' + mapStatusToClass(st);
-          chip.title = story.key || '';
+        const seg = document.createElement("div");
+        seg.className = "gantt-seg";
+        (storiesPerSprint[i] || []).forEach((story) => {
+          const chip = document.createElement("span");
+          const st = statusByKey.get(story.key) || story.status || "";
+          chip.className = "gantt-chip " + mapStatus(st);
+          chip.title = story.key || "";
           seg.appendChild(chip);
         });
         bar.appendChild(seg);
       }
       row.appendChild(bar);
     } else {
-      // Only “No Sprint” bucket has stories
-      const noIdx = sprints.indexOf('No Sprint');
-      const raw = (feature.sprints && feature.sprints['No Sprint']) || [];
+      // Only “No Sprint” bucket has stories (and no sprint columns are used)
+      const noIdx = sprints.indexOf("No Sprint");
+      const raw = (feature.sprints && feature.sprints["No Sprint"]) || [];
       if (noIdx >= 0 && raw.length) {
-        const bar = document.createElement('div');
-        bar.className = 'gantt-bar nosprint';
+        const bar = document.createElement("div");
+        bar.className = "gantt-bar nosprint";
         bar.style.gridColumnStart = 2 + noIdx;
-        bar.style.gridColumnEnd   = 2 + noIdx + 1;
-        bar.style.setProperty('--span-cols', '1');
+        bar.style.gridColumnEnd = 2 + noIdx + 1;
+        bar.style.setProperty("--span-cols", "1");
 
-        const seg = document.createElement('div');
-        seg.className = 'gantt-seg';
-        raw.map(normalizeItem).forEach(story => {
-          const chip = document.createElement('span');
-          const st = statusByKey.get(story.key) || story.status || '';
-          chip.className = 'gantt-chip ' + mapStatusToClass(st);
-          chip.title = story.key || '';
+        const seg = document.createElement("div");
+        seg.className = "gantt-seg";
+        raw.map(normalizeItem).forEach((story) => {
+          const chip = document.createElement("span");
+          const st = statusByKey.get(story.key) || story.status || "";
+          chip.className = "gantt-chip " + mapStatus(st);
+          chip.title = story.key || "";
           seg.appendChild(chip);
         });
         bar.appendChild(seg);
