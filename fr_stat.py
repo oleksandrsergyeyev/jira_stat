@@ -142,6 +142,16 @@ def _extract_linked_issue_links(links):
             })
     return result
 
+def _norm_py(s: str) -> str:
+    return (s or "").strip().lower()
+
+def _parse_excluded(raw: str) -> set[str]:
+    import re
+    if not raw:
+        return set()
+    parts = re.split(r'[,\n;|]+', raw)
+    return { _norm_py(p) for p in parts if p and p.strip() }
+
 # ---------------- Jira search ----------------
 
 def _jira_search(jql: str, fields: list[str], max_results: int = 1000, start_at: int = 0):
@@ -510,8 +520,39 @@ def get_pi_planning(fix_version: str, work_group: str) -> dict:
 
     return features
 
-def pi_planning_data_service(fix_version: str, work_group: str) -> dict:
-    return get_pi_planning(fix_version, work_group)
+# change signature
+def pi_planning_data_service(fix_version: str, work_group: str, excluded: set[str] | None = None) -> dict:
+    data = get_pi_planning(fix_version, work_group)
+    if not excluded:
+        return data
+
+    excl = { _norm_py(x) for x in excluded }
+
+    # mutate a copy-safe iteration
+    for key in list(data.keys()):
+        feat = data[key]
+
+        # drop whole feature if its assignee is excluded
+        if _norm_py(feat.get("assignee", "")) in excl:
+            del data[key]
+            continue
+
+        # keep only non-excluded stories
+        details = [d for d in (feat.get("stories_detail") or [])
+                   if _norm_py(d.get("assignee", "")) not in excl]
+        feat["stories_detail"] = details
+        feat["sum_story_points"] = sum(float(d.get("story_points") or 0) for d in details)
+
+        # filter sprint lists using the kept details (key -> assignee)
+        by_key = { d["key"]: _norm_py(d.get("assignee","")) for d in details if d.get("key") }
+        new_sprints: dict[str, list[str]] = {}
+        for s_name, arr in (feat.get("sprints") or {}).items():
+            kept = [k for k in (arr or []) if by_key.get(k, "") not in excl]
+            new_sprints[s_name] = kept
+        feat["sprints"] = new_sprints
+
+    return data
+
 
 # ======================================================================
 #                           3) BACKLOG (independent)
@@ -598,7 +639,9 @@ def pi_planning():
 def pi_planning_data():
     fix_version = request.args.get("fixVersion", "PI_25w10")
     work_group  = request.args.get("workGroup", "ART - BCRC - BSW TFW")
-    data = pi_planning_data_service(fix_version, work_group)
+    raw_excl    = request.args.get("excludeAssignees", "")
+    excluded    = _parse_excluded(raw_excl)
+    data = pi_planning_data_service(fix_version, work_group, excluded)
     return jsonify(data)
 
 @app.route("/backlog")
@@ -646,7 +689,10 @@ def export_excel():
 def export_committed_excel():
     fix_version = request.args.get("fixVersion", "PI_25w10")
     work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
-    features = pi_planning_data_service(fix_version, work_group)
+    raw_excl = request.args.get("excludeAssignees", "")
+    excluded = _parse_excluded(raw_excl)
+
+    features = pi_planning_data_service(fix_version, work_group, excluded)
 
     committed = []
     for key, feature in features.items():

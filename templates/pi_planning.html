@@ -54,6 +54,7 @@
       <option value="QS_25w37">QS_25w37</option>
       <option value="QS_25w49">QS_25w49</option>
     </select>
+
     <label for="workGroupSelect">Leading Work Group:</label>
     <select id="workGroupSelect">
       <option value="ART - BCRC - BSW TFW" selected>Infra Team</option>
@@ -68,8 +69,22 @@
       <option value="ART - BCRC - SysSW System Safety and Security">Safety & Security</option>
       <option value="ART - BCRC - Moni">TPMS</option>
     </select>
+
     <label for="globalFilter">Filter:</label>
     <input type="text" id="globalFilter" placeholder="Search table..." />
+
+    <!-- NEW: Exclude assignees control -->
+    <label for="excludeAssigneesInput">Exclude assignees:</label>
+    <input
+      type="text"
+      id="excludeAssigneesInput"
+      placeholder="e.g. John Doe, Jane Smith"
+      list="assignee-suggestions"
+      style="min-width: 280px;"
+    />
+    <datalist id="assignee-suggestions"></datalist>
+    <button id="apply-exclude">Apply</button>
+    <button id="clear-exclude">Clear</button>
   </div>
 
   <div class="section-header">
