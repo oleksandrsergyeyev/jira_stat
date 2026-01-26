@@ -43,6 +43,13 @@ h1 { margin-bottom: 20px; }
   padding: 5px 10px;
   margin-right: 10px;
 }
+.filters textarea {
+  padding: 6px 8px;
+  margin-right: 10px;
+  width: 320px;
+  max-width: 100%;
+  font-family: Arial, sans-serif;
+}
 
 /* Chart */
 .dashboard-container {
@@ -531,4 +538,8 @@ table.pi-planning-table {
   height: 0 !important;
   border: 0 !important;
   padding: 0 !important;
+}
+
+#project-fr-table {
+  margin-top: 10px;
 }

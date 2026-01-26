@@ -794,6 +794,46 @@ def unique_users():
     except FileNotFoundError:
         return jsonify({'unique_users': 0})
 
+# ---------------- Project Fault Reports ----------------
+
+def search_project_fault_reports(keywords: str, work_group: str | None = None):
+    tokens = [t.strip() for t in re.split(r"[\n,;|]+", keywords or "") if t.strip()]
+    if not tokens:
+        return []
+
+    term_clauses = [f'(summary ~ "{t}" OR description ~ "{t}")' for t in tokens]
+
+    jql_parts = ['type = "Fault Report"']
+    if work_group:
+        jql_parts.append(f'"Leading Work Group" = "{work_group}"')
+    jql_parts.append(" AND ".join(term_clauses))
+    jql = " AND ".join(jql_parts)
+
+    issues = _jira_search_all(jql, ["summary", "status", "fixVersions", "labels"], page_size=200)
+    out = []
+    for it in issues or []:
+        f = it.get("fields") or {}
+        out.append({
+            "key": it.get("key"),
+            "summary": f.get("summary", ""),
+            "status": (f.get("status") or {}).get("name", ""),
+            "fixVersions": _fix_versions(f),
+            "labels": [str(x) for x in (f.get("labels") or [])],
+        })
+    return out
+
+@app.route("/project-fault-reports")
+def project_fault_reports():
+    return render_template("project_fault_reports.html", active_page="project-fr")
+
+@app.route("/project_fault_reports_data")
+def project_fault_reports_data():
+    keywords = (request.args.get("keywords") or "").strip()
+    work_group = (request.args.get("workGroup") or "").strip()
+    if not keywords:
+        return jsonify([])
+    return jsonify(search_project_fault_reports(keywords, work_group or None))
+
 # ---------------- Main ----------------
 
 if __name__ == "__main__":

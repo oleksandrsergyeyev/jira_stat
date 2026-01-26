@@ -616,6 +616,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
   const isPlanning  = !!document.getElementById("committed-table");
   const isBacklog   = !!document.getElementById("backlog-table") && !document.getElementById("committed-table");
+  const isProjectFR = !!document.getElementById("project-fr-table");
 
   if (isDashboard) {
     restoreDashboardSettings();
@@ -671,6 +672,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const wg = getSelectedWorkGroup();
       window.location.href = `/export_backlog_excel?workGroup=${encodeURIComponent(wg)}`;
     });
+  }
+
+  if (isProjectFR) {
+    window._projectFrCache = [];
+    document.getElementById("search-btn")?.addEventListener("click", loadProjectFaultReports);
+    document.getElementById("keywordsInput")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        loadProjectFaultReports();
+      }
+    });
+    document.getElementById("includeClosed")?.addEventListener("change", renderProjectFrTable);
+    loadProjectFaultReports();
   }
 
   sendUserIdToBackend().catch(() => {}).finally(showUniqueUserCount);
@@ -871,4 +885,59 @@ function renderGanttTimeline(committedFeatures, sprints) {
 
     host.appendChild(row);
   }
+}
+
+/* =========================
+   Project Fault Reports
+   ========================= */
+async function loadProjectFaultReports() {
+  const wg = getSelectedWorkGroup();
+  const keywordsRaw = document.getElementById("keywordsInput")?.value || "";
+  const tbody = document.querySelector("#project-fr-table tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  if (!keywordsRaw.trim()) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Enter keywords and click Search</td></tr>';
+    return;
+  }
+
+  // Only fetch once per search; closed filtering is applied below client-side
+  const url = `/project_fault_reports_data?keywords=${encodeURIComponent(keywordsRaw)}${wg ? `&workGroup=${encodeURIComponent(wg)}` : ""}`;
+  const resp = await fetch(url);
+  const data = await resp.json();
+
+  window._projectFrCache = Array.isArray(data) ? data : [];
+  renderProjectFrTable();
+}
+
+function renderProjectFrTable() {
+  const tbody = document.querySelector("#project-fr-table tbody");
+  if (!tbody) return;
+  const includeClosed = !!document.getElementById("includeClosed")?.checked;
+  const rows = (window._projectFrCache || []).filter(item => {
+    const st = (item.status || "").toLowerCase();
+    if (!includeClosed && st === "closed") return false;
+    return true;
+  });
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">No results</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = "";
+  let idx = 1;
+  rows.forEach(item => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="col-rownum">${idx++}</td>
+      <td class="col-feature-id"><a href="https://jira-vira.volvocars.biz/browse/${item.key}" target="_blank">${item.key}</a></td>
+      <td class="col-feature-name">${item.summary || ""}</td>
+      <td class="col-status">${item.status || ""}</td>
+      <td>${Array.isArray(item.fixVersions) ? item.fixVersions.join(", ") : ""}</td>
+      <td>${Array.isArray(item.labels) ? item.labels.join(", ") : ""}</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
