@@ -683,7 +683,13 @@ document.addEventListener("DOMContentLoaded", () => {
         loadProjectFaultReports();
       }
     });
-    document.getElementById("includeClosed")?.addEventListener("change", renderProjectFrTable);
+    document.getElementById("toggleClosed")?.addEventListener("click", toggleClosedFilter);
+    const tbtn = document.getElementById("toggleClosed");
+    if (tbtn) {
+      tbtn.classList.remove("active");
+      tbtn.removeAttribute("data-active");
+      tbtn.textContent = "Show Closed";
+    }
     loadProjectFaultReports();
   }
 
@@ -914,7 +920,7 @@ async function loadProjectFaultReports() {
 function renderProjectFrTable() {
   const tbody = document.querySelector("#project-fr-table tbody");
   if (!tbody) return;
-  const includeClosed = !!document.getElementById("includeClosed")?.checked;
+  const includeClosed = !!document.getElementById("toggleClosed")?.dataset.active;
   const rows = (window._projectFrCache || []).filter(item => {
     const st = (item.status || "").toLowerCase();
     if (!includeClosed && st === "closed") return false;
@@ -940,4 +946,15 @@ function renderProjectFrTable() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+function toggleClosedFilter() {
+  const btn = document.getElementById("toggleClosed");
+  if (!btn) return;
+  const active = btn.dataset.active === "1";
+  const next = !active;
+  btn.dataset.active = next ? "1" : "";
+  btn.classList.toggle("active", next);
+  btn.textContent = next ? "Hide Closed" : "Show Closed";
+  renderProjectFrTable();
 }
