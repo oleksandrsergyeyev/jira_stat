@@ -62,15 +62,26 @@ h1 { margin-bottom: 20px; }
   align-items: center;
   flex-wrap: wrap;
 }
+/* Hide any non-keyword filter rows (e.g., old Leading Work Group) */
+.filter-row:not(.keyword-row) {
+  display: none !important;
+}
 .keyword-row {
   width: 100%;
   align-items: center;
+  flex-wrap: nowrap;
 }
 .keyword-col {
-  flex: 1 1 420px;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+.keyword-col input {
+  width: 100%;
+  height: 32px;
+  padding: 6px 8px;
+  box-sizing: border-box;
 }
 .keyword-col textarea {
   width: 100%;
@@ -620,8 +631,8 @@ table.pi-planning-table {
   border-radius: 6px;
   cursor: pointer;
   min-width: 96px;
-  align-self: center;
-  height: 36px;
+  align-self: flex-end;
+  height: 32px;
   margin-left: 8px;
   transition: background 0.2s ease, transform 0.05s ease;
 }
