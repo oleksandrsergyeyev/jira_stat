@@ -39,9 +39,11 @@ h1 { margin-bottom: 20px; }
 .filters {
   margin-bottom: 10px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
+  flex-direction: row;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 .filters select,
 .filters input[type="text"],
@@ -61,33 +63,6 @@ h1 { margin-bottom: 20px; }
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
-}
-/* Hide any non-keyword filter rows (e.g., old Leading Work Group) */
-.filter-row:not(.keyword-row) {
-  display: none !important;
-}
-.keyword-row {
-  width: 100%;
-  align-items: center;
-  flex-wrap: nowrap;
-}
-.keyword-col {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.keyword-col input {
-  width: 100%;
-  height: 32px;
-  padding: 6px 8px;
-  box-sizing: border-box;
-}
-.keyword-col textarea {
-  width: 100%;
-  min-height: 36px;
-  height: 36px;
-  resize: vertical;
 }
 
 /* Chart */
@@ -622,19 +597,3 @@ table.pi-planning-table {
   color: #fff;
   border-color: #0062cc;
 }
-
-.primary-btn {
-  padding: 8px 16px;
-  border: none;
-  background: #007bff;
-  color: #fff;
-  border-radius: 6px;
-  cursor: pointer;
-  min-width: 96px;
-  align-self: flex-end;
-  height: 32px;
-  margin-left: 8px;
-  transition: background 0.2s ease, transform 0.05s ease;
-}
-.primary-btn:hover { background: #0062cc; }
-.primary-btn:active { transform: translateY(1px); }

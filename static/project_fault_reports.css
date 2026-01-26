@@ -1,0 +1,54 @@
+/* Scoped styles for Project Fault Reports page only */
+
+.project-fr-page .filters {
+  width: 100%;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.project-fr-page .keyword-row {
+  width: 100%;
+  align-items: center;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.project-fr-page .keyword-col {
+  flex: 1 1 auto;
+  min-width: 60%;
+  max-width: 1400px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-fr-page .keyword-col label {
+  white-space: nowrap;
+}
+
+.project-fr-page .keyword-col input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+}
+
+.project-fr-page .primary-btn {
+  padding: 8px 16px;
+  border: none;
+  background: #007bff;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 96px;
+  align-self: center;
+  height: 32px;
+  margin-left: 0;
+  transition: background 0.2s ease, transform 0.05s ease;
+}
+
+.project-fr-page .primary-btn:hover { background: #0062cc; }
+.project-fr-page .primary-btn:active { transform: translateY(1px); }
