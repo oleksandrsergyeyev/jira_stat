@@ -802,11 +802,12 @@ def search_project_fault_reports(keywords: str, work_group: str | None = None):
         return []
 
     term_clauses = [f'(summary ~ "{t}" OR description ~ "{t}")' for t in tokens]
+    term_block = " OR ".join(term_clauses)
 
     jql_parts = ['type = "Fault Report"']
     if work_group:
         jql_parts.append(f'"Leading Work Group" = "{work_group}"')
-    jql_parts.append(" AND ".join(term_clauses))
+    jql_parts.append(f"({term_block})")
     jql = " AND ".join(jql_parts)
 
     issues = _jira_search_all(jql, ["summary", "status", "fixVersions", "labels"], page_size=200)
