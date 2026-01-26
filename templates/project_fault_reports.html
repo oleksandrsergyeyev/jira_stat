@@ -17,40 +17,45 @@
   <h1>Project Fault Reports</h1>
 
   <div class="filters">
-    <label for="workGroupSelect">Leading Work Group (optional):</label>
-    <select id="workGroupSelect">
-      <option value="">All</option>
-      <option value="ART - BCRC - BSW TFW">Infra Team</option>
-      <option value="ART - BCRC - SysSW CI">CI Team</option>
-      <option value="ART - BCRC - FPT">Web Team</option>
-      <option value="ART - BCRC - BSW Diag and Com">Diag and Com</option>
-      <option value="ART - BCRC - BSW HW Interface">HW interface</option>
-      <option value="ART - BCRC - BSW Platform">BSW Platform</option>
-      <option value="ART - BCRC - BSW SW Platform and BL">BSW SW Platform and BL</option>
-      <option value="ART - BCRC - Domain">AiC team</option>
-      <option value="ART - BCRC - FSW">FSW team</option>
-      <option value="ART - BCRC - SysSW System Safety and Security">Safety & Security</option>
-      <option value="ART - BCRC - Moni">TPMS</option>
-    </select>
+    <div class="filter-row">
+      <label for="workGroupSelect">Leading Work Group (optional):</label>
+      <select id="workGroupSelect">
+        <option value="">All</option>
+        <option value="ART - BCRC - BSW TFW">Infra Team</option>
+        <option value="ART - BCRC - SysSW CI">CI Team</option>
+        <option value="ART - BCRC - FPT">Web Team</option>
+        <option value="ART - BCRC - BSW Diag and Com">Diag and Com</option>
+        <option value="ART - BCRC - BSW HW Interface">HW interface</option>
+        <option value="ART - BCRC - BSW Platform">BSW Platform</option>
+        <option value="ART - BCRC - BSW SW Platform and BL">BSW SW Platform and BL</option>
+        <option value="ART - BCRC - Domain">AiC team</option>
+        <option value="ART - BCRC - FSW">FSW team</option>
+        <option value="ART - BCRC - SysSW System Safety and Security">Safety & Security</option>
+        <option value="ART - BCRC - Moni">TPMS</option>
+      </select>
+    </div>
 
-    <label for="keywordsInput">Keywords (comma / newline separated):</label>
-    <textarea id="keywordsInput" rows="3" cols="40" placeholder="e.g. boot fail, diag timeout"></textarea>
-
-    <button id="toggleClosed" type="button" class="toggle-button">Show Closed</button>
-
-    <button id="search-btn">Search</button>
+    <div class="filter-row keyword-row">
+      <div class="keyword-col">
+        <label for="keywordsInput">Keywords (comma / newline separated):</label>
+        <textarea id="keywordsInput" rows="1" placeholder="e.g. boot fail, diag timeout"></textarea>
+      </div>
+      <button id="search-btn" class="primary-btn">Search</button>
+    </div>
   </div>
+
+  <div id="status-filters" class="status-filters"></div>
 
   <div class="table-section">
     <table id="project-fr-table" class="pi-planning-table">
       <thead>
         <tr>
-          <th>#</th>
-          <th>Jira ID</th>
-          <th>Summary</th>
-          <th>Status</th>
-          <th>Fix Versions</th>
-          <th>Labels</th>
+          <th onclick="sortTable(this)">#</th>
+          <th onclick="sortTable(this)">Jira ID</th>
+          <th onclick="sortTable(this)">Summary</th>
+          <th onclick="sortTable(this)">Status</th>
+          <th onclick="sortTable(this)">Fix Versions</th>
+          <th onclick="sortTable(this)">Labels</th>
         </tr>
       </thead>
       <tbody></tbody>

@@ -683,13 +683,6 @@ document.addEventListener("DOMContentLoaded", () => {
         loadProjectFaultReports();
       }
     });
-    document.getElementById("toggleClosed")?.addEventListener("click", toggleClosedFilter);
-    const tbtn = document.getElementById("toggleClosed");
-    if (tbtn) {
-      tbtn.classList.remove("active");
-      tbtn.removeAttribute("data-active");
-      tbtn.textContent = "Show Closed";
-    }
     loadProjectFaultReports();
   }
 
@@ -896,6 +889,18 @@ function renderGanttTimeline(committedFeatures, sprints) {
 /* =========================
    Project Fault Reports
    ========================= */
+let statusFilterSet = new Set();
+let allStatusSet = new Set();
+function setStatusFilters(statuses) {
+  statusFilterSet = new Set(statuses || []);
+}
+function getStatusFilters() {
+  return statusFilterSet;
+}
+function getAllStatuses() {
+  return allStatusSet;
+}
+
 async function loadProjectFaultReports() {
   const wg = getSelectedWorkGroup();
   const keywordsRaw = document.getElementById("keywordsInput")?.value || "";
@@ -908,22 +913,24 @@ async function loadProjectFaultReports() {
     return;
   }
 
-  // Only fetch once per search; closed filtering is applied below client-side
   const url = `/project_fault_reports_data?keywords=${encodeURIComponent(keywordsRaw)}${wg ? `&workGroup=${encodeURIComponent(wg)}` : ""}`;
   const resp = await fetch(url);
   const data = await resp.json();
 
   window._projectFrCache = Array.isArray(data) ? data : [];
+  buildStatusChips(window._projectFrCache);
   renderProjectFrTable();
 }
 
 function renderProjectFrTable() {
   const tbody = document.querySelector("#project-fr-table tbody");
   if (!tbody) return;
-  const includeClosed = !!document.getElementById("toggleClosed")?.dataset.active;
+  const allowed = getStatusFilters();
+  const all = getAllStatuses();
+  const hasFilter = allowed.size > 0 && allowed.size < all.size;
   const rows = (window._projectFrCache || []).filter(item => {
-    const st = (item.status || "").toLowerCase();
-    if (!includeClosed && st === "closed") return false;
+    const st = (item.status || "").trim();
+    if (hasFilter && !allowed.has(st)) return false;
     return true;
   });
 
@@ -948,13 +955,41 @@ function renderProjectFrTable() {
   });
 }
 
-function toggleClosedFilter() {
-  const btn = document.getElementById("toggleClosed");
-  if (!btn) return;
-  const active = btn.dataset.active === "1";
-  const next = !active;
-  btn.dataset.active = next ? "1" : "";
-  btn.classList.toggle("active", next);
-  btn.textContent = next ? "Hide Closed" : "Show Closed";
+function toggleStatusChip(e) {
+  const chip = e.currentTarget;
+  const val = chip?.dataset?.value || "";
+  if (!val) return;
+  const current = getStatusFilters();
+  if (current.has(val)) current.delete(val); else current.add(val);
+  chip.classList.toggle("active", current.has(val));
+  setStatusFilters(current);
   renderProjectFrTable();
+}
+
+function buildStatusChips(data) {
+  const host = document.getElementById("status-filters");
+  if (!host) return;
+  const statuses = new Set();
+  (Array.isArray(data) ? data : []).forEach(item => {
+    const st = (item.status || "").trim();
+    if (st) statuses.add(st);
+  });
+  // Ensure known statuses are present even if absent in current payload
+  ["Deployment"].forEach(s => statuses.add(s));
+  allStatusSet = new Set(statuses);
+  const defaultsOff = new Set(["closed","verification","in progress","pre-verification"]);
+  const initialActive = new Set(Array.from(statuses).filter(s => !defaultsOff.has(s.toLowerCase())));
+  // if everything got filtered out, fall back to all active
+  setStatusFilters(initialActive.size ? initialActive : new Set(statuses));
+  host.innerHTML = "";
+  const sorted = Array.from(statuses).sort((a,b)=>a.localeCompare(b));
+  sorted.forEach(st => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "status-chip" + (getStatusFilters().has(st) ? " active" : "");
+    chip.textContent = st;
+    chip.dataset.value = st;
+    chip.addEventListener("click", toggleStatusChip);
+    host.appendChild(chip);
+  });
 }

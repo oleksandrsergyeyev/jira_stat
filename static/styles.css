@@ -36,7 +36,13 @@ body {
 h1 { margin-bottom: 20px; }
 
 /* Filters */
-.filters { margin-bottom: 20px; }
+.filters {
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
 .filters select,
 .filters input[type="text"],
 .filters button {
@@ -49,6 +55,28 @@ h1 { margin-bottom: 20px; }
   width: 320px;
   max-width: 100%;
   font-family: Arial, sans-serif;
+}
+.filter-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.keyword-row {
+  width: 100%;
+  align-items: center;
+}
+.keyword-col {
+  flex: 1 1 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.keyword-col textarea {
+  width: 100%;
+  min-height: 36px;
+  height: 36px;
+  resize: vertical;
 }
 
 /* Chart */
@@ -559,3 +587,43 @@ table.pi-planning-table {
   color: #fff;
   border-color: #0062cc;
 }
+
+.status-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  margin: 8px 0 14px;
+}
+.status-chip {
+  padding: 6px 10px;
+  border: 1px solid #888;
+  border-radius: 16px;
+  background: #f5f5f5;
+  color: #333;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.status-chip.active {
+  background: #007bff;
+  color: #fff;
+  border-color: #0062cc;
+}
+
+.primary-btn {
+  padding: 8px 16px;
+  border: none;
+  background: #007bff;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 96px;
+  align-self: center;
+  height: 36px;
+  margin-left: 8px;
+  transition: background 0.2s ease, transform 0.05s ease;
+}
+.primary-btn:hover { background: #0062cc; }
+.primary-btn:active { transform: translateY(1px); }
