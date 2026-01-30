@@ -676,8 +676,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (isProjectFR) {
     window._projectFrCache = [];
+    restoreProjectFrState();
     document.getElementById("search-btn")?.addEventListener("click", loadProjectFaultReports);
     document.getElementById("keywordsInput")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        loadProjectFaultReports();
+      }
+    });
+    document.getElementById("jiraIdFilterInput")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         loadProjectFaultReports();
@@ -891,6 +898,9 @@ function renderGanttTimeline(committedFeatures, sprints) {
    ========================= */
 let statusFilterSet = new Set();
 let allStatusSet = new Set();
+let jiraIdPrefixes = [];
+let savedKeywords = "";
+
 function setStatusFilters(statuses) {
   statusFilterSet = new Set(statuses || []);
 }
@@ -900,25 +910,76 @@ function getStatusFilters() {
 function getAllStatuses() {
   return allStatusSet;
 }
+function getJiraPrefixes() {
+  return jiraIdPrefixes;
+}
+
+function parseList(raw) {
+  if (!raw) return [];
+  return raw
+    .split(/[,\n;]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function persistProjectFrState({ keywords, jiraPrefixes, statuses }) {
+  const payload = {
+    keywords: keywords || "",
+    jiraPrefixes: Array.isArray(jiraPrefixes) ? jiraPrefixes : [],
+    statuses: Array.from(statuses || []),
+  };
+  localStorage.setItem("projectFrState", JSON.stringify(payload));
+}
+function restoreProjectFrState() {
+  try {
+    const raw = localStorage.getItem("projectFrState");
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.keywords === "string") {
+      const el = document.getElementById("keywordsInput");
+      if (el) el.value = parsed.keywords;
+      savedKeywords = parsed.keywords;
+    }
+    if (Array.isArray(parsed.jiraPrefixes)) {
+      jiraIdPrefixes = parsed.jiraPrefixes;
+      const el = document.getElementById("jiraIdFilterInput");
+      if (el) el.value = parsed.jiraPrefixes.join(", ");
+    }
+    if (Array.isArray(parsed.statuses)) {
+      setStatusFilters(parsed.statuses);
+    }
+  } catch (e) {
+    console.warn("Failed to restore project FR state", e);
+  }
+}
 
 async function loadProjectFaultReports() {
   const wg = getSelectedWorkGroup();
   const keywordsRaw = document.getElementById("keywordsInput")?.value || "";
+  const jiraPrefixRaw = document.getElementById("jiraIdFilterInput")?.value || "";
   const tbody = document.querySelector("#project-fr-table tbody");
   if (!tbody) return;
   tbody.innerHTML = "";
 
-  if (!keywordsRaw.trim()) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Enter keywords and click Search</td></tr>';
+  const keywordsList = parseList(keywordsRaw);
+  const prefixList = parseList(jiraPrefixRaw);
+
+  if (!keywordsList.length && !prefixList.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Enter keywords or Jira ID prefix and click Search</td></tr>';
     return;
   }
 
-  const url = `/project_fault_reports_data?keywords=${encodeURIComponent(keywordsRaw)}${wg ? `&workGroup=${encodeURIComponent(wg)}` : ""}`;
+  const params = [];
+  if (keywordsList.length) params.push(`keywords=${encodeURIComponent(keywordsList.join(","))}`);
+  if (wg) params.push(`workGroup=${encodeURIComponent(wg)}`);
+  const url = `/project_fault_reports_data${params.length ? "?" + params.join("&") : ""}`;
   const resp = await fetch(url);
   const data = await resp.json();
 
   window._projectFrCache = Array.isArray(data) ? data : [];
+  jiraIdPrefixes = prefixList;
   buildStatusChips(window._projectFrCache);
+  persistProjectFrState({ keywords: keywordsRaw, jiraPrefixes: prefixList, statuses: getStatusFilters() });
   renderProjectFrTable();
 }
 
@@ -928,9 +989,15 @@ function renderProjectFrTable() {
   const allowed = getStatusFilters();
   const all = getAllStatuses();
   const hasFilter = allowed.size > 0 && allowed.size < all.size;
+  const prefixes = getJiraPrefixes().map(p => p.toLowerCase());
   const rows = (window._projectFrCache || []).filter(item => {
     const st = (item.status || "").trim();
     if (hasFilter && !allowed.has(st)) return false;
+    if (prefixes.length) {
+      const key = (item.key || "").toLowerCase();
+      const match = prefixes.some(p => key.startsWith(p.toLowerCase()));
+      if (!match) return false;
+    }
     return true;
   });
 
@@ -963,6 +1030,11 @@ function toggleStatusChip(e) {
   if (current.has(val)) current.delete(val); else current.add(val);
   chip.classList.toggle("active", current.has(val));
   setStatusFilters(current);
+  persistProjectFrState({
+    keywords: document.getElementById("keywordsInput")?.value || "",
+    jiraPrefixes: parseList(document.getElementById("jiraIdFilterInput")?.value || ""),
+    statuses: current,
+  });
   renderProjectFrTable();
 }
 
@@ -977,10 +1049,18 @@ function buildStatusChips(data) {
   // Ensure known statuses are present even if absent in current payload
   ["Deployment"].forEach(s => statuses.add(s));
   allStatusSet = new Set(statuses);
-  const defaultsOff = new Set(["closed","verification","in progress","pre-verification"]);
-  const initialActive = new Set(Array.from(statuses).filter(s => !defaultsOff.has(s.toLowerCase())));
-  // if everything got filtered out, fall back to all active
-  setStatusFilters(initialActive.size ? initialActive : new Set(statuses));
+
+  const restored = getStatusFilters();
+  let nextActive = new Set(restored);
+  if (!nextActive.size) {
+    const defaultsOff = new Set(["closed","verification","in progress","pre-verification"]);
+    nextActive = new Set(Array.from(statuses).filter(s => !defaultsOff.has(s.toLowerCase())));
+  }
+  // Keep only statuses that exist now; if none remain, enable all
+  nextActive = new Set(Array.from(nextActive).filter(s => statuses.has(s)));
+  if (!nextActive.size) nextActive = new Set(statuses);
+  setStatusFilters(nextActive);
+
   host.innerHTML = "";
   const sorted = Array.from(statuses).sort((a,b)=>a.localeCompare(b));
   sorted.forEach(st => {
