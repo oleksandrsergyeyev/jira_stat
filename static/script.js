@@ -4,6 +4,7 @@
 
 let currentSortOrder = 'asc';
 let backlogSelectedStatuses = new Set();
+const CLIENT_CACHE_PREFIX = "jiraStatCache::";
 
 // --- helpers ---
 const norm = s => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
@@ -50,6 +51,44 @@ function getSelectedFixVersion() {
 }
 function getSelectedWorkGroup() {
   return document.getElementById("workGroupSelect")?.value;
+}
+
+function makeCacheKey(scope, paramsObj) {
+  const ordered = Object.keys(paramsObj || {}).sort().reduce((acc, k) => {
+    acc[k] = paramsObj[k];
+    return acc;
+  }, {});
+  return `${CLIENT_CACHE_PREFIX}${scope}::${JSON.stringify(ordered)}`;
+}
+
+function readClientCache(cacheKey) {
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeClientCache(cacheKey, data) {
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data }));
+  } catch {
+    // ignore storage quota or serialization issues
+  }
+}
+
+async function fetchJsonWithClientCache(url, cacheKey, forceRefresh = false) {
+  if (!forceRefresh) {
+    const cached = readClientCache(cacheKey);
+    if (cached != null) return cached;
+  }
+  const resp = await fetch(url, { cache: "no-store" });
+  const json = await resp.json();
+  writeClientCache(cacheKey, json);
+  return json;
 }
 
 function applyFilter() {
@@ -160,7 +199,7 @@ function populateAssigneeSuggestions(dataObj) {
 /* ========================
    PI Planning main loader
    ======================== */
-async function loadPIPlanningData() {
+async function loadPIPlanningData(forceRefresh = false) {
   showLoading();
   function getExcludedRaw() {
     const el = document.getElementById("excludeAssigneesInput");
@@ -174,9 +213,9 @@ async function loadPIPlanningData() {
     const excludedRaw = getExcludedRaw();
     const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}${
       excludedRaw ? `&excludeAssignees=${encodeURIComponent(excludedRaw)}` : ""
-    }`;
-    const response = await fetch(url, { cache: "no-store" });
-    const data = await response.json();
+    }${forceRefresh ? "&forceRefresh=1" : ""}`;
+    const cacheKey = makeCacheKey("piPlanningData", { fixVersion, workGroup, excludedRaw });
+    const data = await fetchJsonWithClientCache(url, cacheKey, forceRefresh);
 
     // suggestions based on RAW data
     populateAssigneeSuggestions(data);
@@ -428,15 +467,15 @@ function renderBacklogRoadmap(featuresObj) {
   host.innerHTML = html;
 }
 
-async function loadBacklogData() {
+async function loadBacklogData(forceRefresh = false) {
   showLoading();
   try {
     const workGroup = getSelectedWorkGroup();
     if (!workGroup) return;
 
-    const url = `/backlog_data?workGroup=${encodeURIComponent(workGroup)}`;
-    const resp = await fetch(url);
-    const data = await resp.json();
+    const url = `/backlog_data?workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
+    const cacheKey = makeCacheKey("backlogData", { workGroup });
+    const data = await fetchJsonWithClientCache(url, cacheKey, forceRefresh);
 
     renderBacklogRoadmap(data);
     populateBacklogStatusFilter(data);
@@ -709,20 +748,22 @@ function hideTooltipDelayed() {
 /* =========================
    Fault Report (dashboard)
    ========================= */
-async function fetchData() {
+async function fetchData(forceRefresh = false) {
   const version = getSelectedFixVersion();
   const workGroup = getSelectedWorkGroup();
-  const response = await fetch(`/stats?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}`);
-  return await response.json();
+  const url = `/stats?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
+  const cacheKey = makeCacheKey("dashboardStats", { version, workGroup });
+  return await fetchJsonWithClientCache(url, cacheKey, forceRefresh);
 }
-async function fetchIssues() {
+async function fetchIssues(forceRefresh = false) {
   const version = getSelectedFixVersion();
   const workGroup = getSelectedWorkGroup();
-  const response = await fetch(`/issue_data?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}`);
-  return await response.json();
+  const url = `/issue_data?fixVersion=${version}&workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
+  const cacheKey = makeCacheKey("dashboardIssues", { version, workGroup });
+  return await fetchJsonWithClientCache(url, cacheKey, forceRefresh);
 }
-async function renderChart() {
-  const stats = await fetchData();
+async function renderChart(forceRefresh = false) {
+  const stats = await fetchData(forceRefresh);
   const labels = Object.keys(stats);
   const counts = Object.values(stats);
 
@@ -742,8 +783,8 @@ async function renderChart() {
     }
   });
 }
-async function renderTable() {
-  const issues = await fetchIssues();
+async function renderTable(forceRefresh = false) {
+  const issues = await fetchIssues(forceRefresh);
   const tbody = document.querySelector("#issueTable tbody");
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -954,7 +995,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (isDashboard) {
     restoreDashboardSettings();
     renderChart(); renderTable();
-    document.getElementById("refresh")?.addEventListener("click", () => { renderChart(); renderTable(); });
+    document.getElementById("refresh")?.addEventListener("click", () => { renderChart(true); renderTable(true); });
     document.getElementById("fixVersionSelect")?.addEventListener("change", () => { saveDashboardSettings(); renderChart(); renderTable(); });
     document.getElementById("workGroupSelect")?.addEventListener("change", () => { saveDashboardSettings(); renderChart(); renderTable(); });
   }
@@ -994,6 +1035,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const wg = getSelectedWorkGroup();
       window.location.href = `/export_committed_excel?fixVersion=${encodeURIComponent(fv)}&workGroup=${encodeURIComponent(wg)}`;
     });
+    document.getElementById("planning-refresh")?.addEventListener("click", () => {
+      loadPIPlanningData(true);
+    });
   }
 
   if (isBacklog) {
@@ -1019,6 +1063,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       window.location.href = `/export_backlog_excel?${params.toString()}`;
     });
+    document.getElementById("backlog-refresh")?.addEventListener("click", () => {
+      loadBacklogData(true);
+    });
   }
 
   if (isRoadmap) {
@@ -1028,12 +1075,16 @@ document.addEventListener("DOMContentLoaded", () => {
       saveBacklogSettings();
       loadBacklogData();
     });
+    document.getElementById("roadmap-refresh")?.addEventListener("click", () => {
+      loadBacklogData(true);
+    });
   }
 
   if (isProjectFR) {
     window._projectFrCache = [];
     restoreProjectFrState();
     document.getElementById("search-btn")?.addEventListener("click", loadProjectFaultReports);
+    document.getElementById("project-fr-refresh")?.addEventListener("click", () => loadProjectFaultReports(true));
     document.getElementById("keywordsInput")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -1061,15 +1112,37 @@ function getOrCreateUserId() {
   return uid;
 }
 function sendUserIdToBackend() {
+  const now = Date.now();
+  const last = Number(localStorage.getItem("user_track_last_sent") || 0);
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  if (last && (now - last) < oneDayMs) {
+    return Promise.resolve({ skipped: true });
+  }
   return fetch('/track_user', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user_id: getOrCreateUserId() })
+  }).then((res) => {
+    localStorage.setItem("user_track_last_sent", String(now));
+    return res;
   });
 }
 async function showUniqueUserCount() {
   try {
+    const cacheKey = makeCacheKey("uniqueUsers", {});
+    const cachedRaw = localStorage.getItem(cacheKey);
+    const cacheTtlMs = 5 * 60 * 1000;
+    if (cachedRaw) {
+      const parsed = JSON.parse(cachedRaw);
+      if (parsed && parsed.ts && (Date.now() - Number(parsed.ts) < cacheTtlMs)) {
+        const el = document.getElementById('unique-users-count');
+        if (el) el.textContent = `Unique users: ${Number(parsed.data?.unique_users) || 0}`;
+        return;
+      }
+    }
+
     const res = await fetch('/unique_users', { cache: 'no-store' });
     const data = await res.json();
+    writeClientCache(cacheKey, data);
     const el = document.getElementById('unique-users-count');
     if (el) el.textContent = `Unique users: ${Number(data.unique_users) || 0}`;
   } catch {
@@ -1309,7 +1382,7 @@ function restoreProjectFrState() {
   }
 }
 
-async function loadProjectFaultReports() {
+async function loadProjectFaultReports(forceRefresh = false) {
   const wg = getSelectedWorkGroup();
   const keywordsRaw = document.getElementById("keywordsInput")?.value || "";
   const jiraPrefixRaw = document.getElementById("jiraIdFilterInput")?.value || "";
@@ -1328,9 +1401,13 @@ async function loadProjectFaultReports() {
   const params = [];
   if (keywordsList.length) params.push(`keywords=${encodeURIComponent(keywordsList.join(","))}`);
   if (wg) params.push(`workGroup=${encodeURIComponent(wg)}`);
+  if (forceRefresh) params.push("forceRefresh=1");
   const url = `/project_fault_reports_data${params.length ? "?" + params.join("&") : ""}`;
-  const resp = await fetch(url);
-  const data = await resp.json();
+  const cacheKey = makeCacheKey("projectFaultReports", {
+    keywords: keywordsList.join(","),
+    workGroup: wg || "",
+  });
+  const data = await fetchJsonWithClientCache(url, cacheKey, forceRefresh);
 
   window._projectFrCache = Array.isArray(data) ? data : [];
   jiraIdPrefixes = prefixList;

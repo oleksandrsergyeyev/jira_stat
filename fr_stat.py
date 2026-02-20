@@ -3,6 +3,7 @@ from collections import Counter
 from flask import Flask, jsonify, render_template, request, send_file
 import os
 import io
+import copy
 import pandas as pd
 from dotenv import load_dotenv
 import re
@@ -27,6 +28,21 @@ HEADERS = {
     "Authorization": f"Bearer {JIRA_TOKEN}",
     "Content-Type": "application/json"
 }
+
+_DATA_CACHE: dict[tuple, object] = {}
+
+
+def _cache_get_or_build(cache_key: tuple, builder, force_refresh: bool = False):
+    if (not force_refresh) and (cache_key in _DATA_CACHE):
+        return copy.deepcopy(_DATA_CACHE[cache_key])
+    value = builder()
+    _DATA_CACHE[cache_key] = copy.deepcopy(value)
+    return copy.deepcopy(value)
+
+
+def _is_force_refresh_requested() -> bool:
+    raw = (request.args.get("forceRefresh", "") or "").strip().lower()
+    return raw in {"1", "true", "yes", "y"}
 
 # ---------------- Common lightweight helpers (stateless) ----------------
 
@@ -185,32 +201,36 @@ def _jira_search_all(jql: str, fields: list[str], page_size: int = 1000, hard_ca
 #                       1) FAULT REPORT DASHBOARD
 # ======================================================================
 
-def fr_list_issues(fix_version, work_group):
-    jql = (
-        'type = "Fault Report" AND '
-        f'"Leading Work Group" = "{work_group}" AND '
-        f'fixVersion = "{fix_version}" '
-        'AND (labels = "BuildIssue" AND labels = "Internal_Dev")'
-    )
-    data = _jira_search(jql, ["summary", "status", "fixVersions", "labels", "issuelinks"], max_results=500)
-    out = []
-    if not data:
+def fr_list_issues(fix_version, work_group, force_refresh: bool = False):
+    def _build():
+        jql = (
+            'type = "Fault Report" AND '
+            f'"Leading Work Group" = "{work_group}" AND '
+            f'fixVersion = "{fix_version}" '
+            'AND (labels = "BuildIssue" AND labels = "Internal_Dev")'
+        )
+        data = _jira_search(jql, ["summary", "status", "fixVersions", "labels", "issuelinks"], max_results=500)
+        out = []
+        if not data:
+            return out
+        for it in data.get("issues", []):
+            f = it.get("fields") or {}
+            out.append({
+                "key": it.get("key"),
+                "summary": f.get("summary", ""),
+                "status": f.get("status", {}),
+                "labels": [str(x).lower() for x in (f.get("labels") or [])],
+                "classes": [
+                    get_classes(str(lbl).lower())
+                    for lbl in (f.get("labels") or [])
+                    if get_classes(str(lbl).lower()) not in ["buildissue", "internal_dev", "internla_dev"]
+                ],
+                "linked_features": extract_linked_features_for_fr(f.get("issuelinks", []))
+            })
         return out
-    for it in data.get("issues", []):
-        f = it.get("fields") or {}
-        out.append({
-            "key": it.get("key"),
-            "summary": f.get("summary", ""),
-            "status": f.get("status", {}),
-            "labels": [str(x).lower() for x in (f.get("labels") or [])],
-            "classes": [
-                get_classes(str(lbl).lower())
-                for lbl in (f.get("labels") or [])
-                if get_classes(str(lbl).lower()) not in ["buildissue", "internal_dev", "internla_dev"]
-            ],
-            "linked_features": extract_linked_features_for_fr(f.get("issuelinks", []))
-        })
-    return out
+
+    cache_key = ("fr_list_issues", fix_version, work_group)
+    return _cache_get_or_build(cache_key, _build, force_refresh=force_refresh)
 
 def extract_linked_features_for_fr(links):
     result = []
@@ -231,8 +251,8 @@ def extract_linked_features_for_fr(links):
                     })
     return result
 
-def get_statistics(fix_version, work_group):
-    all_classes = [cls for issue in fr_list_issues(fix_version, work_group) for cls in issue["classes"]]
+def get_statistics(fix_version, work_group, force_refresh: bool = False):
+    all_classes = [cls for issue in fr_list_issues(fix_version, work_group, force_refresh=force_refresh) for cls in issue["classes"]]
     return Counter(all_classes)
 
 def get_classes(label):
@@ -394,7 +414,7 @@ def _resolve_parent_feature_key(fields, feature_keys: set):
 
     return ""
 
-def get_pi_planning(fix_version: str, work_group: str) -> dict:
+def get_pi_planning(fix_version: str, work_group: str, force_refresh: bool = False) -> dict:
     """
     Build PI Planning data for a given Leading Work Group.
 
@@ -423,7 +443,12 @@ def get_pi_planning(fix_version: str, work_group: str) -> dict:
         f'AND (fixVersion = "{fix_version}" OR updated >= -120d) '
         "ORDER BY updated DESC"
     )
-    issues = _jira_search_all(jql, fields_needed, page_size=1000, hard_cap=6000)
+    cache_key = ("pi_planning_issues", fix_version, work_group)
+    issues = _cache_get_or_build(
+        cache_key,
+        lambda: _jira_search_all(jql, fields_needed, page_size=1000, hard_cap=6000),
+        force_refresh=force_refresh,
+    )
 
     features: dict[str, dict] = {}
     summary_cache: dict[str, str] = {}
@@ -521,8 +546,8 @@ def get_pi_planning(fix_version: str, work_group: str) -> dict:
     return features
 
 # change signature
-def pi_planning_data_service(fix_version: str, work_group: str, excluded: set[str] | None = None) -> dict:
-    data = get_pi_planning(fix_version, work_group)
+def pi_planning_data_service(fix_version: str, work_group: str, excluded: set[str] | None = None, force_refresh: bool = False) -> dict:
+    data = get_pi_planning(fix_version, work_group, force_refresh=force_refresh)
     if not excluded:
         return data
 
@@ -558,7 +583,7 @@ def pi_planning_data_service(fix_version: str, work_group: str, excluded: set[st
 #                           3) BACKLOG (independent)
 # ======================================================================
 
-def backlog_data_service(work_group: str) -> dict:
+def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
     """
     All Feature-type issues for WG where statusCategory != done (across all fixVersions).
     Includes Capability (customfield_13801) and resolves its summary.
@@ -575,7 +600,12 @@ def backlog_data_service(work_group: str) -> dict:
     jql = f'"Leading Work Group" = "{work_group}" AND statusCategory != Done'
 
     # >>> KEY CHANGE: paginate instead of taking only the first 1000
-    issues = _jira_search_all(jql, fields_needed, page_size=500, hard_cap=20000)
+    cache_key = ("backlog_issues", work_group)
+    issues = _cache_get_or_build(
+        cache_key,
+        lambda: _jira_search_all(jql, fields_needed, page_size=500, hard_cap=20000),
+        force_refresh=force_refresh,
+    )
     if not issues:
         print(f"[Backlog] WG='{work_group}': no results from Jira")
         return {}
@@ -626,14 +656,16 @@ def home():
 def issue_data():
     fix_version = request.args.get("fixVersion", "PI_25w10")
     work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
-    issues = fr_list_issues(fix_version, work_group)
+    force_refresh = _is_force_refresh_requested()
+    issues = fr_list_issues(fix_version, work_group, force_refresh=force_refresh)
     return jsonify(issues)
 
 @app.route("/stats")
 def stats():
     fix_version = request.args.get("fixVersion", "PI_25w10")
     work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
-    return jsonify(get_statistics(fix_version, work_group))
+    force_refresh = _is_force_refresh_requested()
+    return jsonify(get_statistics(fix_version, work_group, force_refresh=force_refresh))
 
 @app.route("/pi-planning")
 def pi_planning():
@@ -645,7 +677,8 @@ def pi_planning_data():
     work_group  = request.args.get("workGroup", "ART - BCRC - BSW TFW")
     raw_excl    = request.args.get("excludeAssignees", "")
     excluded    = _parse_excluded(raw_excl)
-    data = pi_planning_data_service(fix_version, work_group, excluded)
+    force_refresh = _is_force_refresh_requested()
+    data = pi_planning_data_service(fix_version, work_group, excluded, force_refresh=force_refresh)
     return jsonify(data)
 
 @app.route("/backlog")
@@ -659,7 +692,8 @@ def roadmap():
 @app.route("/backlog_data")
 def backlog_data():
     work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
-    return jsonify(backlog_data_service(work_group))
+    force_refresh = _is_force_refresh_requested()
+    return jsonify(backlog_data_service(work_group, force_refresh=force_refresh))
 
 # --------------- Exports ---------------
 
@@ -842,7 +876,7 @@ def unique_users():
 
 # ---------------- Project Fault Reports ----------------
 
-def search_project_fault_reports(keywords: str, work_group: str | None = None):
+def search_project_fault_reports(keywords: str, work_group: str | None = None, force_refresh: bool = False):
     tokens = [t.strip() for t in re.split(r"[\n,;|]+", keywords or "") if t.strip()]
     if not tokens:
         return []
@@ -856,7 +890,12 @@ def search_project_fault_reports(keywords: str, work_group: str | None = None):
     jql_parts.append(f"({term_block})")
     jql = " AND ".join(jql_parts)
 
-    issues = _jira_search_all(jql, ["summary", "status", "fixVersions", "labels"], page_size=200)
+    cache_key = ("project_fault_reports", keywords, work_group or "")
+    issues = _cache_get_or_build(
+        cache_key,
+        lambda: _jira_search_all(jql, ["summary", "status", "fixVersions", "labels"], page_size=200),
+        force_refresh=force_refresh,
+    )
     out = []
     for it in issues or []:
         f = it.get("fields") or {}
@@ -877,9 +916,10 @@ def project_fault_reports():
 def project_fault_reports_data():
     keywords = (request.args.get("keywords") or "").strip()
     work_group = (request.args.get("workGroup") or "").strip()
+    force_refresh = _is_force_refresh_requested()
     if not keywords:
         return jsonify([])
-    return jsonify(search_project_fault_reports(keywords, work_group or None))
+    return jsonify(search_project_fault_reports(keywords, work_group or None, force_refresh=force_refresh))
 
 # ---------------- Main ----------------
 
