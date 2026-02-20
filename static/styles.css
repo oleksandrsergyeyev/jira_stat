@@ -100,7 +100,7 @@ h1 { margin-bottom: 20px; }
 }
 
 .roadmap-feature-head {
-  grid-row: span 2;
+  grid-row: span 3;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -112,6 +112,8 @@ h1 { margin-bottom: 20px; }
   font-size: 9px;
   padding: 2px 0;
   border-right: 2px solid #c7d4e8;
+  position: relative;
+  overflow: visible;
 }
 
 .roadmap-year-toggle {
@@ -127,6 +129,25 @@ h1 { margin-bottom: 20px; }
   display: inline-block;
   width: 12px;
   color: #3d5f92;
+}
+
+.roadmap-year-text {
+  position: relative;
+  z-index: 2;
+}
+
+.roadmap-qs-header {
+  font-size: 8px;
+  font-weight: 700;
+  color: #5d7394;
+  background: #f7faff;
+  padding: 1px 0;
+}
+
+.roadmap-qs-band {
+  background: #edf3ff;
+  border-right: 1px solid #d7e2f3;
+  color: #405a82;
 }
 
 .roadmap-week-header {
@@ -225,6 +246,10 @@ h1 { margin-bottom: 20px; }
 
 .roadmap-cell.roadmap-year-sep {
   border-left: 2px solid #d5e0ef;
+}
+
+.roadmap-qs-sep {
+  border-left: 2px dashed #9aa9c4 !important;
 }
 
 .roadmap-bar {
