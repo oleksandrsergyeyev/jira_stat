@@ -56,9 +56,28 @@ h1 { margin-bottom: 20px; }
   padding: 4px;
 }
 
+.roadmap-scroll-top {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: #ffffff;
+  border-bottom: 1px solid #e6ecf3;
+}
+
+.roadmap-scroll-spacer {
+  height: 1px;
+}
+
+.roadmap-scroll-main {
+  overflow-x: auto;
+}
+
 .roadmap-grid {
   display: grid;
-  grid-template-columns: 320px repeat(var(--roadmap-weeks, 1), minmax(24px, 24px));
+  grid-template-columns: 300px repeat(var(--roadmap-weeks, 1), minmax(18px, 18px));
   align-items: stretch;
 }
 
@@ -67,7 +86,9 @@ h1 { margin-bottom: 20px; }
   top: 0;
   z-index: 2;
   background: #f3f7fc;
-  border: 1px solid #e1e8f1;
+  border-top: 1px solid #e1e8f1;
+  border-bottom: 1px solid #e1e8f1;
+  border-right: 1px solid #eef3f8;
   font-size: 10px;
   padding: 2px 0;
   text-align: center;
@@ -95,9 +116,11 @@ h1 { margin-bottom: 20px; }
 }
 
 .roadmap-feature-col {
-  border: 1px solid #edf1f6;
+  border-top: 1px solid #edf1f6;
+  border-bottom: 1px solid #edf1f6;
+  border-right: 1px solid #f3f6fa;
   font-size: 12px;
-  padding: 6px 8px;
+  padding: 4px 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -115,17 +138,18 @@ h1 { margin-bottom: 20px; }
 }
 
 .roadmap-cell {
-  border: 1px solid #f1f4f8;
+  border-right: 1px solid #f6f8fb;
+  border-bottom: 1px solid #e9eef5;
   min-height: 24px;
   background: #fff;
 }
 
 .roadmap-bar {
   min-height: 18px;
-  margin: 2px 0;
+  margin: 1px 0;
   border-radius: 3px;
   background: linear-gradient(90deg, #4d8fdf, #2f75d6);
-  border: 1px solid #2f75d6;
+  border: 0;
 }
 
 .roadmap-empty {

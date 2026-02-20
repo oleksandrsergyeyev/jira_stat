@@ -430,7 +430,8 @@ function renderBacklogRoadmap(featuresObj) {
     byCapability.get(it.capability).push(it);
   });
 
-  let html = `<div class="roadmap-scroll"><div class="roadmap-grid" style="--roadmap-weeks:${weeks.length};">`;
+  let html = '<div class="roadmap-scroll-top" id="roadmap-scroll-top"><div class="roadmap-scroll-spacer" id="roadmap-scroll-spacer"></div></div>';
+  html += `<div class="roadmap-scroll roadmap-scroll-main" id="roadmap-scroll-main"><div class="roadmap-grid" style="--roadmap-weeks:${weeks.length};">`;
   html += '<div class="roadmap-header roadmap-feature-col roadmap-feature-head">Feature</div>';
   yearBands.forEach(band => {
     html += `<div class="roadmap-header roadmap-year-header" style="grid-column: ${band.startIdx + 2} / span ${band.count};">${escapeHtml(band.year)}</div>`;
@@ -465,6 +466,30 @@ function renderBacklogRoadmap(featuresObj) {
 
   html += '</div></div>';
   host.innerHTML = html;
+
+  const topScroll = host.querySelector("#roadmap-scroll-top");
+  const mainScroll = host.querySelector("#roadmap-scroll-main");
+  const spacer = host.querySelector("#roadmap-scroll-spacer");
+  const grid = host.querySelector(".roadmap-grid");
+
+  if (topScroll && mainScroll && spacer && grid) {
+    spacer.style.width = `${grid.scrollWidth}px`;
+
+    let syncing = false;
+    topScroll.addEventListener("scroll", () => {
+      if (syncing) return;
+      syncing = true;
+      mainScroll.scrollLeft = topScroll.scrollLeft;
+      syncing = false;
+    });
+
+    mainScroll.addEventListener("scroll", () => {
+      if (syncing) return;
+      syncing = true;
+      topScroll.scrollLeft = mainScroll.scrollLeft;
+      syncing = false;
+    });
+  }
 }
 
 async function loadBacklogData(forceRefresh = false) {
