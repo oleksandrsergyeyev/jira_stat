@@ -566,7 +566,9 @@ def backlog_data_service(work_group: str) -> dict:
     fields_needed = [
         "summary", "issuetype", "issuelinks", "customfield_14700",
         "status", "priority", "fixVersions", "customfield_10708", "assignee",
-        "customfield_13801"  # Capability link
+        "customfield_13801",  # Capability link
+        "customfield_13802",  # Target start
+        "customfield_13803",  # Target end
     ]
 
     # Narrow on the server (but don't use issuetype name to avoid env differences)
@@ -603,6 +605,8 @@ def backlog_data_service(work_group: str) -> dict:
             "story_points": _story_points(f),
             "sum_story_points": 0.0,
             "assignee": _assignee_name(f),
+            "target_start": (f.get("customfield_13802") or ""),
+            "target_end": (f.get("customfield_13803") or ""),
             "stories_detail": [],
         }
 
@@ -647,6 +651,10 @@ def pi_planning_data():
 @app.route("/backlog")
 def backlog():
     return render_template("backlog.html", active_page="backlog")
+
+@app.route("/roadmap")
+def roadmap():
+    return render_template("roadmap.html", active_page="roadmap")
 
 @app.route("/backlog_data")
 def backlog_data():

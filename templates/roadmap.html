@@ -3,11 +3,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Backlog</title>
+  <title>Road map</title>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <!-- Loading overlay -->
   <div id="loading-overlay" style="
     display: none;
     position: fixed;
@@ -40,12 +39,12 @@
   <nav class="main-menu">
     <a href="/" class="menu-item">Fault reports</a>
     <a href="/pi-planning" class="menu-item">PI Planning</a>
-    <a href="/backlog" class="menu-item active">Backlog</a>
-    <a href="/roadmap" class="menu-item">Road map</a>
+    <a href="/backlog" class="menu-item">Backlog</a>
+    <a href="/roadmap" class="menu-item active">Road map</a>
     <a href="/project-fault-reports" class="menu-item">Project Fault reports</a>
   </nav>
 
-  <h1>Backlog (All Not-Done Features)</h1>
+  <h1>Backlog Road map</h1>
 
   <div class="filters">
     <label for="workGroupSelect">Leading Work Group:</label>
@@ -62,28 +61,13 @@
       <option value="ART - BCRC - SysSW System Safety and Security">Safety & Security</option>
       <option value="ART - BCRC - Moni">TPMS</option>
     </select>
-
-    <label for="globalFilter">Filter:</label>
-    <input type="text" id="globalFilter" placeholder="Search table..." />
-
-    <label>Status:</label>
-    <div class="backlog-status-dropdown">
-      <button id="statusFilterToggle" type="button" class="backlog-status-toggle">Statuses</button>
-      <div id="statusFilterMenu" class="backlog-status-menu" aria-label="Status filter"></div>
-    </div>
-
-    <button id="export-backlog-excel"
-      style="margin-left: 10px; padding: 10px 16px; background-color: #17a2b8; color: white; border: none; border-radius: 5px; cursor: pointer;">
-      📥 Export Backlog to Excel
-    </button>
   </div>
 
-  <!-- Column toggler bar for backlog table -->
-  <div id="backlog-column-toggles" class="column-toggles"></div>
-  <div id="backlog-table" class="collapsible-section"></div>
+  <section class="roadmap-section">
+    <div id="backlog-roadmap" class="backlog-roadmap"></div>
+  </section>
 
   <script src="/static/script.js"></script>
-
   <div id="unique-users-count" class="unique-users-counter"></div>
 </body>
 </html>

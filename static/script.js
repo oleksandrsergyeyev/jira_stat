@@ -267,6 +267,167 @@ async function loadPIPlanningData() {
 /* =====================
    Backlog (unchanged)
    ===================== */
+function parseIsoDate(value) {
+  if (!value || typeof value !== "string") return null;
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getIsoWeekParts(dateUtc) {
+  const d = new Date(Date.UTC(dateUtc.getUTCFullYear(), dateUtc.getUTCMonth(), dateUtc.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return { year: d.getUTCFullYear(), week };
+}
+
+function makeWeekKey(year, week) {
+  return `${year}-W${String(week).padStart(2, "0")}`;
+}
+
+function parseWeekKey(key) {
+  const m = String(key || "").match(/^(\d{4})-W(\d{2})$/);
+  if (!m) return null;
+  return { year: Number(m[1]), week: Number(m[2]) };
+}
+
+function nextWeekKey(key) {
+  const parsed = parseWeekKey(key);
+  if (!parsed) return key;
+  if (parsed.week >= 52) return makeWeekKey(parsed.year + 1, 1);
+  return makeWeekKey(parsed.year, parsed.week + 1);
+}
+
+function buildWeekRange(startKey, endKey) {
+  const out = [];
+  let cursor = startKey;
+  let guard = 0;
+  while (cursor && guard < 260) {
+    out.push(cursor);
+    if (cursor === endKey) break;
+    cursor = nextWeekKey(cursor);
+    guard += 1;
+  }
+  return out;
+}
+
+function roadmapSlotForFeature(feature, fallbackWeekSeed) {
+  const startDate = parseIsoDate(feature?.target_start || "");
+  const endDate = parseIsoDate(feature?.target_end || "");
+
+  if (startDate || endDate) {
+    const startParts = startDate ? getIsoWeekParts(startDate) : getIsoWeekParts(endDate);
+    const endParts = endDate ? getIsoWeekParts(endDate) : getIsoWeekParts(startDate);
+    const startKey = makeWeekKey(startParts.year, startParts.week);
+    const endKey = makeWeekKey(endParts.year, endParts.week);
+    return startKey <= endKey ? { startKey, endKey } : { startKey: endKey, endKey: startKey };
+  }
+
+  const fallbackYear = new Date().getFullYear() + 1;
+  const fallbackWeek = (fallbackWeekSeed % 52) + 1;
+  const key = makeWeekKey(fallbackYear, fallbackWeek);
+  return { startKey: key, endKey: key };
+}
+
+function renderBacklogRoadmap(featuresObj) {
+  const host = document.getElementById("backlog-roadmap");
+  if (!host) return;
+
+  const entries = Object.entries(featuresObj || {});
+  if (!entries.length) {
+    host.innerHTML = '<div class="roadmap-empty">No backlog items to display.</div>';
+    return;
+  }
+
+  const items = [];
+  let fallbackSeed = 0;
+  for (const [featureId, feature] of entries) {
+    const slot = roadmapSlotForFeature(feature, fallbackSeed);
+    if (!feature?.target_start && !feature?.target_end) fallbackSeed += 1;
+    items.push({
+      featureId,
+      feature,
+      capability: feature?.parent_summary || feature?.parent_link || "No Capability",
+      startKey: slot.startKey,
+      endKey: slot.endKey,
+    });
+  }
+
+  const minKey = items.map(i => i.startKey).sort()[0];
+  const maxKey = items.map(i => i.endKey).sort().slice(-1)[0];
+  const weeks = buildWeekRange(minKey, maxKey);
+  const weekIdx = new Map(weeks.map((w, i) => [w, i]));
+
+  const yearBands = [];
+  weeks.forEach((weekKey, idx) => {
+    const parsed = parseWeekKey(weekKey);
+    const year = parsed?.year || "";
+    const last = yearBands[yearBands.length - 1];
+    if (!last || last.year !== year) {
+      yearBands.push({ year, startIdx: idx, count: 1 });
+    } else {
+      last.count += 1;
+    }
+  });
+
+  const byCapability = new Map();
+  items.forEach(it => {
+    if (!byCapability.has(it.capability)) byCapability.set(it.capability, []);
+    byCapability.get(it.capability).push(it);
+  });
+
+  let html = `<div class="roadmap-scroll"><div class="roadmap-grid" style="--roadmap-weeks:${weeks.length};">`;
+  html += '<div class="roadmap-header roadmap-feature-col roadmap-feature-head">Feature</div>';
+  yearBands.forEach(band => {
+    html += `<div class="roadmap-header roadmap-year-header" style="grid-column: ${band.startIdx + 2} / span ${band.count};">${escapeHtml(band.year)}</div>`;
+  });
+  weeks.forEach(w => {
+    const wk = parseWeekKey(w)?.week;
+    const wkLabel = wk ? String(wk).padStart(2, "0") : w;
+    html += `<div class="roadmap-header roadmap-week-header">${escapeHtml(wkLabel)}</div>`;
+  });
+
+  Array.from(byCapability.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .forEach(([capability, capItems]) => {
+      html += `<div class="roadmap-capability" style="grid-column: 1 / span ${weeks.length + 1};">${escapeHtml(capability)}</div>`;
+
+      capItems.sort((a, b) => a.startKey.localeCompare(b.startKey) || a.featureId.localeCompare(b.featureId));
+      capItems.forEach(item => {
+        const start = weekIdx.get(item.startKey) ?? 0;
+        const end = weekIdx.get(item.endKey) ?? start;
+        const span = Math.max(1, end - start + 1);
+        const label = `${item.featureId} — ${item.feature?.summary || ""}`;
+        html += `<div class="roadmap-feature-col" title="${escapeHtml(label)}"><a href="https://jira-vira.volvocars.biz/browse/${encodeURIComponent(item.featureId)}" target="_blank">${escapeHtml(item.featureId)}</a> ${escapeHtml(item.feature?.summary || "")}</div>`;
+        weeks.forEach((_, idx) => {
+          if (idx === start) {
+            html += `<div class="roadmap-bar" style="grid-column: ${idx + 2} / span ${span};" title="${escapeHtml(item.startKey)} → ${escapeHtml(item.endKey)}"></div>`;
+          } else if (idx < start || idx > end) {
+            html += '<div class="roadmap-cell"></div>';
+          }
+        });
+      });
+    });
+
+  html += '</div></div>';
+  host.innerHTML = html;
+}
+
 async function loadBacklogData() {
   showLoading();
   try {
@@ -277,6 +438,7 @@ async function loadBacklogData() {
     const resp = await fetch(url);
     const data = await resp.json();
 
+    renderBacklogRoadmap(data);
     populateBacklogStatusFilter(data);
 
     renderFeatureTable(Object.entries(data), "backlog-table", []);
@@ -786,6 +948,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
   const isPlanning  = !!document.getElementById("committed-table");
   const isBacklog   = !!document.getElementById("backlog-table") && !document.getElementById("committed-table");
+  const isRoadmap   = !!document.getElementById("backlog-roadmap") && !document.getElementById("backlog-table");
   const isProjectFR = !!document.getElementById("project-fr-table");
 
   if (isDashboard) {
@@ -855,6 +1018,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       window.location.href = `/export_backlog_excel?${params.toString()}`;
+    });
+  }
+
+  if (isRoadmap) {
+    restoreBacklogSettings();
+    loadBacklogData();
+    document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+      saveBacklogSettings();
+      loadBacklogData();
     });
   }
 
