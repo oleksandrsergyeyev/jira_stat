@@ -90,6 +90,14 @@ def _fix_versions(fields: dict) -> list:
             out.append(name)
     return out
 
+def _archived_fix_versions(fields: dict) -> list:
+    out = []
+    for fv in (fields or {}).get("fixVersions", []) or []:
+        name = fv.get("name")
+        if name and bool(fv.get("archived", False)):
+            out.append(name)
+    return out
+
 def _canonicalize_sprint_name(raw) -> str | None:
     if raw is None:
         return None
@@ -630,6 +638,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
             "parent_link": cap_key,
             "parent_summary": _get_issue_summary(cap_key, cap_cache) if cap_key else "",
             "fixVersions": _fix_versions(f),
+            "archived_fixVersions": _archived_fix_versions(f),
             "linked_issues": _extract_linked_issue_links((f.get("issuelinks") or [])),
             "sprints": {},                 # not used on backlog page but kept for consistency
             "story_points": _story_points(f),

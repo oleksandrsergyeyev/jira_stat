@@ -367,20 +367,63 @@ function buildWeekRange(startKey, endKey) {
   return out;
 }
 
-function roadmapSlotForFeature(feature) {
-  const startDate = parseIsoDate(feature?.target_start || "");
-  const endDate = parseIsoDate(feature?.target_end || "");
+function parseQsFixVersionLatest(fixVersions, archivedFixVersions) {
+  const versions = Array.isArray(fixVersions) ? fixVersions : [];
+  const archivedSet = new Set((Array.isArray(archivedFixVersions) ? archivedFixVersions : []).map(String));
+  const candidates = [];
 
-  if (startDate || endDate) {
-    const startParts = startDate ? getIsoWeekParts(startDate) : getIsoWeekParts(endDate);
-    const endParts = endDate ? getIsoWeekParts(endDate) : getIsoWeekParts(startDate);
-    const startKey = makeWeekKey(startParts.year, startParts.week);
-    const endKey = makeWeekKey(endParts.year, endParts.week);
-    const ordered = startKey <= endKey ? { startKey, endKey } : { startKey: endKey, endKey: startKey };
-    return { ...ordered, isFuture: false };
+  for (const name of versions) {
+    const m = String(name || "").match(/QS_(\d{2})w(\d{2})/i);
+    if (!m) continue;
+    const yy = Number(m[1]);
+    const ww = Number(m[2]);
+    if (!Number.isFinite(yy) || !Number.isFinite(ww) || ww < 1 || ww > 53) continue;
+    candidates.push({ year: 2000 + yy, week: ww, raw: String(name), archived: archivedSet.has(String(name)) });
   }
 
-  return { startKey: "FUTURE", endKey: "FUTURE", isFuture: true };
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => (a.year - b.year) || (a.week - b.week));
+  return candidates[candidates.length - 1];
+}
+
+function getQsPeriodEnd(year, startWeek) {
+  const qsStarts = [10, 22, 37, 49];
+  for (const w of qsStarts) {
+    if (w > startWeek) return { year, week: w - 1 };
+  }
+  return { year: year + 1, week: 9 };
+}
+
+function roadmapSlotForFeature(feature) {
+  const qs = parseQsFixVersionLatest(feature?.fixVersions || [], feature?.archived_fixVersions || []);
+  const status = String(feature?.status || "").toLowerCase();
+  const isDone = status.includes("done") || status.includes("resolved") || status.includes("closed");
+  const isVerification = status.includes("verification");
+
+  if (qs && !isDone && !isVerification && qs.archived) {
+    return { startKey: "FUTURE", endKey: "FUTURE", isFuture: true, periodLabel: `${qs.raw} (archived)` };
+  }
+
+  if (!qs) {
+    return { startKey: "FUTURE", endKey: "FUTURE", isFuture: true, periodLabel: "Future" };
+  }
+
+  const end = getQsPeriodEnd(qs.year, qs.week);
+  const nowParts = getIsoWeekParts(new Date());
+  const currentWeekKey = makeWeekKey(nowParts.year, nowParts.week);
+  const qsEndKey = makeWeekKey(end.year, end.week);
+  const isOverdue = qsEndKey < currentWeekKey;
+
+  if (!isDone && !isVerification && isOverdue) {
+    return { startKey: "FUTURE", endKey: "FUTURE", isFuture: true, periodLabel: `${qs.raw} (overdue)` };
+  }
+
+  return {
+    startKey: makeWeekKey(qs.year, qs.week),
+    endKey: qsEndKey,
+    isFuture: false,
+    periodLabel: qs.raw,
+  };
 }
 
 function roadmapCollapseStorageKey() {
@@ -459,6 +502,7 @@ function renderBacklogRoadmap(featuresObj) {
       startKey: slot.startKey,
       endKey: slot.endKey,
       isFuture: slot.isFuture,
+      periodLabel: slot.periodLabel,
     });
   }
 
@@ -728,7 +772,9 @@ function renderBacklogRoadmap(featuresObj) {
           let endIdx = idx;
           while (endIdx + 1 < timelineCols && activeSlots[endIdx + 1]) endIdx += 1;
           const span = endIdx - idx + 1;
-          const titleText = item.isFuture ? "Future" : `${item.startKey} → ${item.endKey}`;
+          const titleText = item.isFuture
+            ? "Future"
+            : `${item.periodLabel || "QS"}: ${item.startKey} → ${item.endKey}`;
           const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
           const qsClass = timelineSlots[idx]?.isQsStart ? " roadmap-qs-sep" : "";
           html += `<div class="roadmap-bar${sepClass}${qsClass}" style="grid-column: ${idx + 2} / span ${span};" title="${escapeHtml(titleText)}"></div>`;
