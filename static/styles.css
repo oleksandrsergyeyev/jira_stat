@@ -65,6 +65,67 @@ h1 { margin-bottom: 20px; }
   flex-wrap: wrap;
 }
 
+.backlog-status-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.backlog-status-toggle {
+  min-width: 170px;
+  text-align: left;
+  background: #ffffff;
+  border: 1px solid #cfd5dd;
+  border-radius: 8px;
+  color: #2f3a48;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.backlog-status-toggle:hover {
+  border-color: #99b2da;
+}
+
+.backlog-status-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 260px;
+  max-height: 300px;
+  overflow: auto;
+  display: none;
+  z-index: 50;
+  background: #ffffff;
+  border: 1px solid #d5dce7;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 8px;
+}
+
+.backlog-status-menu.open {
+  display: block;
+}
+
+.backlog-status-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.backlog-status-option:hover {
+  background: #f3f7ff;
+}
+
+.backlog-status-option.all {
+  border-bottom: 1px solid #e8edf5;
+  margin-bottom: 4px;
+  padding-bottom: 8px;
+  font-weight: 600;
+}
+
 /* Chart */
 .dashboard-container {
   display: flex;

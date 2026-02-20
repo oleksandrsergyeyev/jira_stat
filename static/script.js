@@ -3,6 +3,7 @@
    ========================= */
 
 let currentSortOrder = 'asc';
+let backlogSelectedStatuses = new Set();
 
 // --- helpers ---
 const norm = s => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
@@ -55,8 +56,12 @@ function applyFilter() {
   const filterInput = document.getElementById("globalFilter");
   if (!filterInput) return;
   const filter = filterInput.value.toLowerCase();
+  const selectedStatuses = new Set(Array.from(backlogSelectedStatuses).map(s => s.toLowerCase()));
   document.querySelectorAll("table tbody tr").forEach(row => {
-    row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
+    const matchesText = row.innerText.toLowerCase().includes(filter);
+    const rowStatus = (row.getAttribute("data-status") || "").toLowerCase();
+    const matchesStatus = selectedStatuses.has(rowStatus);
+    row.style.display = (matchesText && matchesStatus) ? "" : "none";
   });
 }
 
@@ -253,6 +258,8 @@ async function loadBacklogData() {
     const resp = await fetch(url);
     const data = await resp.json();
 
+    populateBacklogStatusFilter(data);
+
     renderFeatureTable(Object.entries(data), "backlog-table", []);
     applyFilter();
   } finally {
@@ -352,7 +359,8 @@ function renderFeatureTable(features, containerId, sprints) {
 
   let rowIndex = 1;
   for (const [featureId, feature] of features) {
-    tableHtml += '<tr>';
+    const rowStatus = (feature.status || "").replace(/"/g, '&quot;');
+    tableHtml += `<tr data-status="${rowStatus}">`;
     let colIdx = 0;
 
     if (!hidden.has(colIdx++)) tableHtml += `<td class="col-rownum">${rowIndex}</td>`;
@@ -609,6 +617,140 @@ function restoreBacklogSettings() {
   if (wg) { const el = document.getElementById("workGroupSelect"); if (el) el.value = wg; }
 }
 
+function saveBacklogStatusSetting() {
+  localStorage.setItem("backlogStatus", JSON.stringify(Array.from(backlogSelectedStatuses)));
+}
+
+function getSavedBacklogStatuses() {
+  const raw = localStorage.getItem("backlogStatus");
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter(Boolean) : [];
+  } catch {
+    return raw ? [raw] : [];
+  }
+}
+
+function updateBacklogStatusDropdownLabel(totalStatuses) {
+  const toggle = document.getElementById("statusFilterToggle");
+  if (!toggle) return;
+  const selectedCount = backlogSelectedStatuses.size;
+
+  if (totalStatuses === 0) {
+    toggle.textContent = "Statuses";
+    return;
+  }
+
+  if (selectedCount >= totalStatuses) {
+    toggle.textContent = `Statuses: All (${totalStatuses})`;
+    return;
+  }
+
+  toggle.textContent = `Statuses: ${selectedCount}/${totalStatuses}`;
+}
+
+function setupBacklogStatusDropdown() {
+  const toggle = document.getElementById("statusFilterToggle");
+  const menu = document.getElementById("statusFilterMenu");
+  if (!toggle || !menu || toggle.dataset.bound === "1") return;
+
+  toggle.dataset.bound = "1";
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    menu.classList.toggle("open");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!menu.classList.contains("open")) return;
+    if (menu.contains(e.target) || toggle.contains(e.target)) return;
+    menu.classList.remove("open");
+  });
+}
+
+function populateBacklogStatusFilter(data) {
+  const menu = document.getElementById("statusFilterMenu");
+  if (!menu) return;
+
+  const statuses = Array.from(new Set(
+    Object.values(data || {})
+      .map(feature => (feature?.status || "").trim())
+      .filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b));
+
+  menu.innerHTML = '';
+
+  const saved = getSavedBacklogStatuses();
+  const previousSelection = backlogSelectedStatuses.size ? Array.from(backlogSelectedStatuses) : [];
+  const baseSelection = previousSelection.length ? previousSelection : saved;
+  const wantedSet = new Set(baseSelection.filter(s => statuses.includes(s)));
+
+  if (!baseSelection.length) {
+    statuses.forEach(s => wantedSet.add(s));
+  }
+
+  if (baseSelection.length && wantedSet.size === 0 && statuses.length) {
+    statuses.forEach(s => wantedSet.add(s));
+  }
+
+  backlogSelectedStatuses = wantedSet;
+
+  const allRow = document.createElement("label");
+  allRow.className = "backlog-status-option all";
+  const allCheckbox = document.createElement("input");
+  allCheckbox.type = "checkbox";
+  allCheckbox.checked = statuses.length > 0 && backlogSelectedStatuses.size === statuses.length;
+  const allText = document.createElement("span");
+  allText.textContent = "Select all";
+  allRow.appendChild(allCheckbox);
+  allRow.appendChild(allText);
+  menu.appendChild(allRow);
+
+  statuses.forEach(status => {
+    const row = document.createElement("label");
+    row.className = "backlog-status-option";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = status;
+    checkbox.checked = wantedSet.has(status);
+
+    const text = document.createElement("span");
+    text.textContent = status;
+
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) backlogSelectedStatuses.add(status);
+      else backlogSelectedStatuses.delete(status);
+
+      allCheckbox.checked = backlogSelectedStatuses.size === statuses.length;
+      saveBacklogStatusSetting();
+      updateBacklogStatusDropdownLabel(statuses.length);
+      applyFilter();
+    });
+
+    row.appendChild(checkbox);
+    row.appendChild(text);
+    menu.appendChild(row);
+  });
+
+  allCheckbox.addEventListener("change", () => {
+    backlogSelectedStatuses = allCheckbox.checked ? new Set(statuses) : new Set();
+    menu.querySelectorAll('.backlog-status-option input[type="checkbox"]').forEach((cb) => {
+      if (cb !== allCheckbox) cb.checked = allCheckbox.checked;
+    });
+    saveBacklogStatusSetting();
+    updateBacklogStatusDropdownLabel(statuses.length);
+    applyFilter();
+  });
+
+  updateBacklogStatusDropdownLabel(statuses.length);
+  saveBacklogStatusSetting();
+
+  if (!wantedSet.size && saved.length) {
+    localStorage.setItem("backlogStatus", JSON.stringify(statuses));
+  }
+}
+
 /* ===============
    Page bootstrap
    =============== */
@@ -665,6 +807,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (isBacklog) {
     restoreBacklogSettings();
+    setupBacklogStatusDropdown();
     loadBacklogData();
     document.getElementById("workGroupSelect")?.addEventListener("change", () => { saveBacklogSettings(); loadBacklogData(); });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
