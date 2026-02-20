@@ -733,7 +733,45 @@ def export_committed_excel():
 @app.route("/export_backlog_excel")
 def export_backlog_excel():
     work_group = request.args.get("WorkGroup", None) or request.args.get("workGroup", "ART - BCRC - BSW TFW")
+    text_query = (request.args.get("q", "") or "").strip().lower()
     features = backlog_data_service(work_group)
+
+    requested_statuses = request.args.getlist("status") or []
+    if not requested_statuses:
+                raw_statuses = request.args.get("statuses", "")
+                if raw_statuses:
+                        requested_statuses = [s.strip() for s in raw_statuses.split(",") if s.strip()]
+
+    allowed_statuses = {s.strip().lower() for s in requested_statuses if s and s.strip()}
+    if allowed_statuses:
+        features = {
+            key: feature
+            for key, feature in features.items()
+            if str(feature.get("status", "")).strip().lower() in allowed_statuses
+        }
+
+    if text_query:
+        def _matches_text(feature_key: str, feature: dict) -> bool:
+            parts = [
+                feature_key,
+                feature.get("summary", ""),
+                feature.get("status", ""),
+                feature.get("priority", ""),
+                feature.get("assignee", ""),
+                feature.get("pi_scope", ""),
+                feature.get("parent_summary", ""),
+                feature.get("parent_link", ""),
+                " ".join((feature.get("fixVersions") or [])),
+                " ".join(l.get("key", "") for l in (feature.get("linked_issues") or [])),
+            ]
+            haystack = " ".join(str(p) for p in parts if p).lower()
+            return text_query in haystack
+
+        features = {
+            key: feature
+            for key, feature in features.items()
+            if _matches_text(key, feature)
+        }
 
     rows = []
     sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5", "No Sprint"]

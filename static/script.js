@@ -57,11 +57,26 @@ function applyFilter() {
   if (!filterInput) return;
   const filter = filterInput.value.toLowerCase();
   const selectedStatuses = new Set(Array.from(backlogSelectedStatuses).map(s => s.toLowerCase()));
+  const hasBacklogStatusFilter = !!document.getElementById("statusFilterMenu");
   document.querySelectorAll("table tbody tr").forEach(row => {
     const matchesText = row.innerText.toLowerCase().includes(filter);
     const rowStatus = (row.getAttribute("data-status") || "").toLowerCase();
-    const matchesStatus = selectedStatuses.has(rowStatus);
+    const matchesStatus = !hasBacklogStatusFilter || selectedStatuses.has(rowStatus);
     row.style.display = (matchesText && matchesStatus) ? "" : "none";
+  });
+  document.querySelectorAll("table").forEach(renumberVisibleRows);
+}
+
+function renumberVisibleRows(table) {
+  if (!table) return;
+  const rows = Array.from(table.querySelectorAll("tbody tr"));
+  let next = 1;
+  rows.forEach(row => {
+    if (row.classList.contains("totals-row")) return;
+    const numCell = row.querySelector("td.col-rownum");
+    if (!numCell) return;
+    if (row.style.display === "none") return;
+    numCell.textContent = String(next++);
   });
 }
 
@@ -70,18 +85,22 @@ function sortTable(header) {
   const tbody = table.querySelector("tbody");
   const index = Array.from(header.parentNode.children).indexOf(header);
   const rows = Array.from(tbody.querySelectorAll("tr"));
+  const totalsRows = rows.filter(r => r.classList.contains("totals-row"));
+  const sortableRows = rows.filter(r => !r.classList.contains("totals-row"));
   const ascending = !header.classList.contains("asc");
 
-  rows.sort((a, b) => {
+  sortableRows.sort((a, b) => {
     const aText = a.cells[index]?.innerText.toLowerCase() || "";
     const bText = b.cells[index]?.innerText.toLowerCase() || "";
     return ascending ? aText.localeCompare(bText) : bText.localeCompare(aText);
   });
 
   tbody.innerHTML = "";
-  rows.forEach(row => tbody.appendChild(row));
+  sortableRows.forEach(row => tbody.appendChild(row));
+  totalsRows.forEach(row => tbody.appendChild(row));
   table.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
   header.classList.add(ascending ? "asc" : "desc");
+  renumberVisibleRows(table);
 }
 
 function toggleTable(id, btn) {
@@ -454,6 +473,7 @@ function renderFeatureTable(features, containerId, sprints) {
 
   tableHtml += '</tbody></table>';
   container.innerHTML = tableHtml;
+  renumberVisibleRows(container.querySelector("table"));
 
   // tooltips for story counts and link badges
   document.querySelectorAll('.story-badge').forEach(b => {
@@ -650,6 +670,14 @@ function updateBacklogStatusDropdownLabel(totalStatuses) {
   toggle.textContent = `Statuses: ${selectedCount}/${totalStatuses}`;
 }
 
+function getBacklogStatusMenuValues() {
+  const menu = document.getElementById("statusFilterMenu");
+  if (!menu) return [];
+  return Array.from(menu.querySelectorAll('.backlog-status-option input[type="checkbox"][value]'))
+    .map(cb => (cb.value || "").trim())
+    .filter(Boolean);
+}
+
 function setupBacklogStatusDropdown() {
   const toggle = document.getElementById("statusFilterToggle");
   const menu = document.getElementById("statusFilterMenu");
@@ -813,7 +841,20 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
     document.getElementById("export-backlog-excel")?.addEventListener("click", function () {
       const wg = getSelectedWorkGroup();
-      window.location.href = `/export_backlog_excel?workGroup=${encodeURIComponent(wg)}`;
+      const textFilter = (document.getElementById("globalFilter")?.value || "").trim();
+      const params = new URLSearchParams();
+      params.set("workGroup", wg || "");
+      if (textFilter) params.set("q", textFilter);
+
+      const allStatuses = getBacklogStatusMenuValues();
+      const selectedStatuses = Array.from(backlogSelectedStatuses).filter(Boolean);
+      const allSelected = allStatuses.length > 0 && selectedStatuses.length === allStatuses.length;
+
+      if (!allSelected) {
+        selectedStatuses.forEach(status => params.append("status", status));
+      }
+
+      window.location.href = `/export_backlog_excel?${params.toString()}`;
     });
   }
 

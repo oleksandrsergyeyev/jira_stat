@@ -82,13 +82,6 @@
   <div id="backlog-table" class="collapsible-section"></div>
 
   <script src="/static/script.js"></script>
-  <script>
-    document.getElementById("export-backlog-excel")?.addEventListener("click", function () {
-      const workGroup = document.getElementById("workGroupSelect")?.value || "ART - BCRC - BSW TFW";
-      const query = `?workGroup=${encodeURIComponent(workGroup)}`;
-      window.location.href = `/export_backlog_excel${query}`;
-    });
-  </script>
 
   <div id="unique-users-count" class="unique-users-counter"></div>
 </body>
