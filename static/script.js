@@ -566,14 +566,21 @@ function renderBacklogRoadmap(featuresObj) {
     persistRoadmapCollapseState();
   }
 
-  const slotWidths = timelineSlots.map((slot) => {
-    if (slot.type === "future") return "56px";
-    if (slot.type === "year") return "28px";
-    return "18px";
-  }).join(" ");
+  const slotWidthValues = timelineSlots.map((slot) => {
+    if (slot.type === "future") return 56;
+    if (slot.type === "year") return 28;
+    return 18;
+  });
+  const slotWidths = slotWidthValues.map(v => `${v}px`).join(" ");
+  const timelineWidthPx = slotWidthValues.reduce((sum, v) => sum + v, 0);
+
+  const hostWidth = host.clientWidth || window.innerWidth;
+  const horizontalPadding = 24;
+  const availableForFeature = hostWidth - timelineWidthPx - horizontalPadding;
+  const featureColWidth = Math.max(220, Math.floor(availableForFeature));
 
   let html = '<div class="roadmap-scroll-top" id="roadmap-scroll-top"><div class="roadmap-scroll-spacer" id="roadmap-scroll-spacer"></div></div>';
-  html += `<div class="roadmap-scroll roadmap-scroll-main" id="roadmap-scroll-main"><div class="roadmap-grid" style="grid-template-columns: 300px ${slotWidths};">`;
+  html += `<div class="roadmap-scroll roadmap-scroll-main" id="roadmap-scroll-main"><div class="roadmap-grid" style="grid-template-columns: ${featureColWidth}px ${slotWidths};">`;
   html += '<div class="roadmap-header roadmap-feature-col roadmap-feature-head">Feature</div>';
   yearHeaderBands.forEach((band) => {
     const yearAttr = encodeURIComponent(band.year);
@@ -754,6 +761,17 @@ function renderBacklogRoadmap(featuresObj) {
       syncing = true;
       topScroll.scrollLeft = mainScroll.scrollLeft;
       syncing = false;
+    });
+  }
+
+  if (!host._resizeBound) {
+    host._resizeBound = true;
+    let resizeTimer = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        renderBacklogRoadmap(host._roadmapData || {});
+      }, 120);
     });
   }
 
