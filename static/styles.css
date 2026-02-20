@@ -81,6 +81,10 @@ h1 { margin-bottom: 20px; }
   align-items: stretch;
 }
 
+.roadmap-grid.has-future {
+  grid-template-columns: 300px repeat(var(--roadmap-weeks, 1), minmax(18px, 18px)) minmax(56px, 56px);
+}
+
 .roadmap-header {
   position: sticky;
   top: 0;
@@ -107,12 +111,48 @@ h1 { margin-bottom: 20px; }
 .roadmap-year-header {
   font-size: 9px;
   padding: 2px 0;
+  border-right: 2px solid #c7d4e8;
+}
+
+.roadmap-year-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.roadmap-year-toggle:hover {
+  background: #e6eefb;
+}
+
+.roadmap-year-arrow {
+  display: inline-block;
+  width: 12px;
+  color: #3d5f92;
 }
 
 .roadmap-week-header {
   font-size: 9px;
   padding: 1px 0;
   letter-spacing: 0.2px;
+}
+
+.roadmap-year-collapsed-cell {
+  color: #5d7394;
+  font-weight: 700;
+  background: #f5f9ff;
+}
+
+.roadmap-year-sep {
+  border-left: 2px solid #ccd9ec;
+}
+
+.roadmap-future-header {
+  font-size: 10px;
+  font-weight: 700;
+  background: #eef4ff;
+  color: #345a8f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .roadmap-feature-col {
@@ -181,6 +221,10 @@ h1 { margin-bottom: 20px; }
   border-bottom: 1px solid #e9eef5;
   min-height: 24px;
   background: #fff;
+}
+
+.roadmap-cell.roadmap-year-sep {
+  border-left: 2px solid #d5e0ef;
 }
 
 .roadmap-bar {

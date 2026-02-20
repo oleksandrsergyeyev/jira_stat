@@ -6,6 +6,7 @@ let currentSortOrder = 'asc';
 let backlogSelectedStatuses = new Set();
 const CLIENT_CACHE_PREFIX = "jiraStatCache::";
 let roadmapCollapsedCapabilities = new Set();
+let roadmapCollapsedYears = new Set();
 
 // --- helpers ---
 const norm = s => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
@@ -366,7 +367,7 @@ function buildWeekRange(startKey, endKey) {
   return out;
 }
 
-function roadmapSlotForFeature(feature, fallbackWeekSeed) {
+function roadmapSlotForFeature(feature) {
   const startDate = parseIsoDate(feature?.target_start || "");
   const endDate = parseIsoDate(feature?.target_end || "");
 
@@ -375,13 +376,11 @@ function roadmapSlotForFeature(feature, fallbackWeekSeed) {
     const endParts = endDate ? getIsoWeekParts(endDate) : getIsoWeekParts(startDate);
     const startKey = makeWeekKey(startParts.year, startParts.week);
     const endKey = makeWeekKey(endParts.year, endParts.week);
-    return startKey <= endKey ? { startKey, endKey } : { startKey: endKey, endKey: startKey };
+    const ordered = startKey <= endKey ? { startKey, endKey } : { startKey: endKey, endKey: startKey };
+    return { ...ordered, isFuture: false };
   }
 
-  const fallbackYear = new Date().getFullYear() + 1;
-  const fallbackWeek = (fallbackWeekSeed % 52) + 1;
-  const key = makeWeekKey(fallbackYear, fallbackWeek);
-  return { startKey: key, endKey: key };
+  return { startKey: "FUTURE", endKey: "FUTURE", isFuture: true };
 }
 
 function roadmapCollapseStorageKey() {
@@ -411,6 +410,33 @@ function persistRoadmapCollapseState() {
   );
 }
 
+function roadmapYearCollapseStorageKey() {
+  return `roadmapCollapsedYears::${getSelectedWorkGroup() || ""}`;
+}
+
+function restoreRoadmapYearCollapseState() {
+  try {
+    const raw = localStorage.getItem(roadmapYearCollapseStorageKey());
+    if (!raw) {
+      roadmapCollapsedYears = new Set();
+      return false;
+    }
+    const arr = JSON.parse(raw);
+    roadmapCollapsedYears = new Set(Array.isArray(arr) ? arr.map(String) : []);
+    return true;
+  } catch {
+    roadmapCollapsedYears = new Set();
+    return false;
+  }
+}
+
+function persistRoadmapYearCollapseState() {
+  localStorage.setItem(
+    roadmapYearCollapseStorageKey(),
+    JSON.stringify(Array.from(roadmapCollapsedYears))
+  );
+}
+
 function renderBacklogRoadmap(featuresObj) {
   const host = document.getElementById("backlog-roadmap");
   if (!host) return;
@@ -424,22 +450,36 @@ function renderBacklogRoadmap(featuresObj) {
   }
 
   const items = [];
-  let fallbackSeed = 0;
   for (const [featureId, feature] of entries) {
-    const slot = roadmapSlotForFeature(feature, fallbackSeed);
-    if (!feature?.target_start && !feature?.target_end) fallbackSeed += 1;
+    const slot = roadmapSlotForFeature(feature);
     items.push({
       featureId,
       feature,
       capability: feature?.parent_summary || feature?.parent_link || "No Capability",
       startKey: slot.startKey,
       endKey: slot.endKey,
+      isFuture: slot.isFuture,
     });
   }
 
-  const minKey = items.map(i => i.startKey).sort()[0];
-  const maxKey = items.map(i => i.endKey).sort().slice(-1)[0];
-  const weeks = buildWeekRange(minKey, maxKey);
+  const datedItems = items.filter(i => !i.isFuture);
+  const hasFutureItems = items.some(i => i.isFuture);
+  const currentYear = new Date().getFullYear();
+  const currentYearStart = makeWeekKey(currentYear, 1);
+  const currentYearEnd = makeWeekKey(currentYear, 52);
+
+  let weeks = [];
+  if (datedItems.length) {
+    const minKey = datedItems.map(i => i.startKey).sort()[0];
+    const maxKey = datedItems.map(i => i.endKey).sort().slice(-1)[0];
+    const rangeStart = minKey < currentYearStart ? minKey : currentYearStart;
+    const rangeEnd = maxKey > currentYearEnd ? maxKey : currentYearEnd;
+    weeks = buildWeekRange(rangeStart, rangeEnd);
+  } else {
+    weeks = buildWeekRange(currentYearStart, currentYearEnd);
+  }
+
+  const hasSavedYearCollapseState = restoreRoadmapYearCollapseState();
   const weekIdx = new Map(weeks.map((w, i) => [w, i]));
 
   const yearBands = [];
@@ -454,6 +494,53 @@ function renderBacklogRoadmap(featuresObj) {
     }
   });
 
+  if (!hasSavedYearCollapseState) {
+    roadmapCollapsedYears = new Set();
+    persistRoadmapYearCollapseState();
+  }
+
+  const timelineSlots = [];
+  const yearHeaderBands = [];
+  yearBands.forEach((band) => {
+    const yearLabel = String(band.year);
+    const isYearCollapsed = roadmapCollapsedYears.has(yearLabel);
+    const startSlotIdx = timelineSlots.length;
+
+    if (isYearCollapsed) {
+      timelineSlots.push({
+        type: "year",
+        year: yearLabel,
+        startWeekIdx: band.startIdx,
+        endWeekIdx: band.startIdx + band.count - 1,
+        isYearStart: true,
+      });
+    } else {
+      for (let i = 0; i < band.count; i += 1) {
+        const weekIndex = band.startIdx + i;
+        timelineSlots.push({
+          type: "week",
+          year: yearLabel,
+          weekKey: weeks[weekIndex],
+          weekIdx: weekIndex,
+          isYearStart: i === 0,
+        });
+      }
+    }
+
+    yearHeaderBands.push({
+      year: yearLabel,
+      startSlotIdx,
+      count: timelineSlots.length - startSlotIdx,
+      isCollapsed: isYearCollapsed,
+    });
+  });
+
+  if (hasFutureItems) {
+    timelineSlots.push({ type: "future", year: "Future", isYearStart: true });
+  }
+
+  const timelineCols = timelineSlots.length;
+
   const byCapability = new Map();
   items.forEach(it => {
     if (!byCapability.has(it.capability)) byCapability.set(it.capability, []);
@@ -465,16 +552,35 @@ function renderBacklogRoadmap(featuresObj) {
     persistRoadmapCollapseState();
   }
 
+  const slotWidths = timelineSlots.map((slot) => {
+    if (slot.type === "future") return "56px";
+    if (slot.type === "year") return "28px";
+    return "18px";
+  }).join(" ");
+
   let html = '<div class="roadmap-scroll-top" id="roadmap-scroll-top"><div class="roadmap-scroll-spacer" id="roadmap-scroll-spacer"></div></div>';
-  html += `<div class="roadmap-scroll roadmap-scroll-main" id="roadmap-scroll-main"><div class="roadmap-grid" style="--roadmap-weeks:${weeks.length};">`;
+  html += `<div class="roadmap-scroll roadmap-scroll-main" id="roadmap-scroll-main"><div class="roadmap-grid" style="grid-template-columns: 300px ${slotWidths};">`;
   html += '<div class="roadmap-header roadmap-feature-col roadmap-feature-head">Feature</div>';
-  yearBands.forEach(band => {
-    html += `<div class="roadmap-header roadmap-year-header" style="grid-column: ${band.startIdx + 2} / span ${band.count};">${escapeHtml(band.year)}</div>`;
+  yearHeaderBands.forEach((band) => {
+    const yearAttr = encodeURIComponent(band.year);
+    const collapseMarker = band.isCollapsed ? "▶" : "▼";
+    html += `<div class="roadmap-header roadmap-year-header roadmap-year-toggle" data-year="${yearAttr}" style="grid-column: ${band.startSlotIdx + 2} / span ${band.count};"><span class="roadmap-year-arrow">${collapseMarker}</span>${escapeHtml(band.year)}</div>`;
   });
-  weeks.forEach(w => {
-    const wk = parseWeekKey(w)?.week;
-    const wkLabel = wk ? String(wk).padStart(2, "0") : w;
-    html += `<div class="roadmap-header roadmap-week-header">${escapeHtml(wkLabel)}</div>`;
+  timelineSlots.forEach((slot, slotIdx) => {
+    const gridCol = slotIdx + 2;
+    if (slot.type === "future") {
+      html += `<div class="roadmap-header roadmap-future-header" style="grid-column: ${gridCol}; grid-row: span 2;">Future</div>`;
+      return;
+    }
+
+    if (slot.type === "year") {
+      html += `<div class="roadmap-header roadmap-week-header roadmap-year-collapsed-cell ${slot.isYearStart ? "roadmap-year-sep" : ""}" style="grid-column: ${gridCol}; grid-row: 2;">…</div>`;
+      return;
+    }
+
+    const wk = parseWeekKey(slot.weekKey)?.week;
+    const wkLabel = wk ? String(wk).padStart(2, "0") : slot.weekKey;
+    html += `<div class="roadmap-header roadmap-week-header ${slot.isYearStart ? "roadmap-year-sep" : ""}" style="grid-column: ${gridCol}; grid-row: 2;">${escapeHtml(wkLabel)}</div>`;
   });
 
   Array.from(byCapability.entries())
@@ -483,48 +589,79 @@ function renderBacklogRoadmap(featuresObj) {
       const isCollapsed = roadmapCollapsedCapabilities.has(capability);
       const capabilityAttr = encodeURIComponent(capability);
       const arrow = isCollapsed ? "▶" : "▼";
-      html += `<div class="roadmap-capability roadmap-capability-toggle" data-capability="${capabilityAttr}" style="grid-column: 1 / span ${weeks.length + 1};"><span class="roadmap-capability-arrow">${arrow}</span><span>${escapeHtml(capability)}</span><span class="roadmap-capability-count">(${capItems.length})</span></div>`;
+      html += `<div class="roadmap-capability roadmap-capability-toggle" data-capability="${capabilityAttr}" style="grid-column: 1 / span ${timelineCols + 1};"><span class="roadmap-capability-arrow">${arrow}</span><span>${escapeHtml(capability)}</span><span class="roadmap-capability-count">(${capItems.length})</span></div>`;
 
       capItems.sort((a, b) => a.startKey.localeCompare(b.startKey) || a.featureId.localeCompare(b.featureId));
 
       if (isCollapsed) {
-        const activeWeeks = Array(weeks.length).fill(false);
+        const activeSlots = Array(timelineCols).fill(false);
         capItems.forEach(item => {
-          const start = weekIdx.get(item.startKey) ?? 0;
-          const end = weekIdx.get(item.endKey) ?? start;
-          for (let i = start; i <= end; i += 1) activeWeeks[i] = true;
+          const startWeek = item.isFuture ? -1 : (weekIdx.get(item.startKey) ?? -1);
+          const endWeek = item.isFuture ? -1 : (weekIdx.get(item.endKey) ?? startWeek);
+          timelineSlots.forEach((slot, slotIdx) => {
+            if (item.isFuture) {
+              if (slot.type === "future") activeSlots[slotIdx] = true;
+              return;
+            }
+            if (slot.type === "week") {
+              if (slot.weekIdx >= startWeek && slot.weekIdx <= endWeek) activeSlots[slotIdx] = true;
+              return;
+            }
+            if (slot.type === "year") {
+              const overlap = !(endWeek < slot.startWeekIdx || startWeek > slot.endWeekIdx);
+              if (overlap) activeSlots[slotIdx] = true;
+            }
+          });
         });
 
         html += `<div class="roadmap-feature-col roadmap-capability-summary" title="${escapeHtml(capability)} collapsed summary">${capItems.length} features</div>`;
         let idx = 0;
-        while (idx < weeks.length) {
-          if (!activeWeeks[idx]) {
-            html += '<div class="roadmap-cell roadmap-summary-cell"></div>';
+        while (idx < timelineCols) {
+          if (!activeSlots[idx]) {
+            const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
+            html += `<div class="roadmap-cell roadmap-summary-cell${sepClass}"></div>`;
             idx += 1;
             continue;
           }
           let endIdx = idx;
-          while (endIdx + 1 < weeks.length && activeWeeks[endIdx + 1]) endIdx += 1;
+          while (endIdx + 1 < timelineCols && activeSlots[endIdx + 1]) endIdx += 1;
           const span = endIdx - idx + 1;
-          html += `<div class="roadmap-bar roadmap-capability-bar" style="grid-column: ${idx + 2} / span ${span};"></div>`;
+          const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
+          html += `<div class="roadmap-bar roadmap-capability-bar${sepClass}" style="grid-column: ${idx + 2} / span ${span};"></div>`;
           idx = endIdx + 1;
         }
         return;
       }
 
       capItems.forEach(item => {
-        const start = weekIdx.get(item.startKey) ?? 0;
-        const end = weekIdx.get(item.endKey) ?? start;
-        const span = Math.max(1, end - start + 1);
+        const startWeek = item.isFuture ? -1 : (weekIdx.get(item.startKey) ?? -1);
+        const endWeek = item.isFuture ? -1 : (weekIdx.get(item.endKey) ?? startWeek);
+
+        const activeSlots = timelineSlots.map((slot) => {
+          if (item.isFuture) return slot.type === "future";
+          if (slot.type === "future") return false;
+          if (slot.type === "week") return slot.weekIdx >= startWeek && slot.weekIdx <= endWeek;
+          return !(endWeek < slot.startWeekIdx || startWeek > slot.endWeekIdx);
+        });
+
         const label = `${item.featureId} — ${item.feature?.summary || ""}`;
         html += `<div class="roadmap-feature-col" title="${escapeHtml(label)}"><a href="https://jira-vira.volvocars.biz/browse/${encodeURIComponent(item.featureId)}" target="_blank">${escapeHtml(item.featureId)}</a> ${escapeHtml(item.feature?.summary || "")}</div>`;
-        weeks.forEach((_, i) => {
-          if (i === start) {
-            html += `<div class="roadmap-bar" style="grid-column: ${i + 2} / span ${span};" title="${escapeHtml(item.startKey)} → ${escapeHtml(item.endKey)}"></div>`;
-          } else if (i < start || i > end) {
-            html += '<div class="roadmap-cell"></div>';
+        let idx = 0;
+        while (idx < timelineCols) {
+          if (!activeSlots[idx]) {
+            const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
+            html += `<div class="roadmap-cell${sepClass}"></div>`;
+            idx += 1;
+            continue;
           }
-        });
+          let endIdx = idx;
+          while (endIdx + 1 < timelineCols && activeSlots[endIdx + 1]) endIdx += 1;
+          const span = endIdx - idx + 1;
+          const titleText = item.isFuture ? "Future" : `${item.startKey} → ${item.endKey}`;
+          const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
+          html += `<div class="roadmap-bar${sepClass}" style="grid-column: ${idx + 2} / span ${span};" title="${escapeHtml(titleText)}"></div>`;
+          idx = endIdx + 1;
+        }
       });
     });
 
@@ -563,6 +700,18 @@ function renderBacklogRoadmap(featuresObj) {
       if (roadmapCollapsedCapabilities.has(capability)) roadmapCollapsedCapabilities.delete(capability);
       else roadmapCollapsedCapabilities.add(capability);
       persistRoadmapCollapseState();
+      renderBacklogRoadmap(host._roadmapData || {});
+    });
+  });
+
+  host.querySelectorAll(".roadmap-year-toggle").forEach((el) => {
+    el.addEventListener("click", () => {
+      const encoded = el.getAttribute("data-year") || "";
+      const year = encoded ? decodeURIComponent(encoded) : "";
+      if (!year) return;
+      if (roadmapCollapsedYears.has(year)) roadmapCollapsedYears.delete(year);
+      else roadmapCollapsedYears.add(year);
+      persistRoadmapYearCollapseState();
       renderBacklogRoadmap(host._roadmapData || {});
     });
   });
