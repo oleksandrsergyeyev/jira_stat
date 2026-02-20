@@ -205,6 +205,30 @@ def _jira_search_all(jql: str, fields: list[str], page_size: int = 1000, hard_ca
             break
     return results
 
+
+def _jira_get_issue_fix_versions(issue_key: str) -> list[str]:
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    resp = requests.get(url, headers=HEADERS, params={"fields": "fixVersions"})
+    if resp.status_code != 200:
+        raise RuntimeError(f"Failed to read issue {issue_key}: {resp.status_code} {resp.text}")
+    fields = (resp.json().get("fields") or {})
+    return [fv.get("name") for fv in (fields.get("fixVersions") or []) if fv.get("name")]
+
+
+def _jira_update_issue_fix_versions(issue_key: str, add_versions: list[str], remove_versions: list[str]) -> dict:
+    ops = []
+    for v in add_versions:
+        ops.append({"add": {"name": v}})
+    for v in remove_versions:
+        ops.append({"remove": {"name": v}})
+
+    payload = {"update": {"fixVersions": ops}}
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    resp = requests.put(url, headers=HEADERS, json=payload)
+    if resp.status_code not in (200, 204):
+        raise RuntimeError(f"Failed to update issue {issue_key}: {resp.status_code} {resp.text}")
+    return payload
+
 # ======================================================================
 #                       1) FAULT REPORT DASHBOARD
 # ======================================================================
@@ -929,6 +953,68 @@ def project_fault_reports_data():
     if not keywords:
         return jsonify([])
     return jsonify(search_project_fault_reports(keywords, work_group or None, force_refresh=force_refresh))
+
+
+@app.route("/update_fix_versions", methods=["POST"])
+def update_fix_versions():
+    data = request.get_json(silent=True) or {}
+
+    issue_key = str(data.get("issueKey") or "").strip().upper()
+    add_versions = data.get("addFixVersions") or []
+    remove_versions = data.get("removeFixVersions") or []
+    dry_run = bool(data.get("dryRun", True))
+
+    if not re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", issue_key):
+        return jsonify({"ok": False, "error": "Invalid issueKey format"}), 400
+
+    if not isinstance(add_versions, list) or not isinstance(remove_versions, list):
+        return jsonify({"ok": False, "error": "addFixVersions/removeFixVersions must be arrays"}), 400
+
+    add_versions = [str(v).strip() for v in add_versions if str(v).strip()]
+    remove_versions = [str(v).strip() for v in remove_versions if str(v).strip()]
+
+    if not add_versions and not remove_versions:
+        return jsonify({"ok": False, "error": "Nothing to update (both add/remove are empty)"}), 400
+
+    add_set = set(add_versions)
+    remove_set = set(remove_versions)
+    overlap = sorted(add_set & remove_set)
+    if overlap:
+        return jsonify({"ok": False, "error": f"Same version in add and remove: {', '.join(overlap)}"}), 400
+
+    try:
+        before = _jira_get_issue_fix_versions(issue_key)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 502
+
+    if dry_run:
+        after_set = set(before)
+        after_set |= add_set
+        after_set -= remove_set
+        after = sorted(after_set)
+        return jsonify({
+            "ok": True,
+            "dryRun": True,
+            "issueKey": issue_key,
+            "before": before,
+            "requested": {"add": sorted(add_set), "remove": sorted(remove_set)},
+            "afterPreview": after,
+        })
+
+    try:
+        payload = _jira_update_issue_fix_versions(issue_key, sorted(add_set), sorted(remove_set))
+        after = _jira_get_issue_fix_versions(issue_key)
+        return jsonify({
+            "ok": True,
+            "dryRun": False,
+            "issueKey": issue_key,
+            "before": before,
+            "after": after,
+            "applied": {"add": sorted(add_set), "remove": sorted(remove_set)},
+            "payload": payload,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "issueKey": issue_key, "before": before}), 502
 
 # ---------------- Main ----------------
 
