@@ -137,6 +137,45 @@ h1 { margin-bottom: 20px; }
   margin-top: 6px;
 }
 
+.roadmap-capability-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.roadmap-capability-toggle:hover {
+  background: #dfeafb;
+}
+
+.roadmap-capability-arrow {
+  width: 12px;
+  font-size: 11px;
+  color: #2f5f9d;
+}
+
+.roadmap-capability-count {
+  margin-left: auto;
+  color: #365f95;
+  font-weight: 600;
+}
+
+.roadmap-capability-summary {
+  font-style: italic;
+  color: #4a5f7e;
+  background: #f8fbff;
+}
+
+.roadmap-capability-bar {
+  background: linear-gradient(90deg, #9db8de, #7ea2d6);
+  min-height: 14px;
+  margin: 3px 0;
+}
+
+.roadmap-summary-cell {
+  background: #fbfdff;
+}
+
 .roadmap-cell {
   border-right: 1px solid #f6f8fb;
   border-bottom: 1px solid #e9eef5;

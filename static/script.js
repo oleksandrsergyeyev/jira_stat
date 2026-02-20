@@ -5,6 +5,7 @@
 let currentSortOrder = 'asc';
 let backlogSelectedStatuses = new Set();
 const CLIENT_CACHE_PREFIX = "jiraStatCache::";
+let roadmapCollapsedCapabilities = new Set();
 
 // --- helpers ---
 const norm = s => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
@@ -383,9 +384,38 @@ function roadmapSlotForFeature(feature, fallbackWeekSeed) {
   return { startKey: key, endKey: key };
 }
 
+function roadmapCollapseStorageKey() {
+  return `roadmapCollapsed::${getSelectedWorkGroup() || ""}`;
+}
+
+function restoreRoadmapCollapseState() {
+  try {
+    const raw = localStorage.getItem(roadmapCollapseStorageKey());
+    if (!raw) {
+      roadmapCollapsedCapabilities = new Set();
+      return false;
+    }
+    const arr = JSON.parse(raw);
+    roadmapCollapsedCapabilities = new Set(Array.isArray(arr) ? arr : []);
+    return true;
+  } catch {
+    roadmapCollapsedCapabilities = new Set();
+    return false;
+  }
+}
+
+function persistRoadmapCollapseState() {
+  localStorage.setItem(
+    roadmapCollapseStorageKey(),
+    JSON.stringify(Array.from(roadmapCollapsedCapabilities))
+  );
+}
+
 function renderBacklogRoadmap(featuresObj) {
   const host = document.getElementById("backlog-roadmap");
   if (!host) return;
+  host._roadmapData = featuresObj || {};
+  const hasSavedCollapseState = restoreRoadmapCollapseState();
 
   const entries = Object.entries(featuresObj || {});
   if (!entries.length) {
@@ -430,6 +460,11 @@ function renderBacklogRoadmap(featuresObj) {
     byCapability.get(it.capability).push(it);
   });
 
+  if (!hasSavedCollapseState) {
+    roadmapCollapsedCapabilities = new Set(Array.from(byCapability.keys()));
+    persistRoadmapCollapseState();
+  }
+
   let html = '<div class="roadmap-scroll-top" id="roadmap-scroll-top"><div class="roadmap-scroll-spacer" id="roadmap-scroll-spacer"></div></div>';
   html += `<div class="roadmap-scroll roadmap-scroll-main" id="roadmap-scroll-main"><div class="roadmap-grid" style="--roadmap-weeks:${weeks.length};">`;
   html += '<div class="roadmap-header roadmap-feature-col roadmap-feature-head">Feature</div>';
@@ -445,19 +480,48 @@ function renderBacklogRoadmap(featuresObj) {
   Array.from(byCapability.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
     .forEach(([capability, capItems]) => {
-      html += `<div class="roadmap-capability" style="grid-column: 1 / span ${weeks.length + 1};">${escapeHtml(capability)}</div>`;
+      const isCollapsed = roadmapCollapsedCapabilities.has(capability);
+      const capabilityAttr = encodeURIComponent(capability);
+      const arrow = isCollapsed ? "▶" : "▼";
+      html += `<div class="roadmap-capability roadmap-capability-toggle" data-capability="${capabilityAttr}" style="grid-column: 1 / span ${weeks.length + 1};"><span class="roadmap-capability-arrow">${arrow}</span><span>${escapeHtml(capability)}</span><span class="roadmap-capability-count">(${capItems.length})</span></div>`;
 
       capItems.sort((a, b) => a.startKey.localeCompare(b.startKey) || a.featureId.localeCompare(b.featureId));
+
+      if (isCollapsed) {
+        const activeWeeks = Array(weeks.length).fill(false);
+        capItems.forEach(item => {
+          const start = weekIdx.get(item.startKey) ?? 0;
+          const end = weekIdx.get(item.endKey) ?? start;
+          for (let i = start; i <= end; i += 1) activeWeeks[i] = true;
+        });
+
+        html += `<div class="roadmap-feature-col roadmap-capability-summary" title="${escapeHtml(capability)} collapsed summary">${capItems.length} features</div>`;
+        let idx = 0;
+        while (idx < weeks.length) {
+          if (!activeWeeks[idx]) {
+            html += '<div class="roadmap-cell roadmap-summary-cell"></div>';
+            idx += 1;
+            continue;
+          }
+          let endIdx = idx;
+          while (endIdx + 1 < weeks.length && activeWeeks[endIdx + 1]) endIdx += 1;
+          const span = endIdx - idx + 1;
+          html += `<div class="roadmap-bar roadmap-capability-bar" style="grid-column: ${idx + 2} / span ${span};"></div>`;
+          idx = endIdx + 1;
+        }
+        return;
+      }
+
       capItems.forEach(item => {
         const start = weekIdx.get(item.startKey) ?? 0;
         const end = weekIdx.get(item.endKey) ?? start;
         const span = Math.max(1, end - start + 1);
         const label = `${item.featureId} — ${item.feature?.summary || ""}`;
         html += `<div class="roadmap-feature-col" title="${escapeHtml(label)}"><a href="https://jira-vira.volvocars.biz/browse/${encodeURIComponent(item.featureId)}" target="_blank">${escapeHtml(item.featureId)}</a> ${escapeHtml(item.feature?.summary || "")}</div>`;
-        weeks.forEach((_, idx) => {
-          if (idx === start) {
-            html += `<div class="roadmap-bar" style="grid-column: ${idx + 2} / span ${span};" title="${escapeHtml(item.startKey)} → ${escapeHtml(item.endKey)}"></div>`;
-          } else if (idx < start || idx > end) {
+        weeks.forEach((_, i) => {
+          if (i === start) {
+            html += `<div class="roadmap-bar" style="grid-column: ${i + 2} / span ${span};" title="${escapeHtml(item.startKey)} → ${escapeHtml(item.endKey)}"></div>`;
+          } else if (i < start || i > end) {
             html += '<div class="roadmap-cell"></div>';
           }
         });
@@ -490,6 +554,18 @@ function renderBacklogRoadmap(featuresObj) {
       syncing = false;
     });
   }
+
+  host.querySelectorAll(".roadmap-capability-toggle").forEach((el) => {
+    el.addEventListener("click", () => {
+      const encoded = el.getAttribute("data-capability") || "";
+      const capability = encoded ? decodeURIComponent(encoded) : "";
+      if (!capability) return;
+      if (roadmapCollapsedCapabilities.has(capability)) roadmapCollapsedCapabilities.delete(capability);
+      else roadmapCollapsedCapabilities.add(capability);
+      persistRoadmapCollapseState();
+      renderBacklogRoadmap(host._roadmapData || {});
+    });
+  });
 }
 
 async function loadBacklogData(forceRefresh = false) {
