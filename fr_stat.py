@@ -183,22 +183,23 @@ def _get_issue_summary(key: str, cache: dict) -> str:
 
 def _get_issue_meta(key: str, cache: dict[str, dict]) -> dict:
     if not key:
-        return {"summary": "", "leading_work_group": ""}
+        return {"summary": "", "leading_work_group": "", "created": ""}
     if key in cache:
         return cache[key]
 
     url = f"{JIRA_ISSUE}/{key}"
-    resp = requests.get(url, headers=HEADERS, params={"fields": "summary,customfield_14400"})
+    resp = requests.get(url, headers=HEADERS, params={"fields": "summary,customfield_14400,created"})
     if resp.status_code == 200:
         fields = (resp.json().get("fields") or {})
         meta = {
             "summary": fields.get("summary", "") or "",
             "leading_work_group": _leading_work_group_value(fields),
+            "created": fields.get("created", "") or "",
         }
         cache[key] = meta
         return meta
 
-    meta = {"summary": "", "leading_work_group": ""}
+    meta = {"summary": "", "leading_work_group": "", "created": ""}
     cache[key] = meta
     return meta
 
@@ -692,7 +693,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
     jql = f'"Leading Work Group" = "{work_group}" AND statusCategory != Done'
 
     # >>> KEY CHANGE: paginate instead of taking only the first 1000
-    cache_key = ("backlog_issues_v3", work_group)
+    cache_key = ("backlog_issues_v4", work_group)
     issues = _cache_get_or_build(
         cache_key,
         lambda: _jira_search_all(jql, fields_needed, page_size=500, hard_cap=20000),
@@ -714,7 +715,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
             continue
 
         cap_key = _extract_capability_key(f)
-        cap_meta = _get_issue_meta(cap_key, cap_cache) if cap_key else {"summary": "", "leading_work_group": ""}
+        cap_meta = _get_issue_meta(cap_key, cap_cache) if cap_key else {"summary": "", "leading_work_group": "", "created": ""}
         features[key] = {
             "summary": f.get("summary", "") or "",
             "status": ((f.get("status") or {}).get("name") or ""),
@@ -723,6 +724,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
             "parent_link": cap_key,
             "parent_summary": cap_meta.get("summary", ""),
             "parent_leading_work_group": cap_meta.get("leading_work_group", ""),
+            "parent_created": cap_meta.get("created", ""),
             "fixVersions": _fix_versions(f),
             "archived_fixVersions": _archived_fix_versions(f),
             "linked_issues": _extract_linked_issue_links((f.get("issuelinks") or [])),
@@ -744,10 +746,10 @@ def capabilities_data_service(work_group: str, force_refresh: bool = False) -> l
     """
     Return all Capability issues for selected WG, including capabilities without linked features.
     """
-    fields_needed = ["summary", "issuetype", "status", "customfield_14400"]
+    fields_needed = ["summary", "issuetype", "status", "customfield_14400", "created"]
     jql = f'"Leading Work Group" = "{work_group}" AND issuetype = Capability ORDER BY key ASC'
 
-    cache_key = ("capability_issues_v2", work_group)
+    cache_key = ("capability_issues_v3", work_group)
     issues = _cache_get_or_build(
         cache_key,
         lambda: _jira_search_all(jql, fields_needed, page_size=500, hard_cap=10000),
@@ -763,6 +765,7 @@ def capabilities_data_service(work_group: str, force_refresh: bool = False) -> l
             "summary": fields.get("summary", "") or "",
             "status": ((fields.get("status") or {}).get("name") or ""),
             "leading_work_group": _leading_work_group_value(fields),
+            "created": fields.get("created", "") or "",
         })
 
     return out

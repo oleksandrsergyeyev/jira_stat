@@ -490,6 +490,49 @@ function capabilityLabelWithLeadingGroup(key, summary, leadingWorkGroup) {
   return group ? `${baseLabel} (${group})` : baseLabel;
 }
 
+function roadmapPriorityNumber(priorityRaw) {
+  if (typeof priorityRaw === "number" && Number.isFinite(priorityRaw)) {
+    const n = Math.round(priorityRaw);
+    return Math.max(1, Math.min(10, n));
+  }
+
+  const text = String(priorityRaw || "").trim();
+  if (!text) return 10;
+
+  const numMatch = text.match(/(?:^|\D)(10|[1-9])(?!\d)/);
+  if (numMatch) {
+    const n = Number(numMatch[1]);
+    if (Number.isFinite(n)) return Math.max(1, Math.min(10, n));
+  }
+
+  const t = text.toLowerCase();
+  if (/(highest|blocker|critical|urgent)/.test(t)) return 1;
+  if (/high/.test(t)) return 3;
+  if (/medium|normal/.test(t)) return 5;
+  if (/low/.test(t) && !/lowest/.test(t)) return 8;
+  if (/(lowest|minor|trivial)/.test(t)) return 10;
+  return 10;
+}
+
+function roadmapPriorityStyle(priorityRaw) {
+  const p = roadmapPriorityNumber(priorityRaw);
+  const palette = [
+    "#c71f1f", // 1
+    "#d63a28", // 2
+    "#e85a2f", // 3
+    "#f07b35", // 4
+    "#e79f3f", // 5
+    "#c2a44a", // 6
+    "#8aa15f", // 7
+    "#5f9d7f", // 8
+    "#3f8ea3", // 9
+    "#2f75d6", // 10
+  ];
+  const background = palette[Math.max(1, Math.min(10, p)) - 1];
+  const textColor = p >= 5 && p <= 7 ? "#1f2937" : "#ffffff";
+  return { priority: p, background, textColor };
+}
+
 function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
   const host = document.getElementById("backlog-roadmap");
   if (!host) return;
@@ -507,6 +550,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
     capabilityMetaByKey.set(key, {
       summary: (cap?.summary || "").trim(),
       leadingWorkGroup: (cap?.leading_work_group || "").trim(),
+      created: (cap?.created || "").trim(),
     });
   });
   if (!entries.length && !capabilityItems.length) {
@@ -632,6 +676,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
   const timelineCols = timelineSlots.length;
 
   const byCapability = new Map();
+  const capabilityCreatedByLabel = new Map();
   const officialCapabilityLabels = new Set();
 
   capabilityItems.forEach((cap) => {
@@ -639,6 +684,10 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
     const summary = (cap?.summary || "").trim();
     const groupedLabel = capabilityLabelWithLeadingGroup(key, summary, cap?.leading_work_group || "");
     if (!byCapability.has(groupedLabel)) byCapability.set(groupedLabel, []);
+    const created = (cap?.created || "").trim();
+    if (created && !capabilityCreatedByLabel.has(groupedLabel)) {
+      capabilityCreatedByLabel.set(groupedLabel, created);
+    }
     officialCapabilityLabels.add(groupedLabel);
   });
 
@@ -654,6 +703,10 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
     );
     if (!byCapability.has(groupLabel)) byCapability.set(groupLabel, []);
     byCapability.get(groupLabel).push(it);
+    const created = (capMeta?.created || it?.feature?.parent_created || "").trim();
+    if (created && !capabilityCreatedByLabel.has(groupLabel)) {
+      capabilityCreatedByLabel.set(groupLabel, created);
+    }
   });
 
   if (capabilitiesCountEl) {
@@ -797,14 +850,54 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
 
   Array.from(byCapability.entries())
     .sort((a, b) => {
+      const selectedWorkGroup = (getSelectedWorkGroup() || "").trim().toLowerCase();
       const aLabel = (a[0] || "").trim().toLowerCase();
       const bLabel = (b[0] || "").trim().toLowerCase();
       const isBottomLabel = (label) => label === "capability" || label.startsWith("no capability");
+      const extractLeadingGroup = (label) => {
+        const m = (label || "").match(/\(([^()]*)\)\s*$/);
+        return m ? (m[1] || "").trim().toLowerCase() : "";
+      };
+      const extractId = (label) => {
+        const clean = (label || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+        const dashIdx = clean.indexOf("—");
+        if (dashIdx >= 0) return clean.slice(0, dashIdx).trim().toLowerCase();
+        return clean.toLowerCase();
+      };
+      const parseIdParts = (id) => {
+        const m = (id || "").match(/^([a-z]+)-?(\d+)$/i);
+        if (!m) return { prefix: id || "", number: Number.MAX_SAFE_INTEGER };
+        return { prefix: (m[1] || "").toLowerCase(), number: Number(m[2]) };
+      };
 
       const aBottom = isBottomLabel(aLabel);
       const bBottom = isBottomLabel(bLabel);
       if (aBottom && !bBottom) return 1;
       if (!aBottom && bBottom) return -1;
+
+      const aSelected = selectedWorkGroup && extractLeadingGroup(a[0]) === selectedWorkGroup;
+      const bSelected = selectedWorkGroup && extractLeadingGroup(b[0]) === selectedWorkGroup;
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+
+      const parseCreatedMs = (label) => {
+        const raw = capabilityCreatedByLabel.get(label);
+        if (!raw) return Number.POSITIVE_INFINITY;
+        const ms = Date.parse(raw);
+        return Number.isNaN(ms) ? Number.POSITIVE_INFINITY : ms;
+      };
+      const aCreated = parseCreatedMs(a[0]);
+      const bCreated = parseCreatedMs(b[0]);
+      if (aCreated !== bCreated) return aCreated - bCreated;
+
+      const aId = extractId(a[0]);
+      const bId = extractId(b[0]);
+      const aParts = parseIdParts(aId);
+      const bParts = parseIdParts(bId);
+      const byNumber = aParts.number - bParts.number;
+      if (byNumber !== 0) return byNumber;
+      const byPrefix = aParts.prefix.localeCompare(bParts.prefix);
+      if (byPrefix !== 0) return byPrefix;
       return a[0].localeCompare(b[0]);
     })
     .forEach(([capability, capItems], capIndex) => {
@@ -860,6 +953,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
       capItems.forEach(item => {
         const startWeek = item.isFuture ? -1 : (weekIdx.get(item.startKey) ?? -1);
         const endWeek = item.isFuture ? -1 : (weekIdx.get(item.endKey) ?? startWeek);
+        const prio = roadmapPriorityStyle(item.feature?.priority);
 
         const activeSlots = timelineSlots.map((slot) => {
           if (item.isFuture) return slot.type === "future";
@@ -884,10 +978,11 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
           const span = endIdx - idx + 1;
           const titleText = item.isFuture
             ? "Future"
-            : `${item.periodLabel || "QS"}: ${item.startKey} → ${item.endKey}`;
+            : `${item.periodLabel || "QS"}: ${item.startKey} → ${item.endKey} | Priority ${prio.priority}`;
           const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
           const qsClass = timelineSlots[idx]?.isQsStart ? " roadmap-qs-sep" : "";
-          html += `<div class="roadmap-bar${sepClass}${qsClass}" style="grid-column: ${idx + 2} / span ${span};" title="${escapeHtml(titleText)}"></div>`;
+          const style = `grid-column: ${idx + 2} / span ${span}; background: ${prio.background}; color: ${prio.textColor};`;
+          html += `<div class="roadmap-bar${sepClass}${qsClass}" style="${style}" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority">${prio.priority}</span></div>`;
           idx = endIdx + 1;
         }
       });
@@ -964,8 +1059,8 @@ async function loadBacklogData(forceRefresh = false) {
 
     const url = `/backlog_data?workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
     const capabilitiesUrl = `/capabilities_data?workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
-    const cacheKey = makeCacheKey("backlogDataV2", { workGroup });
-    const capabilitiesCacheKey = makeCacheKey("capabilitiesDataV2", { workGroup });
+    const cacheKey = makeCacheKey("backlogDataV3", { workGroup });
+    const capabilitiesCacheKey = makeCacheKey("capabilitiesDataV3", { workGroup });
     const [data, capabilities] = await Promise.all([
       fetchJsonWithClientCache(url, cacheKey, forceRefresh),
       fetchJsonWithClientCache(capabilitiesUrl, capabilitiesCacheKey, forceRefresh),
