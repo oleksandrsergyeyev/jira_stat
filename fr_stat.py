@@ -677,6 +677,33 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
     return features
 
 
+def capabilities_data_service(work_group: str, force_refresh: bool = False) -> list[dict]:
+    """
+    Return all Capability issues for selected WG, including capabilities without linked features.
+    """
+    fields_needed = ["summary", "issuetype", "status"]
+    jql = f'"Leading Work Group" = "{work_group}" AND issuetype = Capability ORDER BY key ASC'
+
+    cache_key = ("capability_issues", work_group)
+    issues = _cache_get_or_build(
+        cache_key,
+        lambda: _jira_search_all(jql, fields_needed, page_size=500, hard_cap=10000),
+        force_refresh=force_refresh,
+    )
+
+    out = []
+    for it in issues or []:
+        key = it.get("key", "")
+        fields = it.get("fields") or {}
+        out.append({
+            "key": key,
+            "summary": fields.get("summary", "") or "",
+            "status": ((fields.get("status") or {}).get("name") or ""),
+        })
+
+    return out
+
+
 # ======================================================================
 #                               FLASK ROUTES
 # ======================================================================
@@ -727,6 +754,13 @@ def backlog_data():
     work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
     force_refresh = _is_force_refresh_requested()
     return jsonify(backlog_data_service(work_group, force_refresh=force_refresh))
+
+
+@app.route("/capabilities_data")
+def capabilities_data():
+    work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
+    force_refresh = _is_force_refresh_requested()
+    return jsonify(capabilities_data_service(work_group, force_refresh=force_refresh))
 
 # --------------- Exports ---------------
 

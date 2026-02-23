@@ -35,6 +35,18 @@ body {
 }
 h1 { margin-bottom: 20px; }
 
+.roadmap-counter {
+  margin-left: 8px;
+  padding: 6px 10px;
+  border: 1px solid #c9d8ef;
+  border-radius: 8px;
+  background: #eef4ff;
+  color: #2f4f7b;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .roadmap-section {
   margin: 10px 0 18px;
   text-align: left;
@@ -213,6 +225,12 @@ h1 { margin-bottom: 20px; }
   width: 12px;
   font-size: 11px;
   color: #2f5f9d;
+}
+
+.roadmap-capability-index {
+  color: #355f93;
+  font-weight: 700;
+  min-width: 20px;
 }
 
 .roadmap-capability-count {

@@ -480,14 +480,23 @@ function persistRoadmapYearCollapseState() {
   );
 }
 
-function renderBacklogRoadmap(featuresObj) {
+function withLeadingGroup(label) {
+  const workGroup = (getSelectedWorkGroup() || "").trim();
+  if (!workGroup) return label;
+  return `${label} (${workGroup})`;
+}
+
+function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
   const host = document.getElementById("backlog-roadmap");
   if (!host) return;
   host._roadmapData = featuresObj || {};
+  host._capabilitiesData = Array.isArray(capabilitiesList) ? capabilitiesList : [];
+  const capabilitiesCountEl = document.getElementById("capabilities-count");
   const hasSavedCollapseState = restoreRoadmapCollapseState();
 
   const entries = Object.entries(featuresObj || {});
-  if (!entries.length) {
+  const capabilityItems = Array.isArray(capabilitiesList) ? capabilitiesList : [];
+  if (!entries.length && !capabilityItems.length) {
     host.innerHTML = '<div class="roadmap-empty">No backlog items to display.</div>';
     return;
   }
@@ -495,10 +504,13 @@ function renderBacklogRoadmap(featuresObj) {
   const items = [];
   for (const [featureId, feature] of entries) {
     const slot = roadmapSlotForFeature(feature);
+    const capLabel = feature?.parent_link
+      ? `${feature.parent_link} — ${feature?.parent_summary || feature.parent_link}`
+      : (feature?.parent_summary || "No Capability");
     items.push({
       featureId,
       feature,
-      capability: feature?.parent_summary || feature?.parent_link || "No Capability",
+      capability: withLeadingGroup(capLabel),
       startKey: slot.startKey,
       endKey: slot.endKey,
       isFuture: slot.isFuture,
@@ -600,10 +612,23 @@ function renderBacklogRoadmap(featuresObj) {
   const timelineCols = timelineSlots.length;
 
   const byCapability = new Map();
+  capabilityItems.forEach((cap) => {
+    const key = (cap?.key || "").trim();
+    const summary = (cap?.summary || "").trim();
+    const label = key ? `${key} — ${summary || key}` : (summary || "No Capability");
+    const groupedLabel = withLeadingGroup(label);
+    if (!byCapability.has(groupedLabel)) byCapability.set(groupedLabel, []);
+  });
   items.forEach(it => {
     if (!byCapability.has(it.capability)) byCapability.set(it.capability, []);
     byCapability.get(it.capability).push(it);
   });
+
+  if (capabilitiesCountEl) {
+    const total = byCapability.size;
+    const withFeatures = Array.from(byCapability.values()).filter(v => Array.isArray(v) && v.length > 0).length;
+    capabilitiesCountEl.textContent = `Capabilities: ${total} (with features: ${withFeatures})`;
+  }
 
   if (!hasSavedCollapseState) {
     roadmapCollapsedCapabilities = new Set(Array.from(byCapability.keys()));
@@ -697,11 +722,11 @@ function renderBacklogRoadmap(featuresObj) {
 
   Array.from(byCapability.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .forEach(([capability, capItems]) => {
+    .forEach(([capability, capItems], capIndex) => {
       const isCollapsed = roadmapCollapsedCapabilities.has(capability);
       const capabilityAttr = encodeURIComponent(capability);
       const arrow = isCollapsed ? "▶" : "▼";
-      html += `<div class="roadmap-capability roadmap-capability-toggle" data-capability="${capabilityAttr}" style="grid-column: 1 / span ${timelineCols + 1};"><span class="roadmap-capability-arrow">${arrow}</span><span>${escapeHtml(capability)}</span><span class="roadmap-capability-count">(${capItems.length})</span></div>`;
+      html += `<div class="roadmap-capability roadmap-capability-toggle" data-capability="${capabilityAttr}" style="grid-column: 1 / span ${timelineCols + 1};"><span class="roadmap-capability-arrow">${arrow}</span><span class="roadmap-capability-index">${capIndex + 1}.</span><span>${escapeHtml(capability)}</span><span class="roadmap-capability-count">(${capItems.length})</span></div>`;
 
       capItems.sort((a, b) => a.startKey.localeCompare(b.startKey) || a.featureId.localeCompare(b.featureId));
 
@@ -816,7 +841,7 @@ function renderBacklogRoadmap(featuresObj) {
     window.addEventListener("resize", () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        renderBacklogRoadmap(host._roadmapData || {});
+        renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
       }, 120);
     });
   }
@@ -829,7 +854,7 @@ function renderBacklogRoadmap(featuresObj) {
       if (roadmapCollapsedCapabilities.has(capability)) roadmapCollapsedCapabilities.delete(capability);
       else roadmapCollapsedCapabilities.add(capability);
       persistRoadmapCollapseState();
-      renderBacklogRoadmap(host._roadmapData || {});
+      renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
     });
   });
 
@@ -841,7 +866,7 @@ function renderBacklogRoadmap(featuresObj) {
       if (roadmapCollapsedYears.has(year)) roadmapCollapsedYears.delete(year);
       else roadmapCollapsedYears.add(year);
       persistRoadmapYearCollapseState();
-      renderBacklogRoadmap(host._roadmapData || {});
+      renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
     });
   });
 }
@@ -853,10 +878,15 @@ async function loadBacklogData(forceRefresh = false) {
     if (!workGroup) return;
 
     const url = `/backlog_data?workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
+    const capabilitiesUrl = `/capabilities_data?workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
     const cacheKey = makeCacheKey("backlogData", { workGroup });
-    const data = await fetchJsonWithClientCache(url, cacheKey, forceRefresh);
+    const capabilitiesCacheKey = makeCacheKey("capabilitiesData", { workGroup });
+    const [data, capabilities] = await Promise.all([
+      fetchJsonWithClientCache(url, cacheKey, forceRefresh),
+      fetchJsonWithClientCache(capabilitiesUrl, capabilitiesCacheKey, forceRefresh),
+    ]);
 
-    renderBacklogRoadmap(data);
+    renderBacklogRoadmap(data, capabilities);
     populateBacklogStatusFilter(data);
 
     renderFeatureTable(Object.entries(data), "backlog-table", []);
