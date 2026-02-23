@@ -7,6 +7,161 @@ let backlogSelectedStatuses = new Set();
 const CLIENT_CACHE_PREFIX = "jiraStatCache::v2::";
 let roadmapCollapsedCapabilities = new Set();
 let roadmapCollapsedYears = new Set();
+let roadmapPendingMovesByWorkGroup = new Map();
+
+function roadmapPendingMoves() {
+  const workGroup = (getSelectedWorkGroup() || "").trim();
+  if (!roadmapPendingMovesByWorkGroup.has(workGroup)) {
+    roadmapPendingMovesByWorkGroup.set(workGroup, new Map());
+  }
+  return roadmapPendingMovesByWorkGroup.get(workGroup);
+}
+
+function roadmapPendingCount() {
+  return roadmapPendingMoves().size;
+}
+
+function updateRoadmapPendingUi() {
+  const pendingEl = document.getElementById("roadmap-pending-count");
+  if (pendingEl) pendingEl.textContent = `Pending moves: ${roadmapPendingCount()}`;
+  const pushBtn = document.getElementById("roadmap-push-jira");
+  if (pushBtn) pushBtn.disabled = roadmapPendingCount() === 0;
+}
+
+function showRoadmapNotice(message, type = "success", details = []) {
+  let host = document.getElementById("roadmap-toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "roadmap-toast-host";
+    host.className = "roadmap-toast-host";
+    document.body.appendChild(host);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `roadmap-toast roadmap-toast-${type}`;
+
+  const title = document.createElement("div");
+  title.className = "roadmap-toast-title";
+  title.textContent = message;
+  toast.appendChild(title);
+
+  if (Array.isArray(details) && details.length) {
+    const body = document.createElement("div");
+    body.className = "roadmap-toast-body";
+    body.textContent = details.join(" | ");
+    toast.appendChild(body);
+  }
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "roadmap-toast-close";
+  close.textContent = "×";
+  close.addEventListener("click", () => toast.remove());
+  toast.appendChild(close);
+
+  host.appendChild(toast);
+  setTimeout(() => toast.remove(), type === "error" ? 12000 : 7000);
+}
+
+function roadmapStatusLockedForMove(statusRaw) {
+  const s = String(statusRaw || "").toLowerCase();
+  return (
+    s.includes("done") ||
+    s.includes("resolved") ||
+    s.includes("closed") ||
+    s.includes("in progress") ||
+    s.includes("in-progress") ||
+    s.includes("verification")
+  );
+}
+
+function qsFixVersionFromWeekKey(weekKey) {
+  const parsed = parseWeekKey(weekKey);
+  if (!parsed) return "";
+  const week = Number(parsed.week);
+  if (![10, 22, 37, 49].includes(week)) return "";
+  return `QS_${String(parsed.year).slice(-2)}w${String(week).padStart(2, "0")}`;
+}
+
+async function pushRoadmapMovesToJira() {
+  const host = document.getElementById("backlog-roadmap");
+  if (!host || !host._roadmapData) return;
+
+  const pending = roadmapPendingMoves();
+  if (!pending.size) {
+    updateRoadmapPendingUi();
+    return;
+  }
+
+  showLoading();
+  try {
+    const entries = Array.from(pending.entries());
+    const failed = [];
+    const succeeded = [];
+
+    for (const [featureId, move] of entries) {
+      const feature = host._roadmapData?.[featureId];
+      if (!feature) {
+        failed.push({ featureId, error: "Feature not found in current roadmap data" });
+        continue;
+      }
+
+      const toFuture = Boolean(move?.toFuture);
+      const targetFixVersion = String(move?.targetFixVersion || "").trim();
+      if (!toFuture && !targetFixVersion) {
+        failed.push({ featureId, error: "Target Fix Version is empty" });
+        continue;
+      }
+
+      const currentQs = parseQsFixVersionLatest(feature?.fixVersions || [], feature?.archived_fixVersions || [])?.raw || "";
+      const addFixVersions = toFuture
+        ? []
+        : (currentQs === targetFixVersion ? [] : [targetFixVersion]);
+      const removeFixVersions = toFuture
+        ? (currentQs ? [currentQs] : [])
+        : ((currentQs && currentQs !== targetFixVersion) ? [currentQs] : []);
+
+      if (!addFixVersions.length && !removeFixVersions.length) {
+        succeeded.push(featureId);
+        continue;
+      }
+
+      const resp = await fetch("/update_fix_versions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          issueKey: featureId,
+          addFixVersions,
+          removeFixVersions,
+          dryRun: false,
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok) {
+        failed.push({ featureId, error: json?.error || `HTTP ${resp.status}` });
+      } else {
+        succeeded.push(featureId);
+      }
+    }
+
+    succeeded.forEach((featureId) => pending.delete(featureId));
+    updateRoadmapPendingUi();
+
+    if (failed.length) {
+      showRoadmapNotice(
+        `Push completed with errors. Success: ${succeeded.length}, Failed: ${failed.length}`,
+        "error",
+        failed.slice(0, 5).map(f => `${f.featureId}: ${f.error}`)
+      );
+    } else {
+      showRoadmapNotice(`Push to Jira completed. Updated ${succeeded.length} feature(s).`, "success");
+    }
+
+    await loadBacklogData(true);
+  } finally {
+    hideLoading();
+  }
+}
 
 // --- helpers ---
 const norm = s => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
@@ -533,6 +688,138 @@ function roadmapPriorityStyle(priorityRaw) {
   return { priority: p, background, textColor };
 }
 
+function bindRoadmapDragAndDrop(host) {
+  const bars = Array.from(host.querySelectorAll(".roadmap-bar-draggable[data-feature-id]"));
+  const qsBands = Array.from(host.querySelectorAll(".roadmap-qs-band[data-week-key]"));
+  const futureTarget = host.querySelector(".roadmap-future-header[data-drop-target='future']");
+  const dropTargets = futureTarget ? [...qsBands, futureTarget] : [...qsBands];
+  if (!bars.length || !dropTargets.length) return;
+  const previewCells = Array.from(host.querySelectorAll("[data-cell-week][data-feature-row]"));
+
+  const clearPreview = () => {
+    dropTargets.forEach((b) => b.classList.remove("roadmap-drop-preview"));
+    previewCells.forEach((c) => c.classList.remove("roadmap-drop-preview-cell"));
+  };
+
+  const previewWeeksForTarget = (targetEl) => {
+    if (!targetEl) return [];
+    const isFuture = String(targetEl.getAttribute("data-drop-target") || "").toLowerCase() === "future";
+    if (isFuture) return ["FUTURE"];
+    const startWeekKey = String(targetEl.getAttribute("data-week-key") || "").trim();
+    const parsed = parseWeekKey(startWeekKey);
+    if (!parsed) return [];
+    const end = getQsPeriodEnd(parsed.year, parsed.week);
+    return buildWeekRange(startWeekKey, makeWeekKey(end.year, end.week));
+  };
+
+  const applyCellPreview = (targetEl, featureId) => {
+    const weeks = new Set(previewWeeksForTarget(targetEl));
+    if (!weeks.size) return;
+    previewCells.forEach((cell) => {
+      if (String(cell.getAttribute("data-feature-row") || "") !== String(featureId || "")) return;
+      const wk = String(cell.getAttribute("data-cell-week") || "").trim();
+      if (weeks.has(wk)) cell.classList.add("roadmap-drop-preview-cell");
+    });
+  };
+
+  const nearestBand = (clientX) => {
+    let best = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    dropTargets.forEach((band) => {
+      const rect = band.getBoundingClientRect();
+      const center = rect.left + rect.width / 2;
+      const d = Math.abs(center - clientX);
+      if (d < bestDist) {
+        bestDist = d;
+        best = band;
+      }
+    });
+    return best;
+  };
+
+  const pending = roadmapPendingMoves();
+
+  bars.forEach((bar) => {
+    bar.addEventListener("pointerdown", (ev) => {
+      if (ev.button !== 0) return;
+      const featureId = String(bar.getAttribute("data-feature-id") || "").trim();
+      if (!featureId) return;
+
+      const dragGhost = bar.cloneNode(true);
+      dragGhost.classList.add("roadmap-drag-ghost");
+      dragGhost.classList.remove("roadmap-bar-grabbed", "roadmap-bar-drag-origin");
+      document.body.appendChild(dragGhost);
+      const moveGhost = (x, y) => {
+        dragGhost.style.left = `${x + 14}px`;
+        dragGhost.style.top = `${y + 14}px`;
+      };
+
+      let activeBand = nearestBand(ev.clientX);
+      if (activeBand) {
+        activeBand.classList.add("roadmap-drop-preview");
+        applyCellPreview(activeBand, featureId);
+      }
+      bar.classList.add("roadmap-bar-grabbed");
+      bar.classList.add("roadmap-bar-drag-origin");
+      moveGhost(ev.clientX, ev.clientY);
+
+      const onMove = (moveEv) => {
+        const next = nearestBand(moveEv.clientX);
+        if (next !== activeBand) {
+          clearPreview();
+          activeBand = next;
+          if (activeBand) {
+            activeBand.classList.add("roadmap-drop-preview");
+            applyCellPreview(activeBand, featureId);
+          }
+        }
+        moveGhost(moveEv.clientX, moveEv.clientY);
+      };
+
+      const onUp = () => {
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        document.removeEventListener("pointercancel", onUp);
+
+        bar.classList.remove("roadmap-bar-grabbed");
+        bar.classList.remove("roadmap-bar-drag-origin");
+        dragGhost.remove();
+        const isFutureDrop = String(activeBand?.getAttribute("data-drop-target") || "").toLowerCase() === "future";
+        const targetWeekKey = String(activeBand?.getAttribute("data-week-key") || "").trim();
+        clearPreview();
+
+        const feature = host._roadmapData?.[featureId];
+        if (!feature) return;
+        const currentQs = parseQsFixVersionLatest(feature?.fixVersions || [], feature?.archived_fixVersions || [])?.raw || "";
+
+        if (isFutureDrop) {
+          if (!currentQs) pending.delete(featureId);
+          else pending.set(featureId, { toFuture: true, targetFixVersion: "" });
+          updateRoadmapPendingUi();
+          renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
+          return;
+        }
+
+        if (!targetWeekKey) return;
+
+        const targetFixVersion = qsFixVersionFromWeekKey(targetWeekKey);
+        if (!targetFixVersion) return;
+
+        if (currentQs === targetFixVersion) pending.delete(featureId);
+        else pending.set(featureId, { targetFixVersion, toFuture: false });
+
+        updateRoadmapPendingUi();
+        renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
+      };
+
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+      document.addEventListener("pointercancel", onUp);
+      ev.preventDefault();
+    });
+  });
+}
+
 function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
   const host = document.getElementById("backlog-roadmap");
   if (!host) return;
@@ -559,8 +846,31 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
   }
 
   const items = [];
+  const pendingMoves = roadmapPendingMoves();
   for (const [featureId, feature] of entries) {
-    const slot = roadmapSlotForFeature(feature);
+    let slot = roadmapSlotForFeature(feature);
+    const pending = pendingMoves.get(featureId);
+    const pendingFixVersion = String(pending?.targetFixVersion || "").trim();
+    const pendingToFuture = Boolean(pending?.toFuture);
+    const pendingMatch = pendingFixVersion.match(/^QS_(\d{2})w(\d{2})$/i);
+    if (pendingToFuture) {
+      slot = {
+        startKey: "FUTURE",
+        endKey: "FUTURE",
+        isFuture: true,
+        periodLabel: "Future (pending)",
+      };
+    } else if (pendingMatch) {
+      const year = 2000 + Number(pendingMatch[1]);
+      const week = Number(pendingMatch[2]);
+      const end = getQsPeriodEnd(year, week);
+      slot = {
+        startKey: makeWeekKey(year, week),
+        endKey: makeWeekKey(end.year, end.week),
+        isFuture: false,
+        periodLabel: `${pendingFixVersion} (pending)`,
+      };
+    }
     const capabilityKey = (feature?.parent_link || "").trim();
     const capabilityMeta = capabilityKey ? capabilityMetaByKey.get(capabilityKey) : null;
     const capabilitySummary = (capabilityMeta?.summary || feature?.parent_summary || capabilityKey || "").trim();
@@ -575,6 +885,8 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
       feature,
       capabilityKey,
       capability: capLabel,
+      isMovable: !roadmapStatusLockedForMove(feature?.status),
+      isPendingMove: pendingToFuture || !!pendingMatch,
       startKey: slot.startKey,
       endKey: slot.endKey,
       isFuture: slot.isFuture,
@@ -660,9 +972,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
     });
   });
 
-  if (hasFutureItems) {
-    timelineSlots.push({ type: "future", year: "Future", isYearStart: true });
-  }
+  timelineSlots.push({ type: "future", year: "Future", isYearStart: true });
 
   yearHeaderBands.forEach((band) => {
     const qsOffsets = [];
@@ -826,14 +1136,15 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
       const span = Math.max(1, endSlot - start.slotIdx + 1);
       const label = `${yy}QS${String(start.week).padStart(2, "0")}`;
       const sepClass = start.slotIdx === band.startSlotIdx ? " roadmap-year-sep" : "";
-      html += `<div class="roadmap-header roadmap-qs-header roadmap-qs-band${sepClass}" style="grid-column: ${start.slotIdx + 2} / span ${span}; grid-row: 2;">${escapeHtml(label)}</div>`;
+      const weekKeyAttr = (timelineSlots[start.slotIdx]?.weekKey || "");
+      html += `<div class="roadmap-header roadmap-qs-header roadmap-qs-band${sepClass}" data-week-key="${escapeHtml(weekKeyAttr)}" style="grid-column: ${start.slotIdx + 2} / span ${span}; grid-row: 2;">${escapeHtml(label)}</div>`;
     }
   });
 
   timelineSlots.forEach((slot, slotIdx) => {
     const gridCol = slotIdx + 2;
     if (slot.type === "future") {
-      html += `<div class="roadmap-header roadmap-future-header" style="grid-column: ${gridCol}; grid-row: span 3;">Future</div>`;
+      html += `<div class="roadmap-header roadmap-future-header" data-drop-target="future" data-cell-week="FUTURE" style="grid-column: ${gridCol}; grid-row: span 3;">Future</div>`;
       return;
     }
 
@@ -845,7 +1156,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
     const wk = parseWeekKey(slot.weekKey)?.week;
     const wkLabel = wk ? String(wk).padStart(2, "0") : slot.weekKey;
     const qsClass = slot.isQsStart ? " roadmap-qs-sep" : "";
-    html += `<div class="roadmap-header roadmap-week-header ${slot.isYearStart ? "roadmap-year-sep" : ""}${qsClass}" style="grid-column: ${gridCol}; grid-row: 3;">${escapeHtml(wkLabel)}</div>`;
+    html += `<div class="roadmap-header roadmap-week-header ${slot.isYearStart ? "roadmap-year-sep" : ""}${qsClass}" data-cell-week="${escapeHtml(slot.weekKey)}" style="grid-column: ${gridCol}; grid-row: 3;">${escapeHtml(wkLabel)}</div>`;
   });
 
   Array.from(byCapability.entries())
@@ -935,7 +1246,9 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
           if (!activeSlots[idx]) {
             const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
             const qsClass = timelineSlots[idx]?.isQsStart ? " roadmap-qs-sep" : "";
-            html += `<div class="roadmap-cell roadmap-summary-cell${sepClass}${qsClass}"></div>`;
+            const wk = timelineSlots[idx]?.type === "week" ? (timelineSlots[idx]?.weekKey || "") : (timelineSlots[idx]?.type === "future" ? "FUTURE" : "");
+            const wkAttr = wk ? ` data-cell-week="${escapeHtml(wk)}"` : "";
+            html += `<div class="roadmap-cell roadmap-summary-cell${sepClass}${qsClass}"${wkAttr}></div>`;
             idx += 1;
             continue;
           }
@@ -966,13 +1279,15 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
         });
 
         const label = `${item.featureId} — ${item.feature?.summary || ""}`;
-        html += `<div class="roadmap-feature-col" title="${escapeHtml(label)}"><a href="https://jira-vira.volvocars.biz/browse/${encodeURIComponent(item.featureId)}" target="_blank">${escapeHtml(item.featureId)}</a> ${escapeHtml(item.feature?.summary || "")}</div>`;
+        html += `<div class="roadmap-feature-col" data-feature-row="${escapeHtml(item.featureId)}" title="${escapeHtml(label)}"><a href="https://jira-vira.volvocars.biz/browse/${encodeURIComponent(item.featureId)}" target="_blank">${escapeHtml(item.featureId)}</a> ${escapeHtml(item.feature?.summary || "")}</div>`;
         let idx = 0;
         while (idx < timelineCols) {
           if (!activeSlots[idx]) {
             const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
             const qsClass = timelineSlots[idx]?.isQsStart ? " roadmap-qs-sep" : "";
-            html += `<div class="roadmap-cell${sepClass}${qsClass}"></div>`;
+            const wk = timelineSlots[idx]?.type === "week" ? (timelineSlots[idx]?.weekKey || "") : (timelineSlots[idx]?.type === "future" ? "FUTURE" : "");
+            const wkAttr = wk ? ` data-cell-week="${escapeHtml(wk)}"` : "";
+            html += `<div class="roadmap-cell${sepClass}${qsClass}" data-feature-row="${escapeHtml(item.featureId)}"${wkAttr}></div>`;
             idx += 1;
             continue;
           }
@@ -984,8 +1299,10 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
             : `${item.periodLabel || "QS"}: ${item.startKey} → ${item.endKey} | Priority ${prio.priority} | Story Points ${storyPointsLabel}`;
           const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
           const qsClass = timelineSlots[idx]?.isQsStart ? " roadmap-qs-sep" : "";
-          const style = `grid-column: ${idx + 2} / span ${span}; background: ${prio.background}; color: ${prio.textColor};`;
-          html += `<div class="roadmap-bar${sepClass}${qsClass}" style="${style}" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority" title="Priority">P${prio.priority}</span><span class="roadmap-bar-estimate" title="Story points">SP ${escapeHtml(storyPointsLabel)}</span></div>`;
+          const style = `grid-column: ${idx + 2} / span ${span}; --bar-color: ${prio.background}; color: ${prio.textColor};`;
+          const moveClass = item.isMovable ? " roadmap-bar-draggable" : " roadmap-bar-locked";
+          const pendingClass = item.isPendingMove ? " roadmap-bar-pending" : "";
+          html += `<div class="roadmap-bar roadmap-bar-feature${sepClass}${qsClass}${moveClass}${pendingClass}" data-feature-id="${escapeHtml(item.featureId)}" data-feature-row="${escapeHtml(item.featureId)}" data-cell-week="${item.isFuture ? "FUTURE" : escapeHtml(item.startKey)}" data-movable="${item.isMovable ? "1" : "0"}" style="${style}" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority" title="Priority">P${prio.priority}</span><span class="roadmap-bar-estimate" title="Story points">SP ${escapeHtml(storyPointsLabel)}</span></div>`;
           idx = endIdx + 1;
         }
       });
@@ -1052,6 +1369,9 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
       renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
     });
   });
+
+  bindRoadmapDragAndDrop(host);
+  updateRoadmapPendingUi();
 }
 
 async function loadBacklogData(forceRefresh = false) {
@@ -1678,10 +1998,15 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("workGroupSelect")?.addEventListener("change", () => {
       saveBacklogSettings();
       loadBacklogData();
+      updateRoadmapPendingUi();
     });
     document.getElementById("roadmap-refresh")?.addEventListener("click", () => {
       loadBacklogData(true);
     });
+    document.getElementById("roadmap-push-jira")?.addEventListener("click", () => {
+      pushRoadmapMovesToJira();
+    });
+    updateRoadmapPendingUi();
   }
 
   if (isProjectFR) {
