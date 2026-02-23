@@ -4,7 +4,7 @@
 
 let currentSortOrder = 'asc';
 let backlogSelectedStatuses = new Set();
-const CLIENT_CACHE_PREFIX = "jiraStatCache::";
+const CLIENT_CACHE_PREFIX = "jiraStatCache::v2::";
 let roadmapCollapsedCapabilities = new Set();
 let roadmapCollapsedYears = new Set();
 
@@ -908,6 +908,7 @@ const piPlanningColumns = [
   { key: 'storypoints', label: 'Feature St.P.' },
   { key: 'totalpoints', label: 'St.P. sum' },
   { key: 'assignee', label: 'Assignee' },
+  { key: 'reporter', label: 'Reporter' },
   { key: 'priority', label: 'Priority' },
   { key: 'status', label: 'Status' },
   { key: 'piscope', label: 'PI Scope' },
@@ -968,6 +969,7 @@ function renderFeatureTable(features, containerId, sprints) {
     'col-story-points',
     'col-story-points',
     'col-assignee',
+    'col-reporter',
     'col-priority',
     'col-status',
     'col-pi-scope',
@@ -975,7 +977,7 @@ function renderFeatureTable(features, containerId, sprints) {
   ];
 
   let tableHtml = '<table class="pi-planning-table"><thead><tr>';
-  const headerLabels = ['#','Capability','Feature ID','Feature Name','Feature St.P.','St.P. sum','Assignee','Prio','Status','PI Scope','Links'];
+  const headerLabels = ['#','Capability','Feature ID','Feature Name','Feature St.P.','St.P. sum','Assignee','Reporter','Prio','Status','PI Scope','Links'];
   headerLabels.forEach((label, idx) => {
     if (!hidden.has(idx))
       tableHtml += `<th class="${columnClasses[idx]}" onclick="sortTable(this)">${label}</th>`;
@@ -1015,6 +1017,8 @@ function renderFeatureTable(features, containerId, sprints) {
     }
     if (!hidden.has(colIdx++))
       tableHtml += `<td class="col-assignee">${feature.assignee || ""}</td>`;
+    if (!hidden.has(colIdx++))
+      tableHtml += `<td class="col-reporter">${feature.reporter || ""}</td>`;
     if (!hidden.has(colIdx++))
       tableHtml += `<td class="col-priority">${feature.priority || ""}</td>`;
     if (!hidden.has(colIdx++))

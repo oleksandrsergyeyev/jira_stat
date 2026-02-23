@@ -72,6 +72,18 @@ def _assignee_name(fields: dict) -> str:
     a = (fields or {}).get("assignee")
     return (a or {}).get("displayName", "") if isinstance(a, dict) else ""
 
+def _reporter_name(fields: dict) -> str:
+    r = (fields or {}).get("reporter")
+    if not isinstance(r, dict):
+        return ""
+    return (
+        r.get("displayName")
+        or r.get("name")
+        or r.get("emailAddress")
+        or r.get("key")
+        or ""
+    )
+
 def _priority_name(fields: dict) -> str:
     p = (fields or {}).get("priority")
     return (p or {}).get("name", "") if isinstance(p, dict) else ""
@@ -352,7 +364,7 @@ def _fetch_issue_full(key: str):
         "fields": ",".join([
             "summary", "issuetype", "issuelinks", "customfield_14700", "status", "priority",
             "customfield_13801",
-            "fixVersions", "customfield_10708", "assignee"
+            "fixVersions", "customfield_10708", "assignee", "reporter"
         ])
     }
     resp = requests.get(url, headers=HEADERS, params=params)
@@ -381,6 +393,7 @@ def _seed_feature_from_issue_json(issue_json: dict, summary_cache: dict):
     fix_versions = _fix_versions(fields)
     feature_sp = _story_points(fields)
     assignee_display = _assignee_name(fields)
+    reporter_display = _reporter_name(fields)
 
     return key, {
         "summary": fields.get("summary", "") or "",
@@ -395,6 +408,7 @@ def _seed_feature_from_issue_json(issue_json: dict, summary_cache: dict):
         "story_points": feature_sp,    # feature-level estimate
         "sum_story_points": 0.0,       # sum of child story points
         "assignee": assignee_display,
+        "reporter": reporter_display,
         "stories_detail": [],          # [{key, story_points, assignee, status}]
     }
 
@@ -466,6 +480,7 @@ def get_pi_planning(fix_version: str, work_group: str, force_refresh: bool = Fal
         "customfield_10702",      # Epic Link (if exists)
         "customfield_10708",      # Story Points
         "assignee",
+        "reporter",
         "parent"
     ]
 
@@ -475,7 +490,7 @@ def get_pi_planning(fix_version: str, work_group: str, force_refresh: bool = Fal
         f'AND (fixVersion = "{fix_version}" OR updated >= -120d) '
         "ORDER BY updated DESC"
     )
-    cache_key = ("pi_planning_issues", fix_version, work_group)
+    cache_key = ("pi_planning_issues_v2", fix_version, work_group)
     issues = _cache_get_or_build(
         cache_key,
         lambda: _jira_search_all(jql, fields_needed, page_size=1000, hard_cap=6000),
@@ -622,7 +637,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
     """
     fields_needed = [
         "summary", "issuetype", "issuelinks", "customfield_14700",
-        "status", "priority", "fixVersions", "customfield_10708", "assignee",
+        "status", "priority", "fixVersions", "customfield_10708", "assignee", "reporter",
         "customfield_13801",  # Capability link
         "customfield_13802",  # Target start
         "customfield_13803",  # Target end
@@ -632,7 +647,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
     jql = f'"Leading Work Group" = "{work_group}" AND statusCategory != Done'
 
     # >>> KEY CHANGE: paginate instead of taking only the first 1000
-    cache_key = ("backlog_issues", work_group)
+    cache_key = ("backlog_issues_v2", work_group)
     issues = _cache_get_or_build(
         cache_key,
         lambda: _jira_search_all(jql, fields_needed, page_size=500, hard_cap=20000),
@@ -668,6 +683,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
             "story_points": _story_points(f),
             "sum_story_points": 0.0,
             "assignee": _assignee_name(f),
+            "reporter": _reporter_name(f),
             "target_start": (f.get("customfield_13802") or ""),
             "target_end": (f.get("customfield_13803") or ""),
             "stories_detail": [],
