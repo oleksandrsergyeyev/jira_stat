@@ -657,15 +657,52 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
   });
 
   if (capabilitiesCountEl) {
-    const total = officialCapabilityLabels.size;
-    const withFeatures = Array.from(officialCapabilityLabels).filter((label) => {
-      const itemsForLabel = byCapability.get(label);
-      return Array.isArray(itemsForLabel) && itemsForLabel.length > 0;
-    }).length;
-    const extraCapabilities = Math.max(0, byCapability.size - officialCapabilityLabels.size);
-    capabilitiesCountEl.textContent = extraCapabilities > 0
-      ? `Capabilities: ${total} (with features: ${withFeatures}; additional linked capabilities: ${extraCapabilities})`
-      : `Capabilities: ${total} (with features: ${withFeatures})`;
+    const selectedWorkGroup = (getSelectedWorkGroup() || "").trim();
+    const officialKeys = new Set();
+    const groups = new Map();
+
+    const ensureGroup = (groupName) => {
+      const key = (groupName || "").trim() || "Unspecified";
+      if (!groups.has(key)) {
+        groups.set(key, { total: new Set(), withFeatures: new Set() });
+      }
+      return groups.get(key);
+    };
+
+    capabilityItems.forEach((cap) => {
+      const capKey = (cap?.key || "").trim();
+      if (!capKey) return;
+      const grp = ensureGroup(cap?.leading_work_group || selectedWorkGroup || "Unspecified");
+      grp.total.add(capKey);
+      officialKeys.add(capKey);
+    });
+
+    items.forEach((it) => {
+      const capKey = (it?.capabilityKey || "").trim();
+      if (!capKey) return;
+      const capMeta = capabilityMetaByKey.get(capKey);
+      const leadingGroup = (capMeta?.leadingWorkGroup || it?.feature?.parent_leading_work_group || selectedWorkGroup || "").trim() || "Unspecified";
+      const grp = ensureGroup(leadingGroup);
+      if (!officialKeys.has(capKey)) grp.total.add(capKey);
+      grp.withFeatures.add(capKey);
+    });
+
+    const order = Array.from(groups.keys()).sort((a, b) => {
+      if (a === selectedWorkGroup) return -1;
+      if (b === selectedWorkGroup) return 1;
+      if (a === "Unspecified") return 1;
+      if (b === "Unspecified") return -1;
+      return a.localeCompare(b);
+    });
+
+    const summary = order
+      .map((name) => {
+        const row = groups.get(name);
+        return `${name}: ${row.total.size}`;
+      })
+      .join("; ");
+
+    capabilitiesCountEl.textContent = `Capabilities: ${summary}`;
   }
 
   if (!hasSavedCollapseState) {
@@ -759,7 +796,17 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
   });
 
   Array.from(byCapability.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
+    .sort((a, b) => {
+      const aLabel = (a[0] || "").trim().toLowerCase();
+      const bLabel = (b[0] || "").trim().toLowerCase();
+      const isBottomLabel = (label) => label === "capability" || label.startsWith("no capability");
+
+      const aBottom = isBottomLabel(aLabel);
+      const bBottom = isBottomLabel(bLabel);
+      if (aBottom && !bBottom) return 1;
+      if (!aBottom && bBottom) return -1;
+      return a[0].localeCompare(b[0]);
+    })
     .forEach(([capability, capItems], capIndex) => {
       const isCollapsed = roadmapCollapsedCapabilities.has(capability);
       const capabilityAttr = encodeURIComponent(capability);
