@@ -954,6 +954,9 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
         const startWeek = item.isFuture ? -1 : (weekIdx.get(item.startKey) ?? -1);
         const endWeek = item.isFuture ? -1 : (weekIdx.get(item.endKey) ?? startWeek);
         const prio = roadmapPriorityStyle(item.feature?.priority);
+        const storyPointsRaw = item.feature?.story_points;
+        const storyPoints = Number.isFinite(Number(storyPointsRaw)) ? Number(storyPointsRaw) : 0;
+        const storyPointsLabel = Number.isInteger(storyPoints) ? String(storyPoints) : String(storyPoints.toFixed(1));
 
         const activeSlots = timelineSlots.map((slot) => {
           if (item.isFuture) return slot.type === "future";
@@ -978,11 +981,11 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
           const span = endIdx - idx + 1;
           const titleText = item.isFuture
             ? "Future"
-            : `${item.periodLabel || "QS"}: ${item.startKey} → ${item.endKey} | Priority ${prio.priority}`;
+            : `${item.periodLabel || "QS"}: ${item.startKey} → ${item.endKey} | Priority ${prio.priority} | Story Points ${storyPointsLabel}`;
           const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
           const qsClass = timelineSlots[idx]?.isQsStart ? " roadmap-qs-sep" : "";
           const style = `grid-column: ${idx + 2} / span ${span}; background: ${prio.background}; color: ${prio.textColor};`;
-          html += `<div class="roadmap-bar${sepClass}${qsClass}" style="${style}" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority">${prio.priority}</span></div>`;
+          html += `<div class="roadmap-bar${sepClass}${qsClass}" style="${style}" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority" title="Priority">P${prio.priority}</span><span class="roadmap-bar-estimate" title="Story points">SP ${escapeHtml(storyPointsLabel)}</span></div>`;
           idx = endIdx + 1;
         }
       });

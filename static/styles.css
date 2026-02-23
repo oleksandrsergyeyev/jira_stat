@@ -304,11 +304,26 @@ h1 { margin-bottom: 20px; }
   font-weight: 700;
   font-size: 10px;
   line-height: 1;
+  gap: 3px;
+  padding: 0 2px;
 }
 
 .roadmap-bar-priority {
   display: inline-block;
-  padding: 0 2px;
+  padding: 1px 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.1px;
+}
+
+.roadmap-bar-estimate {
+  display: inline-block;
+  padding: 1px 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px dashed rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.1px;
 }
 
 .roadmap-empty {
