@@ -144,6 +144,30 @@ def _extract_capability_key(fields: dict) -> str:
         return cap.get("key", "") or ""
     return cap or ""
 
+def _leading_work_group_value(fields: dict) -> str:
+    raw = (fields or {}).get("customfield_14400")
+
+    def _one(v) -> str:
+        if isinstance(v, dict):
+            return (
+                v.get("value")
+                or v.get("name")
+                or v.get("displayName")
+                or v.get("key")
+                or ""
+            ).strip()
+        return str(v).strip() if v not in (None, "") else ""
+
+    if isinstance(raw, list):
+        values = []
+        for entry in raw:
+            name = _one(entry)
+            if name and name not in values:
+                values.append(name)
+        return ", ".join(values)
+
+    return _one(raw)
+
 def _get_issue_summary(key: str, cache: dict) -> str:
     if not key:
         return ""
@@ -156,6 +180,27 @@ def _get_issue_summary(key: str, cache: dict) -> str:
         cache[key] = s
         return s
     return ""
+
+def _get_issue_meta(key: str, cache: dict[str, dict]) -> dict:
+    if not key:
+        return {"summary": "", "leading_work_group": ""}
+    if key in cache:
+        return cache[key]
+
+    url = f"{JIRA_ISSUE}/{key}"
+    resp = requests.get(url, headers=HEADERS, params={"fields": "summary,customfield_14400"})
+    if resp.status_code == 200:
+        fields = (resp.json().get("fields") or {})
+        meta = {
+            "summary": fields.get("summary", "") or "",
+            "leading_work_group": _leading_work_group_value(fields),
+        }
+        cache[key] = meta
+        return meta
+
+    meta = {"summary": "", "leading_work_group": ""}
+    cache[key] = meta
+    return meta
 
 def _extract_linked_issue_links(links):
     result = []
@@ -647,7 +692,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
     jql = f'"Leading Work Group" = "{work_group}" AND statusCategory != Done'
 
     # >>> KEY CHANGE: paginate instead of taking only the first 1000
-    cache_key = ("backlog_issues_v2", work_group)
+    cache_key = ("backlog_issues_v3", work_group)
     issues = _cache_get_or_build(
         cache_key,
         lambda: _jira_search_all(jql, fields_needed, page_size=500, hard_cap=20000),
@@ -658,7 +703,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
         return {}
 
     features: dict[str, dict] = {}
-    cap_cache: dict[str, str] = {}
+    cap_cache: dict[str, dict] = {}
 
     for it in issues:
         key = it.get("key", "")
@@ -669,13 +714,15 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
             continue
 
         cap_key = _extract_capability_key(f)
+        cap_meta = _get_issue_meta(cap_key, cap_cache) if cap_key else {"summary": "", "leading_work_group": ""}
         features[key] = {
             "summary": f.get("summary", "") or "",
             "status": ((f.get("status") or {}).get("name") or ""),
             "pi_scope": _pi_scope_value(f),
             "priority": _priority_name(f),
             "parent_link": cap_key,
-            "parent_summary": _get_issue_summary(cap_key, cap_cache) if cap_key else "",
+            "parent_summary": cap_meta.get("summary", ""),
+            "parent_leading_work_group": cap_meta.get("leading_work_group", ""),
             "fixVersions": _fix_versions(f),
             "archived_fixVersions": _archived_fix_versions(f),
             "linked_issues": _extract_linked_issue_links((f.get("issuelinks") or [])),
@@ -697,10 +744,10 @@ def capabilities_data_service(work_group: str, force_refresh: bool = False) -> l
     """
     Return all Capability issues for selected WG, including capabilities without linked features.
     """
-    fields_needed = ["summary", "issuetype", "status"]
+    fields_needed = ["summary", "issuetype", "status", "customfield_14400"]
     jql = f'"Leading Work Group" = "{work_group}" AND issuetype = Capability ORDER BY key ASC'
 
-    cache_key = ("capability_issues", work_group)
+    cache_key = ("capability_issues_v2", work_group)
     issues = _cache_get_or_build(
         cache_key,
         lambda: _jira_search_all(jql, fields_needed, page_size=500, hard_cap=10000),
@@ -715,6 +762,7 @@ def capabilities_data_service(work_group: str, force_refresh: bool = False) -> l
             "key": key,
             "summary": fields.get("summary", "") or "",
             "status": ((fields.get("status") or {}).get("name") or ""),
+            "leading_work_group": _leading_work_group_value(fields),
         })
 
     return out
@@ -815,6 +863,7 @@ def export_committed_excel():
     fix_version = request.args.get("fixVersion", "PI_25w10")
     work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
     raw_excl = request.args.get("excludeAssignees", "")
+    text_query = (request.args.get("q", "") or "").strip().lower()
     excluded = _parse_excluded(raw_excl)
 
     features = pi_planning_data_service(fix_version, work_group, excluded)
@@ -823,6 +872,32 @@ def export_committed_excel():
     for key, feature in features.items():
         if feature.get("pi_scope") == "Committed" and fix_version in feature.get("fixVersions", []):
             committed.append((key, feature))
+
+    if text_query:
+        def _matches_feature_text(feature_key: str, feature: dict) -> bool:
+            sprint_keys = []
+            for arr in (feature.get("sprints") or {}).values():
+                if isinstance(arr, list):
+                    sprint_keys.extend([str(x) for x in arr if x])
+
+            parts = [
+                feature_key,
+                feature.get("summary", ""),
+                feature.get("status", ""),
+                feature.get("priority", ""),
+                feature.get("assignee", ""),
+                feature.get("reporter", ""),
+                feature.get("pi_scope", ""),
+                feature.get("parent_summary", ""),
+                feature.get("parent_link", ""),
+                " ".join((feature.get("fixVersions") or [])),
+                " ".join(sprint_keys),
+                " ".join(l.get("key", "") for l in (feature.get("linked_issues") or [])),
+            ]
+            haystack = " ".join(str(p) for p in parts if p).lower()
+            return text_query in haystack
+
+        committed = [(k, f) for (k, f) in committed if _matches_feature_text(k, f)]
 
     sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5", "No Sprint"]
     rows = []
@@ -846,6 +921,20 @@ def export_committed_excel():
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Committed')
+
+        workbook = writer.book
+        worksheet = writer.sheets['Committed']
+        hyperlink_format = workbook.add_format({'font_color': 'blue', 'underline': 1})
+
+        for excel_row, (key, feature) in enumerate(committed, start=1):
+            feature_url = f"https://jira-vira.volvocars.biz/browse/{key}"
+            worksheet.write_url(excel_row, 1, feature_url, hyperlink_format, string=key)
+
+            cap_key = feature.get("parent_link") or ""
+            cap_text = feature.get("parent_summary") or cap_key
+            if cap_key:
+                cap_url = f"https://jira-vira.volvocars.biz/browse/{cap_key}"
+                worksheet.write_url(excel_row, 0, cap_url, hyperlink_format, string=cap_text)
 
     output.seek(0)
     return send_file(

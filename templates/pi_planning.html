@@ -124,14 +124,6 @@
   </div>
 
   <script src="/static/script.js"></script>
-  <script>
-    document.getElementById("export-committed-excel")?.addEventListener("click", function () {
-      const fixVersion = document.getElementById("fixVersionSelect")?.value || "PI_25w10";
-      const workGroup = document.getElementById("workGroupSelect")?.value || "ART - BCRC - BSW TFW";
-      const query = `?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}`;
-      window.location.href = `/export_committed_excel${query}`;
-    });
-  </script>
 
   <div id="unique-users-count" class="unique-users-counter"></div>
 </body>

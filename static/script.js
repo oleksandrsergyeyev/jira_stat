@@ -480,10 +480,14 @@ function persistRoadmapYearCollapseState() {
   );
 }
 
-function withLeadingGroup(label) {
-  const workGroup = (getSelectedWorkGroup() || "").trim();
-  if (!workGroup) return label;
-  return `${label} (${workGroup})`;
+function capabilityLabelWithLeadingGroup(key, summary, leadingWorkGroup) {
+  const capabilityKey = (key || "").trim();
+  const capabilitySummary = (summary || "").trim();
+  const baseLabel = capabilityKey
+    ? `${capabilityKey} — ${capabilitySummary || capabilityKey}`
+    : (capabilitySummary || "No Capability");
+  const group = (leadingWorkGroup || "").trim();
+  return group ? `${baseLabel} (${group})` : baseLabel;
 }
 
 function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
@@ -496,6 +500,15 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
 
   const entries = Object.entries(featuresObj || {});
   const capabilityItems = Array.isArray(capabilitiesList) ? capabilitiesList : [];
+  const capabilityMetaByKey = new Map();
+  capabilityItems.forEach((cap) => {
+    const key = (cap?.key || "").trim();
+    if (!key) return;
+    capabilityMetaByKey.set(key, {
+      summary: (cap?.summary || "").trim(),
+      leadingWorkGroup: (cap?.leading_work_group || "").trim(),
+    });
+  });
   if (!entries.length && !capabilityItems.length) {
     host.innerHTML = '<div class="roadmap-empty">No backlog items to display.</div>';
     return;
@@ -504,13 +517,20 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
   const items = [];
   for (const [featureId, feature] of entries) {
     const slot = roadmapSlotForFeature(feature);
-    const capLabel = feature?.parent_link
-      ? `${feature.parent_link} — ${feature?.parent_summary || feature.parent_link}`
-      : (feature?.parent_summary || "No Capability");
+    const capabilityKey = (feature?.parent_link || "").trim();
+    const capabilityMeta = capabilityKey ? capabilityMetaByKey.get(capabilityKey) : null;
+    const capabilitySummary = (capabilityMeta?.summary || feature?.parent_summary || capabilityKey || "").trim();
+    const capabilityLeadingGroup = (capabilityMeta?.leadingWorkGroup || feature?.parent_leading_work_group || "").trim();
+    const capLabel = capabilityLabelWithLeadingGroup(
+      capabilityKey,
+      capabilitySummary,
+      capabilityLeadingGroup
+    );
     items.push({
       featureId,
       feature,
-      capability: withLeadingGroup(capLabel),
+      capabilityKey,
+      capability: capLabel,
       startKey: slot.startKey,
       endKey: slot.endKey,
       isFuture: slot.isFuture,
@@ -612,22 +632,40 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
   const timelineCols = timelineSlots.length;
 
   const byCapability = new Map();
+  const officialCapabilityLabels = new Set();
+
   capabilityItems.forEach((cap) => {
     const key = (cap?.key || "").trim();
     const summary = (cap?.summary || "").trim();
-    const label = key ? `${key} — ${summary || key}` : (summary || "No Capability");
-    const groupedLabel = withLeadingGroup(label);
+    const groupedLabel = capabilityLabelWithLeadingGroup(key, summary, cap?.leading_work_group || "");
     if (!byCapability.has(groupedLabel)) byCapability.set(groupedLabel, []);
+    officialCapabilityLabels.add(groupedLabel);
   });
+
   items.forEach(it => {
-    if (!byCapability.has(it.capability)) byCapability.set(it.capability, []);
-    byCapability.get(it.capability).push(it);
+    const capKey = (it.capabilityKey || "").trim();
+    const capMeta = capKey ? capabilityMetaByKey.get(capKey) : null;
+    const featureSummary = (it.feature?.parent_summary || capKey || "No Capability").trim();
+    const featureLeadingGroup = (it.feature?.parent_leading_work_group || "").trim();
+    const groupLabel = capabilityLabelWithLeadingGroup(
+      capKey,
+      capMeta?.summary || featureSummary,
+      capMeta?.leadingWorkGroup || featureLeadingGroup
+    );
+    if (!byCapability.has(groupLabel)) byCapability.set(groupLabel, []);
+    byCapability.get(groupLabel).push(it);
   });
 
   if (capabilitiesCountEl) {
-    const total = byCapability.size;
-    const withFeatures = Array.from(byCapability.values()).filter(v => Array.isArray(v) && v.length > 0).length;
-    capabilitiesCountEl.textContent = `Capabilities: ${total} (with features: ${withFeatures})`;
+    const total = officialCapabilityLabels.size;
+    const withFeatures = Array.from(officialCapabilityLabels).filter((label) => {
+      const itemsForLabel = byCapability.get(label);
+      return Array.isArray(itemsForLabel) && itemsForLabel.length > 0;
+    }).length;
+    const extraCapabilities = Math.max(0, byCapability.size - officialCapabilityLabels.size);
+    capabilitiesCountEl.textContent = extraCapabilities > 0
+      ? `Capabilities: ${total} (with features: ${withFeatures}; additional linked capabilities: ${extraCapabilities})`
+      : `Capabilities: ${total} (with features: ${withFeatures})`;
   }
 
   if (!hasSavedCollapseState) {
@@ -879,8 +917,8 @@ async function loadBacklogData(forceRefresh = false) {
 
     const url = `/backlog_data?workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
     const capabilitiesUrl = `/capabilities_data?workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
-    const cacheKey = makeCacheKey("backlogData", { workGroup });
-    const capabilitiesCacheKey = makeCacheKey("capabilitiesData", { workGroup });
+    const cacheKey = makeCacheKey("backlogDataV2", { workGroup });
+    const capabilitiesCacheKey = makeCacheKey("capabilitiesDataV2", { workGroup });
     const [data, capabilities] = await Promise.all([
       fetchJsonWithClientCache(url, cacheKey, forceRefresh),
       fetchJsonWithClientCache(capabilitiesUrl, capabilitiesCacheKey, forceRefresh),
@@ -1446,7 +1484,15 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("export-committed-excel")?.addEventListener("click", function () {
       const fv = getSelectedFixVersion();
       const wg = getSelectedWorkGroup();
-      window.location.href = `/export_committed_excel?fixVersion=${encodeURIComponent(fv)}&workGroup=${encodeURIComponent(wg)}`;
+      const q = (document.getElementById("globalFilter")?.value || "").trim();
+      const params = new URLSearchParams();
+      params.set("fixVersion", fv || "");
+      params.set("workGroup", wg || "");
+      if (q) params.set("q", q);
+      if (activeExcludedRaw && activeExcludedRaw.trim()) {
+        params.set("excludeAssignees", activeExcludedRaw.trim());
+      }
+      window.location.href = `/export_committed_excel?${params.toString()}`;
     });
     document.getElementById("planning-refresh")?.addEventListener("click", () => {
       loadPIPlanningData(true);

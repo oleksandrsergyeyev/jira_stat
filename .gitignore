@@ -1,4 +1,50 @@
-.venv
-.idea
+# --- Local env & secrets ---
 .env
+.env.*
+!.env.example
 user_ids.txt
+
+# --- Python environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Python cache/bytecode ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Packaging/build ---
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# --- Test/coverage ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# --- Type check/lint tooling ---
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# --- Flask/runtime artifacts ---
+instance/
+*.sqlite3
+*.db
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- IDE/editor ---
+.idea/
+.vscode/
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
