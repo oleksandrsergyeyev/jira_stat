@@ -157,24 +157,24 @@
         "emailAddress": "oleksandr.sergyeyev@volvocars.com",
         "weekValues": {
           "Sprint 1": [
-            0.0,
-            0.0
+            5.0,
+            5.0
           ],
           "Sprint 2": [
-            0.0,
-            0.0
+            5.0,
+            5.0
           ],
           "Sprint 3": [
-            0.0,
-            0.0
+            5.0,
+            5.0
           ],
           "Sprint 4": [
-            0.0,
-            0.0
+            5.0,
+            5.0
           ],
           "Sprint 5": [
-            0.0,
-            0.0
+            5.0,
+            5.0
           ]
         }
       },
@@ -184,24 +184,24 @@
         "emailAddress": "venkateswarlu.lekkala@volvocars.com",
         "weekValues": {
           "Sprint 1": [
-            0.0,
-            0.0
+            5.0,
+            5.0
           ],
           "Sprint 2": [
-            0.0,
-            0.0
+            5.0,
+            5.0
           ],
           "Sprint 3": [
-            0.0,
-            0.0
+            5.0,
+            5.0
           ],
           "Sprint 4": [
-            0.0,
-            0.0
+            5.0,
+            5.0
           ],
           "Sprint 5": [
-            0.0,
-            0.0
+            5.0,
+            5.0
           ]
         }
       },
@@ -260,6 +260,6 @@
         }
       }
     ],
-    "updatedAt": "2026-02-24T17:26:16.821219+00:00"
+    "updatedAt": "2026-02-24T17:35:11.039378+00:00"
   }
 }

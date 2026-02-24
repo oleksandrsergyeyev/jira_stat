@@ -1260,6 +1260,17 @@ table.pi-planning-table {
   font-size: 12px;
 }
 
+.team-capacity-week-input::-webkit-outer-spin-button,
+.team-capacity-week-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.team-capacity-week-input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 .team-capacity-total {
   font-weight: 700;
   color: #29496e;
@@ -1350,6 +1361,17 @@ table.pi-planning-table {
   background: #f4f8ff;
 }
 
+.team-capacity-cap-head,
+.team-capacity-cap-cell {
+  width: 92px;
+  min-width: 92px;
+  max-width: 92px;
+}
+
+.team-capacity-cap-head {
+  text-align: center;
+}
+
 .team-capacity-bottom-row td {
   background: #eef5ff;
   font-weight: 700;
@@ -1367,6 +1389,35 @@ table.pi-planning-table {
 
 .team-capacity-bottom-grand {
   background: #e3efff !important;
+}
+
+.team-capacity-buffer-row {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0;
+}
+
+.team-capacity-buffer-cell {
+  border: 1px solid #c4d8f4;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #eef5ff;
+}
+
+.team-capacity-buffer-label {
+  color: #2b4f78;
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+}
+
+.team-capacity-buffer-value {
+  color: #1f4f8b;
+  border-radius: 0 6px 6px 0;
+  min-width: 70px;
+  text-align: right;
+  background: #e3efff;
 }
 
 .team-capacity-remove-inline {

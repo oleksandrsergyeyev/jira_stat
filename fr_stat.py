@@ -378,8 +378,8 @@ def _coerce_day_value(raw) -> float:
         return 0.0
     if val < 0:
         return 0.0
-    if val > 15:
-        return 15.0
+    if val > 5:
+        return 5.0
     return round(val, 2)
 
 
