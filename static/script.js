@@ -42,18 +42,48 @@ function hideRoadmapContextMenu() {
   }
 }
 
-function showRoadmapFeatureInfo(featureId) {
-  const host = document.getElementById("backlog-roadmap");
-  const feature = host?._roadmapData?.[featureId];
-  if (!feature) return;
+async function showRoadmapFeatureInfo(featureId) {
   const modal = document.getElementById("roadmap-feature-modal");
   const title = document.getElementById("roadmap-feature-modal-title");
   const body = document.getElementById("roadmap-feature-modal-body");
   if (!modal || !title || !body) return;
 
   title.textContent = `${featureId} — Full info`;
-  body.textContent = JSON.stringify(feature, null, 2);
+  body.innerHTML = '<div class="roadmap-feature-loading">Loading details...</div>';
   modal.classList.remove("hidden");
+
+  try {
+    const resp = await fetch(`/feature_details?issueKey=${encodeURIComponent(featureId)}`, { cache: "no-store" });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok || !json?.ok) {
+      body.innerHTML = `<div class="roadmap-feature-error">Failed to load feature details: ${escapeHtml(json?.error || `HTTP ${resp.status}`)}</div>`;
+      return;
+    }
+
+    const featureEst = Number(json.feature_estimation || 0);
+    const storiesEst = Number(json.stories_estimation || 0);
+    const featureEstText = Number.isInteger(featureEst) ? String(featureEst) : featureEst.toFixed(1);
+    const storiesEstText = Number.isInteger(storiesEst) ? String(storiesEst) : storiesEst.toFixed(1);
+
+    body.innerHTML = `
+      <div class="roadmap-feature-grid">
+        <div class="roadmap-feature-field"><div class="roadmap-feature-label">Assignee</div><div class="roadmap-feature-value">${escapeHtml(json.assignee || "—")}</div></div>
+        <div class="roadmap-feature-field"><div class="roadmap-feature-label">Reporter</div><div class="roadmap-feature-value">${escapeHtml(json.reporter || "—")}</div></div>
+        <div class="roadmap-feature-field"><div class="roadmap-feature-label">Feature Estimation</div><div class="roadmap-feature-value">${escapeHtml(featureEstText)}</div></div>
+        <div class="roadmap-feature-field"><div class="roadmap-feature-label">Stories Estimation</div><div class="roadmap-feature-value">${escapeHtml(storiesEstText)} ${json.stories_count != null ? `(from ${escapeHtml(String(json.stories_count))} stories)` : ""}</div></div>
+      </div>
+      <div class="roadmap-feature-field roadmap-feature-block">
+        <div class="roadmap-feature-label">Acceptance Criterias</div>
+        <div class="roadmap-feature-value">${escapeHtml(json.acceptance_criteria || "—")}</div>
+      </div>
+      <div class="roadmap-feature-field roadmap-feature-block">
+        <div class="roadmap-feature-label">Description</div>
+        <div class="roadmap-feature-value">${escapeHtml(json.description || "—")}</div>
+      </div>
+    `;
+  } catch (e) {
+    body.innerHTML = `<div class="roadmap-feature-error">Failed to load feature details: ${escapeHtml(String(e || "Unknown error"))}</div>`;
+  }
 }
 
 function hideRoadmapFeatureInfo() {
@@ -107,25 +137,66 @@ function showRoadmapContextMenu(featureId, x, y) {
   sep.className = "roadmap-context-sep";
   menu.appendChild(sep);
 
-  const subtitle = document.createElement("div");
-  subtitle.className = "roadmap-context-subtitle";
-  subtitle.textContent = "Set priority";
-  menu.appendChild(subtitle);
+  const prioWrap = document.createElement("div");
+  prioWrap.className = "roadmap-context-submenu-wrap";
+  const prioMainBtn = document.createElement("button");
+  prioMainBtn.type = "button";
+  prioMainBtn.className = "roadmap-context-item";
+  prioMainBtn.textContent = "Set priority ▸";
+  prioWrap.appendChild(prioMainBtn);
 
-  const prioGrid = document.createElement("div");
-  prioGrid.className = "roadmap-priority-grid";
+  const prioMenu = document.createElement("div");
+  prioMenu.className = "roadmap-context-submenu";
   for (let p = 1; p <= 10; p += 1) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "roadmap-priority-btn";
+    const prioStyle = roadmapPriorityStyle(p);
+    btn.className = "roadmap-context-subitem roadmap-context-subitem-prio";
+    btn.style.setProperty("--prio-bg", prioStyle.background);
+    btn.style.setProperty("--prio-fg", prioStyle.textColor);
     btn.textContent = String(p);
     btn.addEventListener("click", () => {
       setPendingPriority(featureId, p);
       hideRoadmapContextMenu();
     });
-    prioGrid.appendChild(btn);
+    prioMenu.appendChild(btn);
   }
-  menu.appendChild(prioGrid);
+  prioWrap.appendChild(prioMenu);
+
+  let closeTimer = null;
+  const cancelClose = () => {
+    if (closeTimer) {
+      clearTimeout(closeTimer);
+      closeTimer = null;
+    }
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer = setTimeout(() => {
+      prioWrap.classList.remove("open");
+      closeTimer = null;
+    }, 180);
+  };
+
+  prioWrap.addEventListener("mouseenter", () => {
+    cancelClose();
+    prioWrap.classList.add("open");
+  });
+  prioWrap.addEventListener("mouseleave", scheduleClose);
+
+  prioMenu.addEventListener("mouseenter", () => {
+    cancelClose();
+    prioWrap.classList.add("open");
+  });
+  prioMenu.addEventListener("mouseleave", scheduleClose);
+
+  prioMainBtn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    cancelClose();
+    prioWrap.classList.toggle("open");
+  });
+
+  menu.appendChild(prioWrap);
 
   const sep2 = document.createElement("div");
   sep2.className = "roadmap-context-sep";
@@ -149,6 +220,28 @@ function showRoadmapContextMenu(featureId, x, y) {
   const top = Math.min(y, vh - rect.height - 8);
   menu.style.left = `${Math.max(8, left)}px`;
   menu.style.top = `${Math.max(8, top)}px`;
+
+  const submenuWrap = menu.querySelector(".roadmap-context-submenu-wrap");
+  const submenu = menu.querySelector(".roadmap-context-submenu");
+  if (submenuWrap && submenu) {
+    submenuWrap.classList.remove("open-left");
+    submenuWrap.classList.remove("open-up");
+    const prevDisplay = submenu.style.display;
+    const prevVisibility = submenu.style.visibility;
+    submenu.style.display = "block";
+    submenu.style.visibility = "hidden";
+    const submenuWidth = submenu.offsetWidth || 64;
+    const submenuHeight = submenu.offsetHeight || 220;
+    submenu.style.display = prevDisplay;
+    submenu.style.visibility = prevVisibility;
+
+    const menuRect = menu.getBoundingClientRect();
+    const wouldOverflowRight = (menuRect.right + 6 + submenuWidth) > (window.innerWidth - 6);
+    if (wouldOverflowRight) submenuWrap.classList.add("open-left");
+
+    const wouldOverflowBottom = (menuRect.top + submenuHeight) > (window.innerHeight - 6);
+    if (wouldOverflowBottom) submenuWrap.classList.add("open-up");
+  }
 }
 
 function showRoadmapNotice(message, type = "success", details = []) {
@@ -1149,9 +1242,13 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
       capabilitySummary,
       capabilityLeadingGroup
     );
+    const effectivePriority = Number.isInteger(pending?.targetPriority)
+      ? Number(pending.targetPriority)
+      : feature?.priority;
     items.push({
       featureId,
       feature,
+      effectivePriority,
       capabilityKey,
       capability: capLabel,
       isMovable: !roadmapStatusLockedForMove(feature?.status),
@@ -1536,7 +1633,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
       capItems.forEach(item => {
         const startWeek = item.isFuture ? -1 : (weekIdx.get(item.startKey) ?? -1);
         const endWeek = item.isFuture ? -1 : (weekIdx.get(item.endKey) ?? startWeek);
-        const prio = roadmapPriorityStyle(item.feature?.priority);
+        const prio = roadmapPriorityStyle(item.effectivePriority);
         const storyPointsRaw = item.feature?.story_points;
         const storyPoints = Number.isFinite(Number(storyPointsRaw)) ? Number(storyPointsRaw) : 0;
         const storyPointsLabel = Number.isInteger(storyPoints) ? String(storyPoints) : String(storyPoints.toFixed(1));
@@ -1564,9 +1661,12 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
           let endIdx = idx;
           while (endIdx + 1 < timelineCols && activeSlots[endIdx + 1]) endIdx += 1;
           const span = endIdx - idx + 1;
+          const prioLabel = item.isPendingPriority
+            ? `Priority ${prio.priority} (pending)`
+            : `Priority ${prio.priority}`;
           const titleText = item.isFuture
             ? "Future"
-            : `${item.periodLabel || "QS"}: ${item.startKey} → ${item.endKey} | Priority ${prio.priority} | Story Points ${storyPointsLabel}`;
+            : `${item.periodLabel || "QS"}: ${item.startKey} → ${item.endKey} | ${prioLabel} | Story Points ${storyPointsLabel}`;
           const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
           const qsClass = timelineSlots[idx]?.isQsStart ? " roadmap-qs-sep" : "";
           const style = `grid-column: ${idx + 2} / span ${span}; --bar-color: ${prio.background}; color: ${prio.textColor};`;

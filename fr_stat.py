@@ -342,6 +342,27 @@ def _jira_update_issue_priority(issue_key: str, priority_id: str) -> dict:
     return payload
 
 
+def _extract_text_value(raw) -> str:
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw.strip()
+    if isinstance(raw, list):
+        parts = [_extract_text_value(x) for x in raw]
+        return "\n".join([p for p in parts if p]).strip()
+    if isinstance(raw, dict):
+        if "text" in raw and isinstance(raw.get("text"), str):
+            return (raw.get("text") or "").strip()
+        if isinstance(raw.get("content"), list):
+            return _extract_text_value(raw.get("content"))
+        for key in ("value", "name", "displayName", "description"):
+            value = raw.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+    return str(raw).strip()
+
+
 def _jira_get_issue_project_key(issue_key: str) -> str:
     url = f"{JIRA_ISSUE}/{issue_key}"
     resp = requests.get(url, headers=HEADERS, params={"fields": "project"})
@@ -1322,6 +1343,65 @@ def update_priority():
             "resolved": {"id": priority_id, "name": priority_name},
             "payload": payload,
         })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "issueKey": issue_key}), 502
+
+
+@app.route("/feature_details")
+def feature_details():
+    issue_key = str(request.args.get("issueKey") or "").strip().upper()
+    force_refresh = _is_force_refresh_requested()
+
+    if not re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", issue_key):
+        return jsonify({"ok": False, "error": "Invalid issueKey format"}), 400
+
+    try:
+        cache_key = ("feature_details", issue_key)
+
+        def _build():
+            issue_url = f"{JIRA_ISSUE}/{issue_key}"
+            issue_resp = requests.get(
+                issue_url,
+                headers=HEADERS,
+                params={
+                    "fields": ",".join([
+                        "summary",
+                        "description",
+                        "assignee",
+                        "reporter",
+                        "customfield_10708",
+                        "customfield_12421",
+                    ])
+                },
+            )
+            if issue_resp.status_code != 200:
+                raise RuntimeError(f"Failed to read issue {issue_key}: {issue_resp.status_code} {issue_resp.text}")
+
+            fields = (issue_resp.json().get("fields") or {})
+
+            stories_jql = f'"Epic Link" = "{issue_key}"'
+            story_issues = _jira_search_all(stories_jql, ["customfield_10708", "summary"], page_size=200, hard_cap=5000)
+            stories_estimation = 0.0
+            for st in story_issues or []:
+                st_fields = st.get("fields") or {}
+                stories_estimation += _story_points(st_fields)
+
+            feature_estimation = _story_points(fields)
+
+            return {
+                "ok": True,
+                "issueKey": issue_key,
+                "summary": fields.get("summary", "") or "",
+                "acceptance_criteria": _extract_text_value(fields.get("customfield_12421")),
+                "description": _extract_text_value(fields.get("description")),
+                "assignee": _assignee_name(fields),
+                "reporter": _reporter_name(fields),
+                "feature_estimation": feature_estimation,
+                "stories_estimation": stories_estimation,
+                "stories_count": len(story_issues or []),
+            }
+
+        return jsonify(_cache_get_or_build(cache_key, _build, force_refresh=force_refresh))
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "issueKey": issue_key}), 502
 
