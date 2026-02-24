@@ -23,9 +23,15 @@ function roadmapPendingCount() {
 
 function updateRoadmapPendingUi() {
   const pendingEl = document.getElementById("roadmap-pending-count");
-  if (pendingEl) pendingEl.textContent = `Pending moves: ${roadmapPendingCount()}`;
+  const pendingCount = roadmapPendingCount();
+  if (pendingEl) pendingEl.textContent = `Pending changes: ${pendingCount}`;
   const pushBtn = document.getElementById("roadmap-push-jira");
-  if (pushBtn) pushBtn.disabled = roadmapPendingCount() === 0;
+  if (pushBtn) pushBtn.disabled = pendingCount === 0;
+  const floating = document.getElementById("roadmap-floating-actions");
+  if (floating) {
+    if (pendingCount > 0) floating.classList.remove("hidden");
+    else floating.classList.add("hidden");
+  }
 }
 
 function hideRoadmapContextMenu() {
@@ -154,18 +160,54 @@ function showRoadmapNotice(message, type = "success", details = []) {
     document.body.appendChild(host);
   }
 
+  const floating = document.getElementById("roadmap-floating-actions");
+  if (floating && !floating.classList.contains("hidden")) {
+    const rect = floating.getBoundingClientRect();
+    host.style.top = `${Math.round(rect.bottom + 8)}px`;
+    host.style.right = `${Math.max(8, Math.round(window.innerWidth - rect.right))}px`;
+    host.style.bottom = "auto";
+  } else {
+    host.style.top = "84px";
+    host.style.right = "14px";
+    host.style.bottom = "auto";
+  }
+
   const toast = document.createElement("div");
   toast.className = `roadmap-toast roadmap-toast-${type}`;
 
-  const title = document.createElement("div");
-  title.className = "roadmap-toast-title";
-  title.textContent = message;
-  toast.appendChild(title);
+  if (message) {
+    const title = document.createElement("div");
+    title.className = "roadmap-toast-title";
+    title.textContent = message;
+    toast.appendChild(title);
+  }
 
   if (Array.isArray(details) && details.length) {
     const body = document.createElement("div");
     body.className = "roadmap-toast-body";
-    body.textContent = details.join(" | ");
+    details.forEach((entry) => {
+      const lines = String(entry || "").split("\n").map(s => s.trim()).filter(Boolean);
+      if (!lines.length) return;
+
+      const block = document.createElement("div");
+      block.className = "roadmap-toast-feature";
+
+      const head = document.createElement("div");
+      head.className = "roadmap-toast-feature-title";
+      head.textContent = lines[0];
+      block.appendChild(head);
+
+      lines.slice(1).forEach((ln) => {
+        const line = document.createElement("div");
+        line.className = "roadmap-toast-feature-line";
+        if (/\bfailed\b/i.test(ln)) line.classList.add("roadmap-toast-line-fail");
+        if (/\bsuccess\b/i.test(ln)) line.classList.add("roadmap-toast-line-success");
+        line.textContent = ln;
+        block.appendChild(line);
+      });
+
+      body.appendChild(block);
+    });
     toast.appendChild(body);
   }
 
@@ -200,6 +242,12 @@ function qsFixVersionFromWeekKey(weekKey) {
   return `QS_${String(parsed.year).slice(-2)}w${String(week).padStart(2, "0")}`;
 }
 
+function simplifyPushError(rawError) {
+  const text = String(rawError || "").trim();
+  if (/Invalid Fix Version\(s\)/i.test(text)) return "Invalid Fix Version(s)";
+  return text;
+}
+
 async function pushRoadmapMovesToJira() {
   const host = document.getElementById("backlog-roadmap");
   if (!host || !host._roadmapData) return;
@@ -215,6 +263,7 @@ async function pushRoadmapMovesToJira() {
     const entries = Array.from(pending.entries());
     const failed = [];
     const succeeded = [];
+    const partial = [];
 
     for (const [featureId, move] of entries) {
       const feature = host._roadmapData?.[featureId];
@@ -223,79 +272,120 @@ async function pushRoadmapMovesToJira() {
         continue;
       }
 
-      const toFuture = Boolean(move?.toFuture);
-      const targetFixVersion = String(move?.targetFixVersion || "").trim();
-      const targetPriority = Number.isInteger(move?.targetPriority) ? Number(move.targetPriority) : null;
-      const fixDirty = move?.fixDirty === true;
-      const priorityDirty = move?.priorityDirty === true;
+      const currentPending = { ...(move || {}) };
+      const toFuture = Boolean(currentPending.toFuture);
+      const targetFixVersion = String(currentPending.targetFixVersion || "").trim();
+      const targetPriority = Number.isInteger(currentPending.targetPriority) ? Number(currentPending.targetPriority) : null;
+      const fixDirty = currentPending.fixDirty === true;
+      const priorityDirty = currentPending.priorityDirty === true;
       if (!fixDirty && !priorityDirty) {
         pending.delete(featureId);
         continue;
       }
 
-      const currentQs = parseQsFixVersionLatest(feature?.fixVersions || [], feature?.archived_fixVersions || [])?.raw || "";
-      const addFixVersions = !fixDirty
-        ? []
-        : (toFuture ? [] : (currentQs === targetFixVersion ? [] : [targetFixVersion]));
-      const removeFixVersions = !fixDirty
-        ? []
-        : (toFuture ? (currentQs ? [currentQs] : []) : ((currentQs && currentQs !== targetFixVersion) ? [currentQs] : []));
+      const fieldMessages = [];
+      let hasFieldFailure = false;
+      let hasFieldSuccess = false;
 
-      const currentPriority = roadmapPriorityNumber(feature?.priority);
-      const priorityNeedsUpdate = priorityDirty && targetPriority !== null && targetPriority !== currentPriority;
+      if (fixDirty) {
+        const currentQs = parseQsFixVersionLatest(feature?.fixVersions || [], feature?.archived_fixVersions || [])?.raw || "";
+        const addFixVersions = toFuture
+          ? []
+          : (currentQs === targetFixVersion ? [] : [targetFixVersion]);
+        const removeFixVersions = toFuture
+          ? (currentQs ? [currentQs] : [])
+          : ((currentQs && currentQs !== targetFixVersion) ? [currentQs] : []);
 
-      if (!addFixVersions.length && !removeFixVersions.length && !priorityNeedsUpdate) {
+        if (!addFixVersions.length && !removeFixVersions.length) {
+          currentPending.fixDirty = false;
+          currentPending.toFuture = false;
+          currentPending.targetFixVersion = "";
+          fieldMessages.push("- Fix Version: No update needed");
+          hasFieldSuccess = true;
+        } else {
+          const resp = await fetch("/update_fix_versions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              issueKey: featureId,
+              addFixVersions,
+              removeFixVersions,
+              dryRun: false,
+            }),
+          });
+          const json = await resp.json().catch(() => ({}));
+          if (!resp.ok || !json?.ok) {
+            fieldMessages.push(`- Fix Version: Failed - ${simplifyPushError(json?.error || `HTTP ${resp.status}`)}`);
+            hasFieldFailure = true;
+          } else {
+            currentPending.fixDirty = false;
+            currentPending.toFuture = false;
+            currentPending.targetFixVersion = "";
+            fieldMessages.push("- Fix Version: Success");
+            hasFieldSuccess = true;
+          }
+        }
+      }
+
+      if (priorityDirty) {
+        const currentPriority = roadmapPriorityNumber(feature?.priority);
+        const priorityNeedsUpdate = targetPriority !== null && targetPriority !== currentPriority;
+        if (!priorityNeedsUpdate) {
+          currentPending.priorityDirty = false;
+          delete currentPending.targetPriority;
+          fieldMessages.push("- Priority: No update needed");
+          hasFieldSuccess = true;
+        } else {
+          const resp = await fetch("/update_priority", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              issueKey: featureId,
+              priority: targetPriority,
+              dryRun: false,
+            }),
+          });
+          const json = await resp.json().catch(() => ({}));
+          if (!resp.ok || !json?.ok) {
+            fieldMessages.push(`- Priority: Failed - ${simplifyPushError(json?.error || `HTTP ${resp.status}`)}`);
+            hasFieldFailure = true;
+          } else {
+            currentPending.priorityDirty = false;
+            delete currentPending.targetPriority;
+            fieldMessages.push("- Priority: Success");
+            hasFieldSuccess = true;
+          }
+        }
+      }
+
+      const stillDirty = currentPending.fixDirty === true || currentPending.priorityDirty === true;
+      if (stillDirty) pending.set(featureId, currentPending);
+      else pending.delete(featureId);
+
+      if (hasFieldFailure && hasFieldSuccess) {
+        partial.push({ featureId, messages: fieldMessages });
+      } else if (hasFieldFailure) {
+        failed.push({ featureId, messages: fieldMessages });
+      } else {
         succeeded.push(featureId);
-        continue;
       }
-
-      let opError = "";
-
-      if (addFixVersions.length || removeFixVersions.length) {
-        const resp = await fetch("/update_fix_versions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            issueKey: featureId,
-            addFixVersions,
-            removeFixVersions,
-            dryRun: false,
-          }),
-        });
-        const json = await resp.json().catch(() => ({}));
-        if (!resp.ok || !json?.ok) {
-          opError = json?.error || `FixVersion update HTTP ${resp.status}`;
-        }
-      }
-
-      if (!opError && priorityNeedsUpdate) {
-        const resp = await fetch("/update_priority", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            issueKey: featureId,
-            priority: targetPriority,
-            dryRun: false,
-          }),
-        });
-        const json = await resp.json().catch(() => ({}));
-        if (!resp.ok || !json?.ok) {
-          opError = json?.error || `Priority update HTTP ${resp.status}`;
-        }
-      }
-
-      if (opError) failed.push({ featureId, error: opError });
-      else succeeded.push(featureId);
     }
 
     succeeded.forEach((featureId) => pending.delete(featureId));
     updateRoadmapPendingUi();
 
-    if (failed.length) {
+    if (failed.length || partial.length) {
+      const details = [
+        ...partial.slice(0, 5).map(p => `${p.featureId}:\n  - ${p.messages.join("\n  - ")}`),
+        ...failed.slice(0, 5).map(f => `${f.featureId}:\n  - ${f.messages.join("\n  - ")}`),
+      ];
+      const anyFailure = failed.length > 0 || partial.length > 0;
+      const anySuccess = succeeded.length > 0 || partial.length > 0;
+      const noticeType = anyFailure && !anySuccess ? "error" : "warning";
       showRoadmapNotice(
-        `Push completed with errors. Success: ${succeeded.length}, Failed: ${failed.length}`,
-        "error",
-        failed.slice(0, 5).map(f => `${f.featureId}: ${f.error}`)
+        "",
+        noticeType,
+        details
       );
     } else {
       showRoadmapNotice(`Push to Jira completed. Updated ${succeeded.length} feature(s).`, "success");

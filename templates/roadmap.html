@@ -66,13 +66,6 @@
       🔄 Update from Jira
     </button>
 
-    <button id="roadmap-push-jira"
-      style="margin-left: 4px; padding: 10px 16px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
-      ⬆ Push to Jira
-    </button>
-
-    <span id="roadmap-pending-count" class="roadmap-counter" style="background:#fff6e8;border-color:#edd7ac;color:#7a5c27;">Pending moves: 0</span>
-
     <span id="capabilities-count" class="roadmap-counter">Capabilities: 0</span>
 
     <div class="roadmap-priority-legend" aria-label="Feature priority color legend">
@@ -86,6 +79,11 @@
   <section class="roadmap-section">
     <div id="backlog-roadmap" class="backlog-roadmap"></div>
   </section>
+
+  <div id="roadmap-floating-actions" class="roadmap-floating-actions hidden">
+    <span id="roadmap-pending-count" class="roadmap-counter roadmap-counter-pending">Pending changes: 0</span>
+    <button id="roadmap-push-jira" class="roadmap-push-btn" type="button">⬆ Push to Jira</button>
+  </div>
 
   <div id="roadmap-context-menu" class="roadmap-context-menu hidden"></div>
   <div id="roadmap-feature-modal" class="roadmap-feature-modal hidden">

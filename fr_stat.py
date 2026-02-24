@@ -17,6 +17,7 @@ JIRA_BASE_URL = "https://jira-vira.volvocars.biz/rest/api/2"
 JIRA_SEARCH = f"{JIRA_BASE_URL}/search"
 JIRA_ISSUE = f"{JIRA_BASE_URL}/issue"
 JIRA_PRIORITY = f"{JIRA_BASE_URL}/priority"
+JIRA_PROJECT = f"{JIRA_BASE_URL}/project"
 
 JIRA_TOKEN = os.getenv("JIRA_TOKEN")
 
@@ -339,6 +340,40 @@ def _jira_update_issue_priority(issue_key: str, priority_id: str) -> dict:
     if resp.status_code not in (200, 204):
         raise RuntimeError(f"Failed to update issue {issue_key} priority: {resp.status_code} {resp.text}")
     return payload
+
+
+def _jira_get_issue_project_key(issue_key: str) -> str:
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    resp = requests.get(url, headers=HEADERS, params={"fields": "project"})
+    if resp.status_code != 200:
+        raise RuntimeError(f"Failed to read issue {issue_key}: {resp.status_code} {resp.text}")
+    fields = (resp.json().get("fields") or {})
+    project = (fields.get("project") or {})
+    return str(project.get("key") or "").strip().upper()
+
+
+def _jira_get_project_version_names(project_key: str, force_refresh: bool = False) -> list[str]:
+    project_key = str(project_key or "").strip().upper()
+    if not project_key:
+        return []
+
+    cache_key = ("project_versions", project_key)
+
+    def _build():
+        url = f"{JIRA_PROJECT}/{project_key}/versions"
+        resp = requests.get(url, headers=HEADERS)
+        if resp.status_code != 200:
+            raise RuntimeError(f"Failed to read project versions for {project_key}: {resp.status_code} {resp.text}")
+        data = resp.json()
+        out = []
+        if isinstance(data, list):
+            for v in data:
+                name = str((v or {}).get("name") or "").strip()
+                if name:
+                    out.append(name)
+        return out
+
+    return _cache_get_or_build(cache_key, _build, force_refresh=force_refresh)
 
 # ======================================================================
 #                       1) FAULT REPORT DASHBOARD
@@ -1181,6 +1216,27 @@ def update_fix_versions():
         before = _jira_get_issue_fix_versions(issue_key)
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 502
+
+    try:
+        project_key = _jira_get_issue_project_key(issue_key)
+        valid_versions = set(_jira_get_project_version_names(project_key))
+        invalid_add = sorted([v for v in add_set if v not in valid_versions])
+        if invalid_add:
+            valid_versions = set(_jira_get_project_version_names(project_key, force_refresh=True))
+            invalid_add = sorted([v for v in add_set if v not in valid_versions])
+        if invalid_add:
+            valid_qs = sorted([v for v in valid_versions if re.match(r"^QS_\d{2}w\d{2}$", v)])
+            return jsonify({
+                "ok": False,
+                "error": f"Invalid Fix Version(s) for project {project_key}: {', '.join(invalid_add)}",
+                "projectKey": project_key,
+                "invalid": invalid_add,
+                "validQsVersions": valid_qs,
+                "issueKey": issue_key,
+                "before": before,
+            }), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "issueKey": issue_key, "before": before}), 502
 
     if dry_run:
         after_set = set(before)
