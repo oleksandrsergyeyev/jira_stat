@@ -41,36 +41,19 @@
     <div class="menu-app-title">Jira Stat Dashboard</div>
     <a href="/" class="menu-item">Fault reports</a>
     <a href="/pi-planning" class="menu-item active">PI Planning</a>
-    <a href="/team-capacity" class="menu-item">Team Capacity</a>
     <a href="/backlog" class="menu-item">Backlog</a>
     <a href="/roadmap" class="menu-item">Road map</a>
     <a href="/project-fault-reports" class="menu-item">Project Fault reports</a>
+    <a href="/team-capacity" class="menu-item menu-item-settings">Team Capacity</a>
+    <a href="/settings" class="menu-item">Settings</a>
   </nav>
 
   <div class="filters">
     <label for="fixVersionSelect">Fix Version:</label>
-    <select id="fixVersionSelect">
-      <option value="PI_24w49">PI_24w49</option>
-      <option value="PI_25w10" selected>PI_25w10</option>
-      <option value="QS_25w22">QS_25w22</option>
-      <option value="QS_25w37">QS_25w37</option>
-      <option value="QS_25w49">QS_25w49</option>
-    </select>
+    <select id="fixVersionSelect"></select>
 
     <label for="workGroupSelect">Leading Work Group:</label>
-    <select id="workGroupSelect">
-      <option value="ART - BCRC - BSW TFW" selected>Infra Team</option>
-      <option value="ART - BCRC - SysSW CI">CI Team</option>
-      <option value="ART - BCRC - FPT">Web Team</option>
-      <option value="ART - BCRC - BSW Diag and Com">Diag and Com</option>
-      <option value="ART - BCRC - BSW HW Interface">HW interface</option>
-      <option value="ART - BCRC - BSW Platform">BSW Platform</option>
-      <option value="ART - BCRC - BSW SW Platform and BL">BSW SW Platform and BL</option>
-      <option value="ART - BCRC - Domain">AiC team</option>
-      <option value="ART - BCRC - FSW">FSW team</option>
-      <option value="ART - BCRC - SysSW System Safety and Security">Safety & Security</option>
-      <option value="ART - BCRC - Moni">TPMS</option>
-    </select>
+    <select id="workGroupSelect"></select>
 
     <label for="globalFilter">Filter:</label>
     <input type="text" id="globalFilter" placeholder="Search table..." />

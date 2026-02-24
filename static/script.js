@@ -8,6 +8,7 @@ const CLIENT_CACHE_PREFIX = "jiraStatCache::v2::";
 let roadmapCollapsedCapabilities = new Set();
 let roadmapCollapsedYears = new Set();
 let roadmapPendingMovesByWorkGroup = new Map();
+let appSettingsCache = null;
 
 function roadmapPendingMoves() {
   const workGroup = (getSelectedWorkGroup() || "").trim();
@@ -537,6 +538,122 @@ function getSelectedWorkGroup() {
   return document.getElementById("workGroupSelect")?.value;
 }
 
+function defaultAppSettings() {
+  return {
+    fix_versions: ["PI_24w49", "PI_25w10", "QS_25w22", "QS_25w37", "QS_25w49"],
+    work_groups: [
+      { leadingWorkGroup: "ART - BCRC - BSW TFW", teamName: "Infra Team" },
+      { leadingWorkGroup: "ART - BCRC - FPT", teamName: "Web Team" },
+      { leadingWorkGroup: "ART - BCRC - SysSW CI", teamName: "CI Team" },
+      { leadingWorkGroup: "ART - BCRC - BSW Diag and Com", teamName: "Diag and Com" },
+      { leadingWorkGroup: "ART - BCRC - BSW HW Interface", teamName: "HW interface" },
+      { leadingWorkGroup: "ART - BCRC - BSW Platform", teamName: "BSW Platform" },
+      { leadingWorkGroup: "ART - BCRC - BSW SW Platform and BL", teamName: "BSW SW Platform and BL" },
+      { leadingWorkGroup: "ART - BCRC - Domain", teamName: "AiC team" },
+      { leadingWorkGroup: "ART - BCRC - FSW", teamName: "FSW team" },
+      { leadingWorkGroup: "ART - BCRC - SysSW System Safety and Security", teamName: "Safety & Security" },
+      { leadingWorkGroup: "ART - BCRC - Moni", teamName: "TPMS" },
+    ],
+  };
+}
+
+function normalizeAppSettings(raw) {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const seenFix = new Set();
+  const fix_versions = [];
+  (Array.isArray(src.fix_versions) ? src.fix_versions : []).forEach((entry) => {
+    const value = String(entry || "").trim();
+    if (!value) return;
+    const key = value.toLowerCase();
+    if (seenFix.has(key)) return;
+    seenFix.add(key);
+    fix_versions.push(value);
+  });
+
+  const seenWg = new Set();
+  const work_groups = [];
+  (Array.isArray(src.work_groups) ? src.work_groups : []).forEach((row) => {
+    const obj = row && typeof row === "object" ? row : {};
+    const leadingWorkGroup = String(obj.leadingWorkGroup || "").trim();
+    const teamName = String(obj.teamName || "").trim();
+    if (!leadingWorkGroup) return;
+    const key = leadingWorkGroup.toLowerCase();
+    if (seenWg.has(key)) return;
+    seenWg.add(key);
+    work_groups.push({ leadingWorkGroup, teamName: teamName || leadingWorkGroup });
+  });
+
+  const defaults = defaultAppSettings();
+  return {
+    fix_versions: fix_versions.length ? fix_versions : defaults.fix_versions,
+    work_groups: work_groups.length ? work_groups : defaults.work_groups,
+  };
+}
+
+async function fetchAppSettings(force = false) {
+  if (!force && appSettingsCache) return appSettingsCache;
+  try {
+    const resp = await fetch("/app_settings", { cache: "no-store" });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok || !json?.ok) throw new Error(json?.error || `HTTP ${resp.status}`);
+    appSettingsCache = normalizeAppSettings(json.settings);
+  } catch {
+    appSettingsCache = defaultAppSettings();
+  }
+  return appSettingsCache;
+}
+
+function populateSelectWithOptions(selectEl, options, valueOf, labelOf) {
+  if (!selectEl) return;
+  const current = String(selectEl.value || "").trim();
+  const opts = Array.isArray(options) ? options : [];
+  selectEl.innerHTML = "";
+  opts.forEach((entry) => {
+    const value = String(valueOf(entry) || "").trim();
+    if (!value) return;
+    const label = String(labelOf(entry) || value).trim() || value;
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = label;
+    selectEl.appendChild(opt);
+  });
+  if (current && Array.from(selectEl.options).some((o) => o.value === current)) {
+    selectEl.value = current;
+  } else if (selectEl.options.length) {
+    selectEl.value = selectEl.options[0].value;
+  }
+}
+
+function applySettingsToPageSelectors(settings) {
+  const normalized = normalizeAppSettings(settings);
+  const fixSelect = document.getElementById("fixVersionSelect");
+  const wgSelect = document.getElementById("workGroupSelect");
+
+  if (fixSelect) {
+    populateSelectWithOptions(
+      fixSelect,
+      normalized.fix_versions,
+      (item) => item,
+      (item) => item
+    );
+  }
+
+  if (wgSelect) {
+    populateSelectWithOptions(
+      wgSelect,
+      normalized.work_groups,
+      (item) => item.leadingWorkGroup,
+      (item) => item.teamName || item.leadingWorkGroup
+    );
+  }
+}
+
+async function ensureGlobalSettingsApplied(force = false) {
+  const settings = await fetchAppSettings(force);
+  applySettingsToPageSelectors(settings);
+  return settings;
+}
+
 function makeCacheKey(scope, paramsObj) {
   const ordered = Object.keys(paramsObj || {}).sort().reduce((acc, k) => {
     acc[k] = paramsObj[k];
@@ -643,6 +760,10 @@ function restorePlanningSettings() {
   const wg = localStorage.getItem("piPlanningWorkGroup");
   if (fv) { const el = document.getElementById("fixVersionSelect"); if (el) el.value = fv; }
   if (wg) { const el = document.getElementById("workGroupSelect");  if (el) el.value = wg; }
+  const fixEl = document.getElementById("fixVersionSelect");
+  if (fixEl && !fixEl.value && fixEl.options.length) fixEl.value = fixEl.options[0].value;
+  const wgEl = document.getElementById("workGroupSelect");
+  if (wgEl && !wgEl.value && wgEl.options.length) wgEl.value = wgEl.options[0].value;
 }
 
 function showLoading() { const o = document.getElementById('loading-overlay'); if (o) o.style.display = 'flex'; }
@@ -2118,6 +2239,10 @@ function restoreDashboardSettings() {
   const wg = localStorage.getItem("dashboardWorkGroup");
   if (fv) { const el = document.getElementById("fixVersionSelect"); if (el) el.value = fv; }
   if (wg) { const el = document.getElementById("workGroupSelect");  if (el) el.value = wg; }
+  const fixEl = document.getElementById("fixVersionSelect");
+  if (fixEl && !fixEl.value && fixEl.options.length) fixEl.value = fixEl.options[0].value;
+  const wgEl = document.getElementById("workGroupSelect");
+  if (wgEl && !wgEl.value && wgEl.options.length) wgEl.value = wgEl.options[0].value;
 }
 function saveBacklogSettings() {
   localStorage.setItem("backlogWorkGroup", getSelectedWorkGroup());
@@ -2125,6 +2250,142 @@ function saveBacklogSettings() {
 function restoreBacklogSettings() {
   const wg = localStorage.getItem("backlogWorkGroup");
   if (wg) { const el = document.getElementById("workGroupSelect"); if (el) el.value = wg; }
+  const wgEl = document.getElementById("workGroupSelect");
+  if (wgEl && !wgEl.value && wgEl.options.length) wgEl.value = wgEl.options[0].value;
+}
+
+let settingsEditState = { fix_versions: [], work_groups: [] };
+
+function setSettingsStatus(message, kind = "info") {
+  const el = document.getElementById("settings-status");
+  if (!el) return;
+  el.textContent = message || "";
+  el.className = `team-capacity-status ${kind}`;
+}
+
+function renderSettingsFixList() {
+  const host = document.getElementById("settings-fix-list");
+  if (!host) return;
+  const rows = settingsEditState.fix_versions.map((value, idx) => `
+    <div class="settings-row">
+      <input type="text" class="settings-row-input" data-fix-idx="${idx}" value="${escapeHtml(value)}" />
+      <button type="button" class="team-capacity-remove" data-fix-remove="${idx}">Delete</button>
+    </div>
+  `).join("");
+  host.innerHTML = rows || '<div class="team-capacity-empty">No Fix Versions configured.</div>';
+}
+
+function renderSettingsWgList() {
+  const host = document.getElementById("settings-wg-list");
+  if (!host) return;
+  const rows = settingsEditState.work_groups.map((row, idx) => `
+    <div class="settings-row settings-row-wg">
+      <input type="text" class="settings-row-input" data-wg-leading="${idx}" value="${escapeHtml(row.leadingWorkGroup || "")}" placeholder="Leading Work Group" />
+      <input type="text" class="settings-row-input" data-wg-team="${idx}" value="${escapeHtml(row.teamName || "")}" placeholder="Team Name" />
+      <button type="button" class="team-capacity-remove" data-wg-remove="${idx}">Delete</button>
+    </div>
+  `).join("");
+  host.innerHTML = rows || '<div class="team-capacity-empty">No Work Group mappings configured.</div>';
+}
+
+function renderSettingsLists() {
+  renderSettingsFixList();
+  renderSettingsWgList();
+}
+
+async function bindSettingsPage() {
+  const settings = await fetchAppSettings(true);
+  settingsEditState = normalizeAppSettings(settings);
+  renderSettingsLists();
+
+  document.getElementById("settings-fix-add")?.addEventListener("click", () => {
+    const input = document.getElementById("settings-fix-input");
+    if (!(input instanceof HTMLInputElement)) return;
+    const value = String(input.value || "").trim();
+    if (!value) return;
+    settingsEditState.fix_versions.push(value);
+    input.value = "";
+    renderSettingsFixList();
+  });
+
+  document.getElementById("settings-wg-add")?.addEventListener("click", () => {
+    const wgInput = document.getElementById("settings-wg-input");
+    const teamInput = document.getElementById("settings-team-input");
+    if (!(wgInput instanceof HTMLInputElement) || !(teamInput instanceof HTMLInputElement)) return;
+    const leadingWorkGroup = String(wgInput.value || "").trim();
+    const teamName = String(teamInput.value || "").trim();
+    if (!leadingWorkGroup) return;
+    settingsEditState.work_groups.push({ leadingWorkGroup, teamName: teamName || leadingWorkGroup });
+    wgInput.value = "";
+    teamInput.value = "";
+    renderSettingsWgList();
+  });
+
+  document.getElementById("settings-fix-list")?.addEventListener("input", (ev) => {
+    const target = ev.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    const idx = Number(target.getAttribute("data-fix-idx"));
+    if (!Number.isInteger(idx) || idx < 0 || idx >= settingsEditState.fix_versions.length) return;
+    settingsEditState.fix_versions[idx] = String(target.value || "");
+  });
+
+  document.getElementById("settings-fix-list")?.addEventListener("click", (ev) => {
+    const target = ev.target;
+    if (!(target instanceof HTMLElement)) return;
+    const removeRaw = target.getAttribute("data-fix-remove");
+    if (removeRaw == null) return;
+    const idx = Number(removeRaw);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= settingsEditState.fix_versions.length) return;
+    settingsEditState.fix_versions.splice(idx, 1);
+    renderSettingsFixList();
+  });
+
+  document.getElementById("settings-wg-list")?.addEventListener("input", (ev) => {
+    const target = ev.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    const idxLeading = Number(target.getAttribute("data-wg-leading"));
+    const idxTeam = Number(target.getAttribute("data-wg-team"));
+    if (Number.isInteger(idxLeading) && idxLeading >= 0 && idxLeading < settingsEditState.work_groups.length) {
+      settingsEditState.work_groups[idxLeading].leadingWorkGroup = String(target.value || "");
+      return;
+    }
+    if (Number.isInteger(idxTeam) && idxTeam >= 0 && idxTeam < settingsEditState.work_groups.length) {
+      settingsEditState.work_groups[idxTeam].teamName = String(target.value || "");
+    }
+  });
+
+  document.getElementById("settings-wg-list")?.addEventListener("click", (ev) => {
+    const target = ev.target;
+    if (!(target instanceof HTMLElement)) return;
+    const removeRaw = target.getAttribute("data-wg-remove");
+    if (removeRaw == null) return;
+    const idx = Number(removeRaw);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= settingsEditState.work_groups.length) return;
+    settingsEditState.work_groups.splice(idx, 1);
+    renderSettingsWgList();
+  });
+
+  document.getElementById("settings-save")?.addEventListener("click", async () => {
+    const normalized = normalizeAppSettings(settingsEditState);
+    try {
+      setSettingsStatus("Saving settings...", "info");
+      const resp = await fetch("/app_settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: normalized }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok) {
+        throw new Error(json?.error || `HTTP ${resp.status}`);
+      }
+      appSettingsCache = normalizeAppSettings(json.settings);
+      settingsEditState = normalizeAppSettings(json.settings);
+      renderSettingsLists();
+      setSettingsStatus("Settings saved. All pages now use this mapping.", "success");
+    } catch (err) {
+      setSettingsStatus(`Save failed: ${String(err || "Unknown error")}`, "error");
+    }
+  });
 }
 
 function saveBacklogStatusSetting() {
@@ -2530,13 +2791,18 @@ function bindTeamCapacityPage() {
 /* ===============
    Page bootstrap
    =============== */
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const isDashboard = document.getElementById("statsChart") && document.getElementById("issueTable");
   const isPlanning  = !!document.getElementById("committed-table");
   const isBacklog   = !!document.getElementById("backlog-table") && !document.getElementById("committed-table");
   const isRoadmap   = !!document.getElementById("backlog-roadmap") && !document.getElementById("backlog-table");
   const isProjectFR = !!document.getElementById("project-fr-table");
   const isTeamCapacity = !!document.getElementById("team-capacity-page");
+  const isSettings = !!document.getElementById("settings-page");
+
+  if (isDashboard || isPlanning || isBacklog || isRoadmap || isTeamCapacity || isSettings) {
+    await ensureGlobalSettingsApplied();
+  }
 
   if (isDashboard) {
     restoreDashboardSettings();
@@ -2676,6 +2942,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (isTeamCapacity) {
     bindTeamCapacityPage();
+  }
+
+  if (isSettings) {
+    bindSettingsPage();
   }
 
   sendUserIdToBackend().catch(() => {}).finally(showUniqueUserCount);

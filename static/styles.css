@@ -38,6 +38,10 @@
   border-color: #1f66c2;
 }
 
+.menu-item-settings {
+  margin-left: auto;
+}
+
 .menu-app-title {
   flex-basis: 100%;
   text-align: center;
@@ -1216,6 +1220,74 @@ table.pi-planning-table {
   color: #5d6d84;
   text-align: left !important;
   font-style: italic;
+}
+
+/* =========================
+   Settings page
+   ========================= */
+.settings-page {
+  padding: 14px 16px 20px;
+}
+
+.settings-section {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #d6e2f2;
+  border-radius: 10px;
+  background: #fbfdff;
+}
+
+.settings-section h2 {
+  margin: 0 0 10px;
+  color: #21466f;
+  font-size: 20px;
+}
+
+.settings-inline-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.settings-inline-row input {
+  border: 1px solid #c9d7eb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-width: 260px;
+}
+
+.settings-two-col {
+  flex-wrap: wrap;
+}
+
+.settings-list {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-row-wg {
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.settings-row-input {
+  border: 1px solid #bdd0e8;
+  border-radius: 7px;
+  padding: 7px 9px;
+  min-width: 220px;
+  flex: 1;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .col-status      { max-width: 74px;  min-width: 40px;  width: 64px; }
 .col-pi-scope    { max-width: 74px;  min-width: 40px;  width: 64px; }

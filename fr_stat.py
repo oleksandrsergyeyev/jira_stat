@@ -36,6 +36,7 @@ HEADERS = {
 
 _DATA_CACHE: dict[tuple, object] = {}
 TEAM_CAPACITY_FILE = "team_capacity_data.json"
+APP_SETTINGS_FILE = "app_settings.json"
 
 
 def _cache_get_or_build(cache_key: tuple, builder, force_refresh: bool = False):
@@ -243,6 +244,103 @@ def _parse_excluded(raw: str) -> set[str]:
 
 def _team_capacity_path() -> str:
     return os.path.join(app.root_path, TEAM_CAPACITY_FILE)
+
+
+def _default_app_settings() -> dict:
+    return {
+        "fix_versions": [
+            "PI_24w49",
+            "PI_25w10",
+            "QS_25w22",
+            "QS_25w37",
+            "QS_25w49",
+        ],
+        "work_groups": [
+            {"leadingWorkGroup": "ART - BCRC - BSW TFW", "teamName": "Infra Team"},
+            {"leadingWorkGroup": "ART - BCRC - FPT", "teamName": "Web Team"},
+            {"leadingWorkGroup": "ART - BCRC - SysSW CI", "teamName": "CI Team"},
+            {"leadingWorkGroup": "ART - BCRC - BSW Diag and Com", "teamName": "Diag and Com"},
+            {"leadingWorkGroup": "ART - BCRC - BSW HW Interface", "teamName": "HW interface"},
+            {"leadingWorkGroup": "ART - BCRC - BSW Platform", "teamName": "BSW Platform"},
+            {"leadingWorkGroup": "ART - BCRC - BSW SW Platform and BL", "teamName": "BSW SW Platform and BL"},
+            {"leadingWorkGroup": "ART - BCRC - Domain", "teamName": "AiC team"},
+            {"leadingWorkGroup": "ART - BCRC - FSW", "teamName": "FSW team"},
+            {"leadingWorkGroup": "ART - BCRC - SysSW System Safety and Security", "teamName": "Safety & Security"},
+            {"leadingWorkGroup": "ART - BCRC - Moni", "teamName": "TPMS"},
+        ],
+    }
+
+
+def _app_settings_path() -> str:
+    return os.path.join(app.root_path, APP_SETTINGS_FILE)
+
+
+def _normalize_app_settings(raw: dict) -> dict:
+    src = raw if isinstance(raw, dict) else {}
+
+    seen_fix = set()
+    fix_versions = []
+    for entry in (src.get("fix_versions") or []):
+        item = str(entry or "").strip()
+        if not item:
+            continue
+        key = item.lower()
+        if key in seen_fix:
+            continue
+        seen_fix.add(key)
+        fix_versions.append(item)
+
+    seen_wg = set()
+    work_groups = []
+    for row in (src.get("work_groups") or []):
+        row_obj = row if isinstance(row, dict) else {}
+        leading = str(row_obj.get("leadingWorkGroup") or "").strip()
+        team = str(row_obj.get("teamName") or "").strip()
+        if not leading:
+            continue
+        key = leading.lower()
+        if key in seen_wg:
+            continue
+        seen_wg.add(key)
+        work_groups.append({
+            "leadingWorkGroup": leading,
+            "teamName": team or leading,
+        })
+
+    if not fix_versions:
+        fix_versions = _default_app_settings()["fix_versions"]
+    if not work_groups:
+        work_groups = _default_app_settings()["work_groups"]
+
+    return {
+        "fix_versions": fix_versions,
+        "work_groups": work_groups,
+    }
+
+
+def _load_app_settings() -> dict:
+    path = _app_settings_path()
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            normalized = _normalize_app_settings(data)
+            return normalized
+    except FileNotFoundError:
+        defaults = _default_app_settings()
+        _save_app_settings(defaults)
+        return defaults
+    except Exception:
+        defaults = _default_app_settings()
+        return defaults
+
+
+def _save_app_settings(settings: dict):
+    normalized = _normalize_app_settings(settings)
+    path = _app_settings_path()
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(normalized, f, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, path)
 
 
 def _load_team_capacity_store() -> dict:
@@ -1051,6 +1149,11 @@ def roadmap():
 def team_capacity():
     return render_template("team_capacity.html", active_page="team-capacity")
 
+
+@app.route("/settings")
+def settings_page():
+    return render_template("settings.html", active_page="settings")
+
 @app.route("/backlog_data")
 def backlog_data():
     work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
@@ -1075,6 +1178,18 @@ def jira_user_search():
         return jsonify({"ok": True, "users": users})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "users": []}), 502
+
+
+@app.route("/app_settings", methods=["GET", "POST"])
+def app_settings():
+    if request.method == "GET":
+        return jsonify({"ok": True, "settings": _load_app_settings()})
+
+    data = request.get_json(silent=True) or {}
+    candidate = data.get("settings") if isinstance(data, dict) else {}
+    normalized = _normalize_app_settings(candidate if isinstance(candidate, dict) else {})
+    _save_app_settings(normalized)
+    return jsonify({"ok": True, "settings": normalized})
 
 
 @app.route("/team_capacity_data", methods=["GET", "POST"])

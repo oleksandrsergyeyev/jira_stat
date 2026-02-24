@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Settings</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <nav class="main-menu">
+    <div class="menu-app-title">Jira Stat Dashboard</div>
+    <a href="/" class="menu-item">Fault reports</a>
+    <a href="/pi-planning" class="menu-item">PI Planning</a>
+    <a href="/backlog" class="menu-item">Backlog</a>
+    <a href="/roadmap" class="menu-item">Road map</a>
+    <a href="/project-fault-reports" class="menu-item">Project Fault reports</a>
+    <a href="/team-capacity" class="menu-item menu-item-settings">Team Capacity</a>
+    <a href="/settings" class="menu-item active">Settings</a>
+  </nav>
+
+  <section id="settings-page" class="settings-page">
+    <div class="settings-section">
+      <h2>Fix Versions</h2>
+      <div class="settings-inline-row">
+        <input id="settings-fix-input" type="text" placeholder="e.g. QS_26w10" />
+        <button id="settings-fix-add" type="button" class="team-capacity-btn">Add Fix Version</button>
+      </div>
+      <div id="settings-fix-list" class="settings-list"></div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Leading Work Group Mapping</h2>
+      <div class="settings-inline-row settings-two-col">
+        <input id="settings-wg-input" type="text" placeholder="Leading Work Group (value sent to Jira)" />
+        <input id="settings-team-input" type="text" placeholder="Team Name (label shown in UI)" />
+        <button id="settings-wg-add" type="button" class="team-capacity-btn">Add Mapping</button>
+      </div>
+      <div id="settings-wg-list" class="settings-list"></div>
+    </div>
+
+    <div class="settings-actions">
+      <button id="settings-save" type="button" class="team-capacity-btn primary">Save Settings</button>
+      <span id="settings-status" class="team-capacity-status info">Manage values and click Save.</span>
+    </div>
+  </section>
+
+  <script src="/static/script.js"></script>
+  <div id="unique-users-count" class="unique-users-counter"></div>
+</body>
+</html>

@@ -1,0 +1,56 @@
+{
+  "fix_versions": [
+    "PI_24w49",
+    "PI_25w10",
+    "QS_25w22",
+    "QS_25w37",
+    "QS_25w49",
+    "QS_26w10"
+  ],
+  "work_groups": [
+    {
+      "leadingWorkGroup": "ART - BCRC - BSW TFW",
+      "teamName": "Infra Team"
+    },
+    {
+      "leadingWorkGroup": "ART - BCRC - FPT",
+      "teamName": "Web Team"
+    },
+    {
+      "leadingWorkGroup": "ART - BCRC - SysSW CI",
+      "teamName": "CI Team"
+    },
+    {
+      "leadingWorkGroup": "ART - BCRC - BSW Diag and Com",
+      "teamName": "Diag and Com"
+    },
+    {
+      "leadingWorkGroup": "ART - BCRC - BSW HW Interface",
+      "teamName": "HW interface"
+    },
+    {
+      "leadingWorkGroup": "ART - BCRC - BSW Platform",
+      "teamName": "BSW Platform"
+    },
+    {
+      "leadingWorkGroup": "ART - BCRC - BSW SW Platform and BL",
+      "teamName": "BSW SW Platform and BL"
+    },
+    {
+      "leadingWorkGroup": "ART - BCRC - Domain",
+      "teamName": "AiC team"
+    },
+    {
+      "leadingWorkGroup": "ART - BCRC - FSW",
+      "teamName": "FSW team"
+    },
+    {
+      "leadingWorkGroup": "ART - BCRC - SysSW System Safety and Security",
+      "teamName": "Safety & Security"
+    },
+    {
+      "leadingWorkGroup": "ART - BCRC - Moni",
+      "teamName": "TPMS"
+    }
+  ]
+}

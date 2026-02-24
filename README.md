@@ -19,3 +19,11 @@ A lightweight web application that connects to Jira, gathers project data, and v
 - Click **Save Capacity** to persist data for reuse in other pages.
 
 Capacity data is stored in `team_capacity_data.json` in the app root.
+
+## ⚙️ Global Settings
+
+- Open `/settings` to manage:
+	- Fix Versions (add/edit/delete)
+	- Leading Work Group → Team Name mapping (add/edit/delete)
+- These settings are shared across all pages that use `Fix Version` and `Leading Work Group` selectors.
+- Settings are stored in `app_settings.json` in the app root.
