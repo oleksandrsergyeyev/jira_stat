@@ -2455,6 +2455,9 @@ async function searchTeamCapacityUsers() {
         const idx = Number(btn.getAttribute("data-user-idx"));
         const selected = users[idx];
         addTeamCapacityMember(selected);
+        input.value = "";
+        host.innerHTML = "";
+        input.focus();
       });
     });
   } catch (err) {
