@@ -28,6 +28,123 @@ function updateRoadmapPendingUi() {
   if (pushBtn) pushBtn.disabled = roadmapPendingCount() === 0;
 }
 
+function hideRoadmapContextMenu() {
+  const menu = document.getElementById("roadmap-context-menu");
+  if (menu) {
+    menu.classList.add("hidden");
+    menu.innerHTML = "";
+  }
+}
+
+function showRoadmapFeatureInfo(featureId) {
+  const host = document.getElementById("backlog-roadmap");
+  const feature = host?._roadmapData?.[featureId];
+  if (!feature) return;
+  const modal = document.getElementById("roadmap-feature-modal");
+  const title = document.getElementById("roadmap-feature-modal-title");
+  const body = document.getElementById("roadmap-feature-modal-body");
+  if (!modal || !title || !body) return;
+
+  title.textContent = `${featureId} — Full info`;
+  body.textContent = JSON.stringify(feature, null, 2);
+  modal.classList.remove("hidden");
+}
+
+function hideRoadmapFeatureInfo() {
+  const modal = document.getElementById("roadmap-feature-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function setPendingPriority(featureId, priorityNumber) {
+  const host = document.getElementById("backlog-roadmap");
+  const feature = host?._roadmapData?.[featureId];
+  if (!feature) return;
+
+  const pending = roadmapPendingMoves();
+  const current = pending.get(featureId) || {};
+  const currentPrio = roadmapPriorityNumber(feature?.priority);
+  const requested = Number(priorityNumber);
+
+  if (requested === currentPrio) {
+    delete current.targetPriority;
+    current.priorityDirty = false;
+  } else {
+    current.targetPriority = requested;
+    current.priorityDirty = true;
+  }
+
+  const hasMove = current.fixDirty === true;
+  const hasPriority = current.priorityDirty === true && Number.isInteger(current.targetPriority);
+  if (hasMove || hasPriority) pending.set(featureId, current);
+  else pending.delete(featureId);
+
+  updateRoadmapPendingUi();
+  renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
+}
+
+function showRoadmapContextMenu(featureId, x, y) {
+  const menu = document.getElementById("roadmap-context-menu");
+  if (!menu) return;
+  menu.innerHTML = "";
+
+  const openBtn = document.createElement("button");
+  openBtn.type = "button";
+  openBtn.className = "roadmap-context-item";
+  openBtn.textContent = "Open in Jira";
+  openBtn.addEventListener("click", () => {
+    window.open(`https://jira-vira.volvocars.biz/browse/${encodeURIComponent(featureId)}`, "_blank");
+    hideRoadmapContextMenu();
+  });
+  menu.appendChild(openBtn);
+
+  const sep = document.createElement("div");
+  sep.className = "roadmap-context-sep";
+  menu.appendChild(sep);
+
+  const subtitle = document.createElement("div");
+  subtitle.className = "roadmap-context-subtitle";
+  subtitle.textContent = "Set priority";
+  menu.appendChild(subtitle);
+
+  const prioGrid = document.createElement("div");
+  prioGrid.className = "roadmap-priority-grid";
+  for (let p = 1; p <= 10; p += 1) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "roadmap-priority-btn";
+    btn.textContent = String(p);
+    btn.addEventListener("click", () => {
+      setPendingPriority(featureId, p);
+      hideRoadmapContextMenu();
+    });
+    prioGrid.appendChild(btn);
+  }
+  menu.appendChild(prioGrid);
+
+  const sep2 = document.createElement("div");
+  sep2.className = "roadmap-context-sep";
+  menu.appendChild(sep2);
+
+  const infoBtn = document.createElement("button");
+  infoBtn.type = "button";
+  infoBtn.className = "roadmap-context-item";
+  infoBtn.textContent = "Full info";
+  infoBtn.addEventListener("click", () => {
+    showRoadmapFeatureInfo(featureId);
+    hideRoadmapContextMenu();
+  });
+  menu.appendChild(infoBtn);
+
+  menu.classList.remove("hidden");
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(x, vw - rect.width - 8);
+  const top = Math.min(y, vh - rect.height - 8);
+  menu.style.left = `${Math.max(8, left)}px`;
+  menu.style.top = `${Math.max(8, top)}px`;
+}
+
 function showRoadmapNotice(message, type = "success", details = []) {
   let host = document.getElementById("roadmap-toast-host");
   if (!host) {
@@ -108,40 +225,67 @@ async function pushRoadmapMovesToJira() {
 
       const toFuture = Boolean(move?.toFuture);
       const targetFixVersion = String(move?.targetFixVersion || "").trim();
-      if (!toFuture && !targetFixVersion) {
-        failed.push({ featureId, error: "Target Fix Version is empty" });
+      const targetPriority = Number.isInteger(move?.targetPriority) ? Number(move.targetPriority) : null;
+      const fixDirty = move?.fixDirty === true;
+      const priorityDirty = move?.priorityDirty === true;
+      if (!fixDirty && !priorityDirty) {
+        pending.delete(featureId);
         continue;
       }
 
       const currentQs = parseQsFixVersionLatest(feature?.fixVersions || [], feature?.archived_fixVersions || [])?.raw || "";
-      const addFixVersions = toFuture
+      const addFixVersions = !fixDirty
         ? []
-        : (currentQs === targetFixVersion ? [] : [targetFixVersion]);
-      const removeFixVersions = toFuture
-        ? (currentQs ? [currentQs] : [])
-        : ((currentQs && currentQs !== targetFixVersion) ? [currentQs] : []);
+        : (toFuture ? [] : (currentQs === targetFixVersion ? [] : [targetFixVersion]));
+      const removeFixVersions = !fixDirty
+        ? []
+        : (toFuture ? (currentQs ? [currentQs] : []) : ((currentQs && currentQs !== targetFixVersion) ? [currentQs] : []));
 
-      if (!addFixVersions.length && !removeFixVersions.length) {
+      const currentPriority = roadmapPriorityNumber(feature?.priority);
+      const priorityNeedsUpdate = priorityDirty && targetPriority !== null && targetPriority !== currentPriority;
+
+      if (!addFixVersions.length && !removeFixVersions.length && !priorityNeedsUpdate) {
         succeeded.push(featureId);
         continue;
       }
 
-      const resp = await fetch("/update_fix_versions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          issueKey: featureId,
-          addFixVersions,
-          removeFixVersions,
-          dryRun: false,
-        }),
-      });
-      const json = await resp.json().catch(() => ({}));
-      if (!resp.ok || !json?.ok) {
-        failed.push({ featureId, error: json?.error || `HTTP ${resp.status}` });
-      } else {
-        succeeded.push(featureId);
+      let opError = "";
+
+      if (addFixVersions.length || removeFixVersions.length) {
+        const resp = await fetch("/update_fix_versions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            issueKey: featureId,
+            addFixVersions,
+            removeFixVersions,
+            dryRun: false,
+          }),
+        });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok || !json?.ok) {
+          opError = json?.error || `FixVersion update HTTP ${resp.status}`;
+        }
       }
+
+      if (!opError && priorityNeedsUpdate) {
+        const resp = await fetch("/update_priority", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            issueKey: featureId,
+            priority: targetPriority,
+            dryRun: false,
+          }),
+        });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok || !json?.ok) {
+          opError = json?.error || `Priority update HTTP ${resp.status}`;
+        }
+      }
+
+      if (opError) failed.push({ featureId, error: opError });
+      else succeeded.push(featureId);
     }
 
     succeeded.forEach((featureId) => pending.delete(featureId));
@@ -793,8 +937,21 @@ function bindRoadmapDragAndDrop(host) {
         const currentQs = parseQsFixVersionLatest(feature?.fixVersions || [], feature?.archived_fixVersions || [])?.raw || "";
 
         if (isFutureDrop) {
-          if (!currentQs) pending.delete(featureId);
-          else pending.set(featureId, { toFuture: true, targetFixVersion: "" });
+          if (!currentQs) {
+            const existing = pending.get(featureId) || {};
+            existing.fixDirty = false;
+            existing.toFuture = false;
+            existing.targetFixVersion = "";
+            const keepPriority = existing.priorityDirty === true && Number.isInteger(existing.targetPriority);
+            if (keepPriority) pending.set(featureId, existing);
+            else pending.delete(featureId);
+          } else {
+            const existing = pending.get(featureId) || {};
+            existing.toFuture = true;
+            existing.targetFixVersion = "";
+            existing.fixDirty = true;
+            pending.set(featureId, existing);
+          }
           updateRoadmapPendingUi();
           renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
           return;
@@ -805,8 +962,21 @@ function bindRoadmapDragAndDrop(host) {
         const targetFixVersion = qsFixVersionFromWeekKey(targetWeekKey);
         if (!targetFixVersion) return;
 
-        if (currentQs === targetFixVersion) pending.delete(featureId);
-        else pending.set(featureId, { targetFixVersion, toFuture: false });
+        if (currentQs === targetFixVersion) {
+          const existing = pending.get(featureId) || {};
+          existing.fixDirty = false;
+          existing.toFuture = false;
+          existing.targetFixVersion = "";
+          const keepPriority = existing.priorityDirty === true && Number.isInteger(existing.targetPriority);
+          if (keepPriority) pending.set(featureId, existing);
+          else pending.delete(featureId);
+        } else {
+          const existing = pending.get(featureId) || {};
+          existing.targetFixVersion = targetFixVersion;
+          existing.toFuture = false;
+          existing.fixDirty = true;
+          pending.set(featureId, existing);
+        }
 
         updateRoadmapPendingUi();
         renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
@@ -816,6 +986,15 @@ function bindRoadmapDragAndDrop(host) {
       document.addEventListener("pointerup", onUp);
       document.addEventListener("pointercancel", onUp);
       ev.preventDefault();
+    });
+  });
+
+  host.querySelectorAll(".roadmap-bar-feature[data-feature-id]").forEach((bar) => {
+    bar.addEventListener("contextmenu", (ev) => {
+      ev.preventDefault();
+      const featureId = String(bar.getAttribute("data-feature-id") || "").trim();
+      if (!featureId) return;
+      showRoadmapContextMenu(featureId, ev.clientX, ev.clientY);
     });
   });
 }
@@ -887,6 +1066,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
       capability: capLabel,
       isMovable: !roadmapStatusLockedForMove(feature?.status),
       isPendingMove: pendingToFuture || !!pendingMatch,
+      isPendingPriority: Number.isInteger(pending?.targetPriority),
       startKey: slot.startKey,
       endKey: slot.endKey,
       isFuture: slot.isFuture,
@@ -1302,7 +1482,8 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
           const style = `grid-column: ${idx + 2} / span ${span}; --bar-color: ${prio.background}; color: ${prio.textColor};`;
           const moveClass = item.isMovable ? " roadmap-bar-draggable" : " roadmap-bar-locked";
           const pendingClass = item.isPendingMove ? " roadmap-bar-pending" : "";
-          html += `<div class="roadmap-bar roadmap-bar-feature${sepClass}${qsClass}${moveClass}${pendingClass}" data-feature-id="${escapeHtml(item.featureId)}" data-feature-row="${escapeHtml(item.featureId)}" data-cell-week="${item.isFuture ? "FUTURE" : escapeHtml(item.startKey)}" data-movable="${item.isMovable ? "1" : "0"}" style="${style}" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority" title="Priority">P${prio.priority}</span><span class="roadmap-bar-estimate" title="Story points">SP ${escapeHtml(storyPointsLabel)}</span></div>`;
+          const pendingPrioClass = item.isPendingPriority ? " roadmap-bar-pending-priority" : "";
+          html += `<div class="roadmap-bar roadmap-bar-feature${sepClass}${qsClass}${moveClass}${pendingClass}${pendingPrioClass}" data-feature-id="${escapeHtml(item.featureId)}" data-feature-row="${escapeHtml(item.featureId)}" data-cell-week="${item.isFuture ? "FUTURE" : escapeHtml(item.startKey)}" data-movable="${item.isMovable ? "1" : "0"}" style="${style}" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority" title="Priority">P${prio.priority}</span><span class="roadmap-bar-estimate" title="Story points">SP ${escapeHtml(storyPointsLabel)}</span></div>`;
           idx = endIdx + 1;
         }
       });
@@ -2005,6 +2186,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById("roadmap-push-jira")?.addEventListener("click", () => {
       pushRoadmapMovesToJira();
+    });
+    document.addEventListener("click", (ev) => {
+      const menu = document.getElementById("roadmap-context-menu");
+      if (!menu || menu.classList.contains("hidden")) return;
+      if (!menu.contains(ev.target)) hideRoadmapContextMenu();
+    });
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") {
+        hideRoadmapContextMenu();
+        hideRoadmapFeatureInfo();
+      }
+    });
+    document.getElementById("roadmap-feature-modal-close")?.addEventListener("click", hideRoadmapFeatureInfo);
+    document.getElementById("roadmap-feature-modal")?.addEventListener("click", (ev) => {
+      if (ev.target?.id === "roadmap-feature-modal") hideRoadmapFeatureInfo();
     });
     updateRoadmapPendingUi();
   }

@@ -16,6 +16,7 @@ app = Flask(__name__)
 JIRA_BASE_URL = "https://jira-vira.volvocars.biz/rest/api/2"
 JIRA_SEARCH = f"{JIRA_BASE_URL}/search"
 JIRA_ISSUE = f"{JIRA_BASE_URL}/issue"
+JIRA_PRIORITY = f"{JIRA_BASE_URL}/priority"
 
 JIRA_TOKEN = os.getenv("JIRA_TOKEN")
 
@@ -285,6 +286,58 @@ def _jira_update_issue_fix_versions(issue_key: str, add_versions: list[str], rem
     resp = requests.put(url, headers=HEADERS, json=payload)
     if resp.status_code not in (200, 204):
         raise RuntimeError(f"Failed to update issue {issue_key}: {resp.status_code} {resp.text}")
+    return payload
+
+
+def _jira_get_priorities(force_refresh: bool = False) -> list[dict]:
+    cache_key = ("jira_priorities",)
+
+    def _build():
+        resp = requests.get(JIRA_PRIORITY, headers=HEADERS)
+        if resp.status_code != 200:
+            raise RuntimeError(f"Failed to read Jira priorities: {resp.status_code} {resp.text}")
+        data = resp.json()
+        return data if isinstance(data, list) else []
+
+    return _cache_get_or_build(cache_key, _build, force_refresh=force_refresh)
+
+
+def _resolve_priority_id_from_number(priority_number: int, force_refresh: bool = False) -> tuple[str, str]:
+    priorities = _jira_get_priorities(force_refresh=force_refresh)
+    wanted = int(priority_number)
+    wanted_str = str(wanted)
+
+    def _extract_num(name: str) -> int | None:
+        m = re.search(r"(?:^|\D)(10|[1-9])(?:\D|$)", str(name or ""))
+        return int(m.group(1)) if m else None
+
+    exact = []
+    partial = []
+    for p in priorities:
+        name = str(p.get("name") or "")
+        pid = str(p.get("id") or "")
+        if not pid:
+            continue
+        if name.strip() == wanted_str:
+            exact.append((pid, name))
+            continue
+        n = _extract_num(name)
+        if n == wanted:
+            partial.append((pid, name))
+
+    if exact:
+        return exact[0]
+    if partial:
+        return partial[0]
+    raise RuntimeError(f"Priority '{wanted}' not found in Jira priorities")
+
+
+def _jira_update_issue_priority(issue_key: str, priority_id: str) -> dict:
+    payload = {"fields": {"priority": {"id": str(priority_id)}}}
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    resp = requests.put(url, headers=HEADERS, json=payload)
+    if resp.status_code not in (200, 204):
+        raise RuntimeError(f"Failed to update issue {issue_key} priority: {resp.status_code} {resp.text}")
     return payload
 
 # ======================================================================
@@ -1157,6 +1210,64 @@ def update_fix_versions():
         })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "issueKey": issue_key, "before": before}), 502
+
+
+@app.route("/update_priority", methods=["POST"])
+def update_priority():
+    data = request.get_json(silent=True) or {}
+
+    issue_key = str(data.get("issueKey") or "").strip().upper()
+    dry_run = bool(data.get("dryRun", True))
+    raw_priority = data.get("priority")
+
+    if not re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", issue_key):
+        return jsonify({"ok": False, "error": "Invalid issueKey format"}), 400
+
+    try:
+        priority_number = int(raw_priority)
+    except Exception:
+        return jsonify({"ok": False, "error": "priority must be integer 1..10"}), 400
+
+    if priority_number < 1 or priority_number > 10:
+        return jsonify({"ok": False, "error": "priority must be in range 1..10"}), 400
+
+    try:
+        before_issue = requests.get(f"{JIRA_ISSUE}/{issue_key}", headers=HEADERS, params={"fields": "priority"})
+        if before_issue.status_code != 200:
+            raise RuntimeError(f"Failed to read issue {issue_key}: {before_issue.status_code} {before_issue.text}")
+        before_priority = (((before_issue.json().get("fields") or {}).get("priority") or {}).get("name") or "")
+
+        priority_id, priority_name = _resolve_priority_id_from_number(priority_number)
+
+        if dry_run:
+            return jsonify({
+                "ok": True,
+                "dryRun": True,
+                "issueKey": issue_key,
+                "before": before_priority,
+                "requested": priority_number,
+                "resolved": {"id": priority_id, "name": priority_name},
+            })
+
+        payload = _jira_update_issue_priority(issue_key, priority_id)
+
+        after_issue = requests.get(f"{JIRA_ISSUE}/{issue_key}", headers=HEADERS, params={"fields": "priority"})
+        if after_issue.status_code != 200:
+            raise RuntimeError(f"Failed to read updated issue {issue_key}: {after_issue.status_code} {after_issue.text}")
+        after_priority = (((after_issue.json().get("fields") or {}).get("priority") or {}).get("name") or "")
+
+        return jsonify({
+            "ok": True,
+            "dryRun": False,
+            "issueKey": issue_key,
+            "before": before_priority,
+            "after": after_priority,
+            "requested": priority_number,
+            "resolved": {"id": priority_id, "name": priority_name},
+            "payload": payload,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "issueKey": issue_key}), 502
 
 # ---------------- Main ----------------
 
