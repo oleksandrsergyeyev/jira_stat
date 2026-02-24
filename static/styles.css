@@ -1062,8 +1062,9 @@ table.pi-planning-table {
 }
 
 .team-capacity-btn.secondary {
-  background: #6c757d;
-  border-color: #5a646d;
+  background: #d9ecff;
+  border-color: #b7d9ff;
+  color: #1f5e9e;
 }
 
 .team-capacity-btn.primary {
@@ -1080,21 +1081,37 @@ table.pi-planning-table {
 
 .team-capacity-search-wrap {
   margin: 12px 0 8px;
-  max-width: 860px;
+  max-width: none;
+  width: 100%;
 }
 
 .team-capacity-search-row {
   display: flex;
   gap: 8px;
   margin-top: 6px;
+  align-items: center;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.team-capacity-search-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 
 #team-capacity-user-search {
-  flex: 1;
-  min-width: 320px;
+  flex: 0 0 auto;
+  width: 360px;
+  min-width: 280px;
   border: 1px solid #c9d6ea;
   border-radius: 8px;
   padding: 8px 10px;
+}
+
+.team-capacity-copy-right {
+  margin-left: 16px;
 }
 
 .team-capacity-search-results {

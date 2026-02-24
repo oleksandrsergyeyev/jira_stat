@@ -25,15 +25,16 @@
 
       <label for="fixVersionSelect">Fix Version:</label>
       <select id="fixVersionSelect"></select>
-
-      <button id="team-capacity-copy-prev" class="team-capacity-btn secondary" type="button">Copy team from previous QS</button>
     </div>
 
     <div class="team-capacity-search-wrap">
       <label for="team-capacity-user-search">Find Jira users:</label>
       <div class="team-capacity-search-row">
-        <input id="team-capacity-user-search" type="text" placeholder="Type name or email and press Enter" />
-        <button id="team-capacity-user-search-btn" class="team-capacity-btn" type="button">Search</button>
+        <div class="team-capacity-search-left">
+          <input id="team-capacity-user-search" type="text" placeholder="Type name or email and press Enter" />
+          <button id="team-capacity-user-search-btn" class="team-capacity-btn" type="button">Search</button>
+        </div>
+        <button id="team-capacity-copy-prev" class="team-capacity-btn secondary team-capacity-copy-right" type="button">Copy team from previous QS</button>
       </div>
       <div id="team-capacity-search-results" class="team-capacity-search-results"></div>
     </div>
