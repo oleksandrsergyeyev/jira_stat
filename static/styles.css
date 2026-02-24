@@ -1072,6 +1072,12 @@ table.pi-planning-table {
   border-color: #1b7e48;
 }
 
+.team-capacity-btn.danger {
+  background: #d84b5e;
+  border-color: #c23c4f;
+  color: #fff;
+}
+
 .team-capacity-btn:disabled {
   background: #a8b4c5;
   border-color: #98a7bc;
@@ -1212,6 +1218,22 @@ table.pi-planning-table {
 .team-capacity-user-cell {
   text-align: left !important;
   font-weight: 600;
+  position: relative;
+  display: block;
+  max-width: none;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  padding-right: 28px !important;
+}
+
+.team-capacity-user-main {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .team-capacity-email {
@@ -1328,11 +1350,89 @@ table.pi-planning-table {
   background: #f4f8ff;
 }
 
-.team-capacity-user-cell {
-  max-width: 170px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.team-capacity-bottom-row td {
+  background: #eef5ff;
+  font-weight: 700;
+  border-top: 2px solid #c4d8f4;
+}
+
+.team-capacity-bottom-label {
+  text-align: left !important;
+  color: #2b4f78;
+}
+
+.team-capacity-bottom-week {
+  color: #204d78;
+}
+
+.team-capacity-bottom-grand {
+  background: #e3efff !important;
+}
+
+.team-capacity-remove-inline {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 0;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: #8f1f30;
+  font-size: 11px;
+  line-height: 1;
+  border-radius: 0;
+  flex: 0 0 auto;
+}
+
+.team-capacity-remove-inline:hover {
+  background: transparent;
+  color: #b21f33;
+  text-decoration: underline;
+}
+
+.team-capacity-confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100130;
+  background: rgba(16, 30, 54, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.team-capacity-confirm-modal.hidden {
+  display: none;
+}
+
+.team-capacity-confirm-card {
+  width: min(420px, 94vw);
+  background: #ffffff;
+  border: 1px solid #d5e1f2;
+  border-radius: 12px;
+  box-shadow: 0 16px 34px rgba(17, 37, 66, 0.26);
+  padding: 16px;
+  text-align: left;
+}
+
+.team-capacity-confirm-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1f3f66;
+}
+
+.team-capacity-confirm-message {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #2e4768;
+}
+
+.team-capacity-confirm-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 /* =========================

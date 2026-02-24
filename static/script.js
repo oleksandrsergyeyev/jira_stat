@@ -2699,6 +2699,46 @@ function showTeamCapacityStatus(message, kind = "info") {
   el.className = `team-capacity-status ${kind}`;
 }
 
+function showTeamCapacityConfirm(message) {
+  const modal = document.getElementById("team-capacity-confirm-modal");
+  const text = document.getElementById("team-capacity-confirm-message");
+  const okBtn = document.getElementById("team-capacity-confirm-ok");
+  const cancelBtn = document.getElementById("team-capacity-confirm-cancel");
+  if (!modal || !text || !okBtn || !cancelBtn) {
+    return Promise.resolve(window.confirm(message));
+  }
+
+  text.textContent = String(message || "Are you sure?");
+  modal.classList.remove("hidden");
+
+  return new Promise((resolve) => {
+    let closed = false;
+    const close = (result) => {
+      if (closed) return;
+      closed = true;
+      modal.classList.add("hidden");
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      modal.onclick = null;
+      document.removeEventListener("keydown", onKey);
+      resolve(Boolean(result));
+    };
+
+    const onKey = (ev) => {
+      if (ev.key === "Escape") close(false);
+    };
+
+    okBtn.onclick = () => close(true);
+    cancelBtn.onclick = () => close(false);
+    modal.onclick = (ev) => {
+      if (ev.target === modal) close(false);
+    };
+
+    document.addEventListener("keydown", onKey);
+    okBtn.focus();
+  });
+}
+
 function teamCapacitySprintTotal(member, sprint) {
   const rows = Array.isArray(member?.weekValues?.[sprint]) ? member.weekValues[sprint] : [];
   let sum = 0;
@@ -2730,7 +2770,7 @@ function renderTeamCapacityMembers() {
 
   TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
     const weeks = weekPlan[sprint] || [];
-    const span = weeks.length + 1;
+    const span = weeks.length;
     const first = weeks[0] || "";
     const last = weeks[weeks.length - 1] || "";
     const range = first && last ? `${first} → ${last}` : "";
@@ -2741,10 +2781,9 @@ function renderTeamCapacityMembers() {
       const wLabel = parsed ? `W${String(parsed.week).padStart(2, "0")}` : weekKey;
       headRow2 += `<th class="team-capacity-day-head">${escapeHtml(wLabel)}</th>`;
     });
-    headRow2 += `<th class="team-capacity-sprint-total-head">${escapeHtml(sprint)} Total</th>`;
   });
 
-  headRow1 += `<th rowspan="2">Total</th><th rowspan="2">Action</th></tr>`;
+  headRow1 += `<th rowspan="2">Total</th></tr>`;
   headRow2 += "</tr>";
 
   const rows = teamCapacityMembers.map((member, idx) => {
@@ -2759,25 +2798,37 @@ function renderTeamCapacityMembers() {
         const text = Number.isInteger(val) ? String(val) : String(val);
         sprintCells += `<td><input type="number" class="team-capacity-week-input" data-row="${idx}" data-sprint="${escapeHtml(sprint)}" data-week-index="${weekIdx}" min="0" max="15" step="0.5" value="${escapeHtml(text)}" /></td>`;
       });
-      const sprintTotal = teamCapacitySprintTotal(member, sprint);
-      sprintCells += `<td class="team-capacity-total sprint-total">${escapeHtml(Number.isInteger(sprintTotal) ? String(sprintTotal) : sprintTotal.toFixed(1))}</td>`;
     });
 
     const total = teamCapacityMemberTotal(member);
     const totalText = Number.isInteger(total) ? String(total) : total.toFixed(1);
     return `<tr>
       <td>${idx + 1}</td>
-      <td class="team-capacity-user-cell">${userLabel}</td>
+      <td class="team-capacity-user-cell"><span class="team-capacity-user-main">${userLabel}</span><button type="button" class="team-capacity-remove team-capacity-remove-inline" data-remove-row="${idx}" aria-label="Remove ${escapeHtml(member.displayName || "member")}" title="Remove">[X]</button></td>
       ${sprintCells}
       <td class="team-capacity-total">${escapeHtml(totalText)}</td>
-      <td><button type="button" class="team-capacity-remove" data-remove-row="${idx}">Remove</button></td>
     </tr>`;
   }).join("");
+
+  let totalsCells = "";
+  TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
+    const weeks = weekPlan[sprint] || [];
+    weeks.forEach((_, weekIdx) => {
+      const weekTotal = teamCapacityMembers.reduce((sum, member) => {
+        return sum + Number(member?.weekValues?.[sprint]?.[weekIdx] || 0);
+      }, 0);
+      const weekText = Number.isInteger(weekTotal) ? String(weekTotal) : weekTotal.toFixed(1);
+      totalsCells += `<td class="team-capacity-total team-capacity-bottom-week">${escapeHtml(weekText)}</td>`;
+    });
+  });
+  const bottomTotal = teamCapacityMembers.reduce((sum, member) => sum + teamCapacityMemberTotal(member), 0);
+  const bottomTotalText = Number.isInteger(bottomTotal) ? String(bottomTotal) : bottomTotal.toFixed(1);
+  const totalsRow = `<tr class="team-capacity-bottom-row"><td></td><td class="team-capacity-bottom-label">Total per week</td>${totalsCells}<td class="team-capacity-total team-capacity-bottom-grand">${escapeHtml(bottomTotalText)}</td></tr>`;
 
   host.innerHTML = `
     <table class="team-capacity-table team-capacity-table-detailed">
       <thead>${headRow1}${headRow2}</thead>
-      <tbody>${rows}</tbody>
+      <tbody>${rows}${totalsRow}</tbody>
     </table>
   `;
 }
@@ -3061,7 +3112,7 @@ function bindTeamCapacityPage() {
     scheduleTeamCapacityAutosave(150);
   });
 
-  document.getElementById("team-capacity-planner")?.addEventListener("click", (ev) => {
+  document.getElementById("team-capacity-planner")?.addEventListener("click", async (ev) => {
     const target = ev.target;
     if (!(target instanceof HTMLElement)) return;
 
@@ -3085,6 +3136,9 @@ function bindTeamCapacityPage() {
     const row = Number(rowRaw);
     if (!Number.isInteger(row) || row < 0 || row >= teamCapacityMembers.length) return;
     const removed = teamCapacityMembers[row];
+    const memberName = String(removed?.displayName || "this member").trim() || "this member";
+    const confirmDelete = await showTeamCapacityConfirm(`Are you sure you want to delete ${memberName}?`);
+    if (!confirmDelete) return;
     teamCapacityMembers.splice(row, 1);
     renderTeamCapacityMembers();
     showTeamCapacityStatus(`${removed.displayName} removed.`, "warning");

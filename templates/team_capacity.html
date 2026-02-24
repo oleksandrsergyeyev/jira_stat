@@ -47,6 +47,16 @@
   </section>
 
   <script src="/static/script.js"></script>
+  <div id="team-capacity-confirm-modal" class="team-capacity-confirm-modal hidden" role="dialog" aria-modal="true" aria-labelledby="team-capacity-confirm-title">
+    <div class="team-capacity-confirm-card">
+      <div id="team-capacity-confirm-title" class="team-capacity-confirm-title">Delete team member?</div>
+      <div id="team-capacity-confirm-message" class="team-capacity-confirm-message">Are you sure you want to delete this member?</div>
+      <div class="team-capacity-confirm-actions">
+        <button id="team-capacity-confirm-cancel" type="button" class="team-capacity-btn secondary">Cancel</button>
+        <button id="team-capacity-confirm-ok" type="button" class="team-capacity-btn danger">Delete</button>
+      </div>
+    </div>
+  </div>
   <div id="unique-users-count" class="unique-users-counter"></div>
 </body>
 </html>
