@@ -2,57 +2,124 @@
   "ART - BCRC - BSW TFW|||QS_25w49": {
     "workGroup": "ART - BCRC - BSW TFW",
     "fixVersion": "QS_25w49",
+    "sprintWeeks": {
+      "Sprint 1": 2,
+      "Sprint 2": 2,
+      "Sprint 3": 2,
+      "Sprint 4": 2,
+      "Sprint 5": 2
+    },
     "members": [
       {
         "accountId": "",
         "displayName": "Sergyeyev, Oleksandr",
         "emailAddress": "oleksandr.sergyeyev@volvocars.com",
-        "days": {
-          "Sprint 1": 0.0,
-          "Sprint 2": 0.0,
-          "Sprint 3": 0.0,
-          "Sprint 4": 0.0,
-          "Sprint 5": 0.0
+        "weekValues": {
+          "Sprint 1": [
+            0.0,
+            0.0
+          ],
+          "Sprint 2": [
+            0.0,
+            0.0
+          ],
+          "Sprint 3": [
+            0.0,
+            0.0
+          ],
+          "Sprint 4": [
+            0.0,
+            0.0
+          ],
+          "Sprint 5": [
+            0.0,
+            0.0
+          ]
         }
       },
       {
         "accountId": "",
         "displayName": "Lekkala, Venkateswarlu",
         "emailAddress": "venkateswarlu.lekkala@volvocars.com",
-        "days": {
-          "Sprint 1": 0.0,
-          "Sprint 2": 0.0,
-          "Sprint 3": 0.0,
-          "Sprint 4": 0.0,
-          "Sprint 5": 0.0
+        "weekValues": {
+          "Sprint 1": [
+            0.0,
+            0.0
+          ],
+          "Sprint 2": [
+            0.0,
+            0.0
+          ],
+          "Sprint 3": [
+            0.0,
+            0.0
+          ],
+          "Sprint 4": [
+            0.0,
+            0.0
+          ],
+          "Sprint 5": [
+            0.0,
+            0.0
+          ]
         }
       },
       {
         "accountId": "",
         "displayName": "Lytvyn, Yevhen",
         "emailAddress": "yevhen.lytvyn@volvocars.com",
-        "days": {
-          "Sprint 1": 0.0,
-          "Sprint 2": 0.0,
-          "Sprint 3": 0.0,
-          "Sprint 4": 0.0,
-          "Sprint 5": 0.0
+        "weekValues": {
+          "Sprint 1": [
+            0.0,
+            0.0
+          ],
+          "Sprint 2": [
+            0.0,
+            0.0
+          ],
+          "Sprint 3": [
+            0.0,
+            0.0
+          ],
+          "Sprint 4": [
+            0.0,
+            0.0
+          ],
+          "Sprint 5": [
+            0.0,
+            0.0
+          ]
         }
       },
       {
         "accountId": "",
         "displayName": "Karpusevych, Igor",
         "emailAddress": "igor.karpusevych@volvocars.com",
-        "days": {
-          "Sprint 1": 0.0,
-          "Sprint 2": 0.0,
-          "Sprint 3": 0.0,
-          "Sprint 4": 0.0,
-          "Sprint 5": 0.0
+        "weekValues": {
+          "Sprint 1": [
+            0.0,
+            0.0
+          ],
+          "Sprint 2": [
+            0.0,
+            0.0
+          ],
+          "Sprint 3": [
+            0.0,
+            0.0
+          ],
+          "Sprint 4": [
+            0.0,
+            0.0
+          ],
+          "Sprint 5": [
+            0.0,
+            0.0
+          ]
         }
       }
     ],
-    "updatedAt": "2026-02-24T16:07:34.021806+00:00"
+    "updatedAt": "2026-02-24T17:03:52.724900+00:00"
   },
   "ART - BCRC - SysSW CI|||QS_25w49": {
     "workGroup": "ART - BCRC - SysSW CI",
@@ -72,5 +139,127 @@
       }
     ],
     "updatedAt": "2026-02-24T16:02:35.692072+00:00"
+  },
+  "ART - BCRC - BSW TFW|||QS_26w10": {
+    "workGroup": "ART - BCRC - BSW TFW",
+    "fixVersion": "QS_26w10",
+    "sprintWeeks": {
+      "Sprint 1": 2,
+      "Sprint 2": 2,
+      "Sprint 3": 2,
+      "Sprint 4": 2,
+      "Sprint 5": 2
+    },
+    "members": [
+      {
+        "accountId": "",
+        "displayName": "Sergyeyev, Oleksandr",
+        "emailAddress": "oleksandr.sergyeyev@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            0.0,
+            0.0
+          ],
+          "Sprint 2": [
+            0.0,
+            0.0
+          ],
+          "Sprint 3": [
+            0.0,
+            0.0
+          ],
+          "Sprint 4": [
+            0.0,
+            0.0
+          ],
+          "Sprint 5": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Lekkala, Venkateswarlu",
+        "emailAddress": "venkateswarlu.lekkala@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            0.0,
+            0.0
+          ],
+          "Sprint 2": [
+            0.0,
+            0.0
+          ],
+          "Sprint 3": [
+            0.0,
+            0.0
+          ],
+          "Sprint 4": [
+            0.0,
+            0.0
+          ],
+          "Sprint 5": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Lytvyn, Yevhen",
+        "emailAddress": "yevhen.lytvyn@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            0.0,
+            0.0
+          ],
+          "Sprint 2": [
+            0.0,
+            0.0
+          ],
+          "Sprint 3": [
+            0.0,
+            0.0
+          ],
+          "Sprint 4": [
+            0.0,
+            0.0
+          ],
+          "Sprint 5": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Karpusevych, Igor",
+        "emailAddress": "igor.karpusevych@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            0.0,
+            0.0
+          ],
+          "Sprint 2": [
+            0.0,
+            0.0
+          ],
+          "Sprint 3": [
+            0.0,
+            0.0
+          ],
+          "Sprint 4": [
+            0.0,
+            0.0
+          ],
+          "Sprint 5": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    ],
+    "updatedAt": "2026-02-24T17:10:11.161156+00:00"
   }
 }

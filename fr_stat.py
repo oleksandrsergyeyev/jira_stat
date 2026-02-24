@@ -389,20 +389,89 @@ def _normalize_member(raw: dict) -> dict:
     account_id = str(row.get("accountId") or "").strip()
     email = str(row.get("emailAddress") or row.get("email") or "").strip()
 
-    raw_days = row.get("days") or {}
-    if not isinstance(raw_days, dict):
-        raw_days = {}
-
-    normalized_days = {}
-    for sprint in ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"]:
-        normalized_days[sprint] = _coerce_day_value(raw_days.get(sprint, 0))
-
     return {
         "accountId": account_id,
         "displayName": display_name,
         "emailAddress": email,
-        "days": normalized_days,
     }
+
+
+def _default_sprint_weeks() -> dict:
+    return {
+        "Sprint 1": 2,
+        "Sprint 2": 2,
+        "Sprint 3": 2,
+        "Sprint 4": 2,
+        "Sprint 5": 2,
+    }
+
+
+def _normalize_sprint_weeks(raw: dict | None) -> dict:
+    src = raw if isinstance(raw, dict) else {}
+    out = {}
+    defaults = _default_sprint_weeks()
+    for sprint, default_weeks in defaults.items():
+        try:
+            val = int(src.get(sprint, default_weeks))
+        except Exception:
+            val = default_weeks
+        if val < 1:
+            val = 1
+        if val > 8:
+            val = 8
+        out[sprint] = val
+    return out
+
+
+def _normalize_member_week_values(raw: dict, sprint_weeks: dict) -> dict:
+    row = raw if isinstance(raw, dict) else {}
+    raw_week_values = row.get("weekValues") or {}
+    if not isinstance(raw_week_values, dict):
+        raw_week_values = {}
+
+    raw_week_days = row.get("weekDays") or {}
+    if not isinstance(raw_week_days, dict):
+        raw_week_days = {}
+
+    raw_days = row.get("days") or {}
+    if not isinstance(raw_days, dict):
+        raw_days = {}
+
+    normalized_week_values = {}
+
+    for sprint, week_count in sprint_weeks.items():
+        direct_values = raw_week_values.get(sprint) or []
+        if not isinstance(direct_values, list):
+            direct_values = []
+
+        sprint_rows = raw_week_days.get(sprint) or []
+        if not isinstance(sprint_rows, list):
+            sprint_rows = []
+
+        normalized_rows = []
+        for week_idx in range(week_count):
+            direct_val = direct_values[week_idx] if week_idx < len(direct_values) else 0
+            direct_num = _coerce_day_value(direct_val)
+            if direct_num > 0:
+                normalized_rows.append(direct_num)
+                continue
+
+            # backward compatibility: previous format stored per-day values in weekDays
+            src_week = sprint_rows[week_idx] if week_idx < len(sprint_rows) and isinstance(sprint_rows[week_idx], dict) else {}
+            week_sum = 0.0
+            for day in ["Mon", "Tue", "Wed", "Thu", "Fri"]:
+                week_sum += _coerce_day_value(src_week.get(day, 0))
+            normalized_rows.append(round(week_sum, 2))
+
+        # backward compatibility: old format had per-sprint totals in `days`
+        legacy_total = _coerce_day_value(raw_days.get(sprint, 0))
+        has_any_values = any(v > 0 for v in normalized_rows)
+        if (not has_any_values) and legacy_total > 0 and normalized_rows:
+            normalized_rows[0] = legacy_total
+
+        normalized_week_values[sprint] = normalized_rows
+
+    return normalized_week_values
 
 
 def _jira_user_search(query_text: str, max_results: int = 20) -> list[dict]:
@@ -1205,6 +1274,7 @@ def team_capacity_data():
         payload = store.get(key) or {
             "workGroup": work_group,
             "fixVersion": fix_version,
+            "sprintWeeks": _default_sprint_weeks(),
             "members": [],
             "updatedAt": None,
         }
@@ -1214,16 +1284,20 @@ def team_capacity_data():
     work_group = (data.get("workGroup") or "").strip()
     fix_version = (data.get("fixVersion") or "").strip()
     members_raw = data.get("members") or []
+    sprint_weeks_raw = data.get("sprintWeeks") or {}
 
     if not work_group or not fix_version:
         return jsonify({"ok": False, "error": "workGroup and fixVersion are required"}), 400
     if not isinstance(members_raw, list):
         return jsonify({"ok": False, "error": "members must be an array"}), 400
 
+    sprint_weeks = _normalize_sprint_weeks(sprint_weeks_raw)
+
     normalized = []
     seen_members = set()
     for row in members_raw:
         member = _normalize_member(row)
+        member["weekValues"] = _normalize_member_week_values(row, sprint_weeks)
         member_name = member.get("displayName", "").strip()
         member_id = member.get("accountId", "").strip()
         dedupe_key = member_id or member_name.lower()
@@ -1238,6 +1312,7 @@ def team_capacity_data():
     payload = {
         "workGroup": work_group,
         "fixVersion": fix_version,
+        "sprintWeeks": sprint_weeks,
         "members": normalized,
         "updatedAt": updated_at,
     }

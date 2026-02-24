@@ -2583,20 +2583,113 @@ function populateBacklogStatusFilter(data) {
 const TEAM_CAPACITY_SPRINTS = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"];
 let teamCapacityMembers = [];
 let teamCapacityAutosaveTimer = null;
+let teamCapacitySprintWeeks = {
+  "Sprint 1": 2,
+  "Sprint 2": 2,
+  "Sprint 3": 2,
+  "Sprint 4": 2,
+  "Sprint 5": 2,
+};
+
+function normalizeTeamCapacitySprintWeeks(raw) {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const out = {};
+  TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
+    const n = Number.parseInt(src[sprint], 10);
+    const fallback = Number(teamCapacitySprintWeeks[sprint] || 2);
+    const safe = Number.isFinite(n) ? n : fallback;
+    out[sprint] = Math.max(1, Math.min(8, safe));
+  });
+  return out;
+}
+
+function parseStartWeekFromFixVersion(fixVersion) {
+  const m = String(fixVersion || "").match(/_(\d{2})w(\d{2})$/i);
+  if (!m) return { year: new Date().getFullYear(), week: 1 };
+  const year = 2000 + Number(m[1]);
+  const week = Math.max(1, Math.min(53, Number(m[2])));
+  return { year, week };
+}
+
+function buildTeamCapacitySprintWeekPlan(fixVersion, sprintWeeks) {
+  const start = parseStartWeekFromFixVersion(fixVersion);
+  let cursor = makeWeekKey(start.year, start.week);
+  const plan = {};
+  TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
+    const count = Number(sprintWeeks?.[sprint] || 2);
+    const list = [];
+    for (let i = 0; i < count; i += 1) {
+      list.push(cursor);
+      cursor = nextWeekKey(cursor);
+    }
+    plan[sprint] = list;
+  });
+  return plan;
+}
+
+function normalizeWeekDayValue(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(Math.max(0, Math.min(15, n)) * 100) / 100;
+}
+
+function ensureMemberWeekValues(member, sprintWeeks) {
+  if (!member.weekValues || typeof member.weekValues !== "object") member.weekValues = {};
+  TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
+    const targetCount = Number(sprintWeeks?.[sprint] || 2);
+    let rows = Array.isArray(member.weekValues[sprint]) ? member.weekValues[sprint] : [];
+    rows = rows.map((v) => normalizeWeekDayValue(v));
+
+    while (rows.length < targetCount) rows.push(0);
+    if (rows.length > targetCount) rows = rows.slice(0, targetCount);
+    member.weekValues[sprint] = rows;
+  });
+}
 
 function normalizeTeamCapacityMember(raw) {
   const row = raw && typeof raw === "object" ? raw : {};
   const displayName = String(row.displayName || row.name || "").trim();
   const accountId = String(row.accountId || "").trim();
   const emailAddress = String(row.emailAddress || row.email || "").trim();
-  const rawDays = row.days && typeof row.days === "object" ? row.days : {};
-  const days = {};
+  const member = {
+    accountId,
+    displayName,
+    emailAddress,
+    weekValues: row.weekValues && typeof row.weekValues === "object" ? row.weekValues : {},
+  };
+
+  const legacyDays = row.days && typeof row.days === "object" ? row.days : {};
+  const legacyWeekDays = row.weekDays && typeof row.weekDays === "object" ? row.weekDays : {};
+  ensureMemberWeekValues(member, teamCapacitySprintWeeks);
+
   TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
-    const val = Number(rawDays[sprint]);
-    const safe = Number.isFinite(val) ? Math.max(0, Math.min(15, val)) : 0;
-    days[sprint] = Math.round(safe * 100) / 100;
+    const hasAny = (member.weekValues[sprint] || []).some((v) => Number(v || 0) > 0);
+    if (hasAny) return;
+
+    // backward compatibility from previous per-day weekDays structure
+    const legacyRows = Array.isArray(legacyWeekDays[sprint]) ? legacyWeekDays[sprint] : [];
+    if (legacyRows.length) {
+      const converted = legacyRows.map((w) => {
+        const src = w && typeof w === "object" ? w : {};
+        return normalizeWeekDayValue(
+          Number(src.Mon || 0) + Number(src.Tue || 0) + Number(src.Wed || 0) + Number(src.Thu || 0) + Number(src.Fri || 0)
+        );
+      });
+      if (converted.some((v) => v > 0)) {
+        member.weekValues[sprint] = converted;
+        ensureMemberWeekValues(member, teamCapacitySprintWeeks);
+        return;
+      }
+    }
+
+    const legacyTotal = Number(legacyDays[sprint] || 0);
+    if (!Number.isFinite(legacyTotal) || legacyTotal <= 0) return;
+    if (!member.weekValues[sprint] || !member.weekValues[sprint].length) member.weekValues[sprint] = [0];
+    member.weekValues[sprint][0] = normalizeWeekDayValue(legacyTotal);
+    ensureMemberWeekValues(member, teamCapacitySprintWeeks);
   });
-  return { accountId, displayName, emailAddress, days };
+
+  return member;
 }
 
 function showTeamCapacityStatus(message, kind = "info") {
@@ -2606,24 +2699,71 @@ function showTeamCapacityStatus(message, kind = "info") {
   el.className = `team-capacity-status ${kind}`;
 }
 
+function teamCapacitySprintTotal(member, sprint) {
+  const rows = Array.isArray(member?.weekValues?.[sprint]) ? member.weekValues[sprint] : [];
+  let sum = 0;
+  rows.forEach((weekValue) => {
+    sum += Number(weekValue || 0);
+  });
+  return Math.round(sum * 100) / 100;
+}
+
+function teamCapacityMemberTotal(member) {
+  return TEAM_CAPACITY_SPRINTS.reduce((sum, sprint) => sum + teamCapacitySprintTotal(member, sprint), 0);
+}
+
 function renderTeamCapacityMembers() {
-  const body = document.getElementById("team-capacity-members-body");
-  if (!body) return;
+  const host = document.getElementById("team-capacity-planner");
+  if (!host) return;
+
+  const weekPlan = buildTeamCapacitySprintWeekPlan(getSelectedFixVersion(), teamCapacitySprintWeeks);
+
   if (!teamCapacityMembers.length) {
-    body.innerHTML = `<tr><td colspan="8" class="team-capacity-empty">No team members yet. Search Jira users and add them.</td></tr>`;
+    host.innerHTML = `<div class="team-capacity-empty" style="padding: 12px;">No team members yet. Search Jira users and add them.</div>`;
     return;
   }
+
+  teamCapacityMembers.forEach((m) => ensureMemberWeekValues(m, teamCapacitySprintWeeks));
+
+  let headRow1 = `<tr><th rowspan="2">#</th><th rowspan="2">Team member</th>`;
+  let headRow2 = "<tr>";
+
+  TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
+    const weeks = weekPlan[sprint] || [];
+    const span = weeks.length + 1;
+    const first = weeks[0] || "";
+    const last = weeks[weeks.length - 1] || "";
+    const range = first && last ? `${first} → ${last}` : "";
+    const weekCount = Number(teamCapacitySprintWeeks?.[sprint] || weeks.length || 1);
+    headRow1 += `<th colspan="${span}" class="team-capacity-sprint-head"><div class="team-capacity-sprint-head-top"><span class="team-capacity-sprint-title">${escapeHtml(sprint)} (${weekCount}w)</span><span class="team-capacity-sprint-ctrls"><button type="button" class="team-capacity-sprint-btn" data-sprint="${escapeHtml(sprint)}" data-sprint-adjust="-" aria-label="Decrease weeks for ${escapeHtml(sprint)}">−</button><button type="button" class="team-capacity-sprint-btn" data-sprint="${escapeHtml(sprint)}" data-sprint-adjust="+" aria-label="Increase weeks for ${escapeHtml(sprint)}">+</button></span></div><div class="team-capacity-sprint-range">${escapeHtml(range)}</div></th>`;
+    weeks.forEach((weekKey) => {
+      const parsed = parseWeekKey(weekKey);
+      const wLabel = parsed ? `W${String(parsed.week).padStart(2, "0")}` : weekKey;
+      headRow2 += `<th class="team-capacity-day-head">${escapeHtml(wLabel)}</th>`;
+    });
+    headRow2 += `<th class="team-capacity-sprint-total-head">${escapeHtml(sprint)} Total</th>`;
+  });
+
+  headRow1 += `<th rowspan="2">Total</th><th rowspan="2">Action</th></tr>`;
+  headRow2 += "</tr>";
 
   const rows = teamCapacityMembers.map((member, idx) => {
     const userLabel = member.emailAddress
       ? `${escapeHtml(member.displayName)} <span class="team-capacity-email">${escapeHtml(member.emailAddress)}</span>`
       : escapeHtml(member.displayName);
-    const sprintCells = TEAM_CAPACITY_SPRINTS.map((sprint) => {
-      const val = Number(member.days?.[sprint] || 0);
-      const valueText = Number.isInteger(val) ? String(val) : String(val);
-      return `<td><input type="number" class="team-capacity-days" data-row="${idx}" data-sprint="${escapeHtml(sprint)}" min="0" max="15" step="0.5" value="${escapeHtml(valueText)}" /></td>`;
-    }).join("");
-    const total = TEAM_CAPACITY_SPRINTS.reduce((sum, sprint) => sum + Number(member.days?.[sprint] || 0), 0);
+    let sprintCells = "";
+    TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
+      const weeks = weekPlan[sprint] || [];
+      weeks.forEach((_, weekIdx) => {
+        const val = Number(member?.weekValues?.[sprint]?.[weekIdx] || 0);
+        const text = Number.isInteger(val) ? String(val) : String(val);
+        sprintCells += `<td><input type="number" class="team-capacity-week-input" data-row="${idx}" data-sprint="${escapeHtml(sprint)}" data-week-index="${weekIdx}" min="0" max="15" step="0.5" value="${escapeHtml(text)}" /></td>`;
+      });
+      const sprintTotal = teamCapacitySprintTotal(member, sprint);
+      sprintCells += `<td class="team-capacity-total sprint-total">${escapeHtml(Number.isInteger(sprintTotal) ? String(sprintTotal) : sprintTotal.toFixed(1))}</td>`;
+    });
+
+    const total = teamCapacityMemberTotal(member);
     const totalText = Number.isInteger(total) ? String(total) : total.toFixed(1);
     return `<tr>
       <td>${idx + 1}</td>
@@ -2634,7 +2774,12 @@ function renderTeamCapacityMembers() {
     </tr>`;
   }).join("");
 
-  body.innerHTML = rows;
+  host.innerHTML = `
+    <table class="team-capacity-table team-capacity-table-detailed">
+      <thead>${headRow1}${headRow2}</thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
 }
 
 async function loadTeamCapacityData(forceRefresh = false) {
@@ -2653,6 +2798,7 @@ async function loadTeamCapacityData(forceRefresh = false) {
     if (!json?.ok) {
       throw new Error(json?.error || "Failed to load capacity");
     }
+    teamCapacitySprintWeeks = normalizeTeamCapacitySprintWeeks(json?.data?.sprintWeeks || teamCapacitySprintWeeks);
     const members = Array.isArray(json?.data?.members) ? json.data.members : [];
     teamCapacityMembers = members.map(normalizeTeamCapacityMember);
     renderTeamCapacityMembers();
@@ -2675,6 +2821,7 @@ async function saveTeamCapacityData() {
   const payload = {
     workGroup,
     fixVersion,
+    sprintWeeks: normalizeTeamCapacitySprintWeeks(teamCapacitySprintWeeks),
     members: teamCapacityMembers.map(normalizeTeamCapacityMember),
   };
 
@@ -2722,6 +2869,7 @@ function addTeamCapacityMember(rawUser) {
   }
 
   teamCapacityMembers.push(user);
+  ensureMemberWeekValues(user, teamCapacitySprintWeeks);
   renderTeamCapacityMembers();
   showTeamCapacityStatus(`${user.displayName} added.`, "success");
   scheduleTeamCapacityAutosave();
@@ -2774,6 +2922,96 @@ async function searchTeamCapacityUsers() {
   }
 }
 
+async function copyTeamMembersFromPreviousFixVersion() {
+  const workGroup = getSelectedWorkGroup();
+  const targetFixVersion = getSelectedFixVersion();
+  if (!workGroup || !targetFixVersion) {
+    showTeamCapacityStatus("Work group and Fix Version are required.", "error");
+    return;
+  }
+
+  try {
+    showTeamCapacityStatus("Preparing copy from previous QS...", "info");
+
+    const settings = await fetchAppSettings();
+    const fixVersions = Array.isArray(settings?.fix_versions) ? settings.fix_versions.map(v => String(v || "").trim()).filter(Boolean) : [];
+    const targetIndex = fixVersions.findIndex(v => v === targetFixVersion);
+    if (targetIndex <= 0) {
+      showTeamCapacityStatus("No previous Fix Version found before current selection.", "warning");
+      return;
+    }
+    const sourceFixVersion = fixVersions[targetIndex - 1];
+
+    const srcResp = await fetch(`/team_capacity_data?workGroup=${encodeURIComponent(workGroup)}&fixVersion=${encodeURIComponent(sourceFixVersion)}`, { cache: "no-store" });
+    const srcJson = await srcResp.json().catch(() => ({}));
+    if (!srcResp.ok || !srcJson?.ok) {
+      throw new Error(srcJson?.error || `Failed loading source (${srcResp.status})`);
+    }
+
+    const targetResp = await fetch(`/team_capacity_data?workGroup=${encodeURIComponent(workGroup)}&fixVersion=${encodeURIComponent(targetFixVersion)}`, { cache: "no-store" });
+    const targetJson = await targetResp.json().catch(() => ({}));
+    if (!targetResp.ok || !targetJson?.ok) {
+      throw new Error(targetJson?.error || `Failed loading target (${targetResp.status})`);
+    }
+
+    const sourceMembers = (Array.isArray(srcJson?.data?.members) ? srcJson.data.members : []).map(normalizeTeamCapacityMember);
+    if (!sourceMembers.length) {
+      showTeamCapacityStatus("Source team has no members to copy.", "warning");
+      return;
+    }
+
+    const targetSprintWeeks = normalizeTeamCapacitySprintWeeks(targetJson?.data?.sprintWeeks || teamCapacitySprintWeeks);
+    const targetMembers = (Array.isArray(targetJson?.data?.members) ? targetJson.data.members : []).map(normalizeTeamCapacityMember);
+    targetMembers.forEach((m) => ensureMemberWeekValues(m, targetSprintWeeks));
+
+    const existing = new Set(targetMembers.map((m) => (m.accountId ? `id:${m.accountId}` : `name:${String(m.displayName || "").toLowerCase()}`)));
+    let addedCount = 0;
+
+    sourceMembers.forEach((member) => {
+      const key = member.accountId ? `id:${member.accountId}` : `name:${String(member.displayName || "").toLowerCase()}`;
+      if (existing.has(key)) return;
+      const clone = {
+        accountId: member.accountId,
+        displayName: member.displayName,
+        emailAddress: member.emailAddress,
+        weekValues: {},
+      };
+      ensureMemberWeekValues(clone, targetSprintWeeks);
+      targetMembers.push(clone);
+      existing.add(key);
+      addedCount += 1;
+    });
+
+    if (addedCount === 0) {
+      showTeamCapacityStatus(`All members from ${sourceFixVersion} already exist in ${targetFixVersion}.`, "info");
+      return;
+    }
+
+    const saveResp = await fetch("/team_capacity_data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workGroup,
+        fixVersion: targetFixVersion,
+        sprintWeeks: targetSprintWeeks,
+        members: targetMembers,
+      }),
+    });
+    const saveJson = await saveResp.json().catch(() => ({}));
+    if (!saveResp.ok || !saveJson?.ok) {
+      throw new Error(saveJson?.error || `Failed saving target (${saveResp.status})`);
+    }
+
+    teamCapacitySprintWeeks = normalizeTeamCapacitySprintWeeks(targetSprintWeeks);
+    teamCapacityMembers = targetMembers.map(normalizeTeamCapacityMember);
+    renderTeamCapacityMembers();
+
+    showTeamCapacityStatus(`Copied ${addedCount} member(s) from ${sourceFixVersion} to ${targetFixVersion}.`, "success");
+  } catch (err) {
+    showTeamCapacityStatus(`Copy failed: ${String(err || "Unknown error")}`, "error");
+  }
+}
+
 function bindTeamCapacityPage() {
   restorePlanningSettings();
   loadTeamCapacityData();
@@ -2788,6 +3026,7 @@ function bindTeamCapacityPage() {
   });
 
   document.getElementById("team-capacity-user-search-btn")?.addEventListener("click", searchTeamCapacityUsers);
+  document.getElementById("team-capacity-copy-prev")?.addEventListener("click", copyTeamMembersFromPreviousFixVersion);
   document.getElementById("team-capacity-user-search")?.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter") {
       ev.preventDefault();
@@ -2797,32 +3036,50 @@ function bindTeamCapacityPage() {
 
   const applyDaysInputValue = (target, rerenderAfter = false) => {
     if (!(target instanceof HTMLInputElement)) return;
-    if (!target.classList.contains("team-capacity-days")) return;
+    if (!target.classList.contains("team-capacity-week-input")) return;
     const row = Number(target.getAttribute("data-row"));
     const sprint = String(target.getAttribute("data-sprint") || "").trim();
+    const weekIdx = Number(target.getAttribute("data-week-index"));
     if (!Number.isInteger(row) || row < 0 || row >= teamCapacityMembers.length) return;
     if (!TEAM_CAPACITY_SPRINTS.includes(sprint)) return;
-    const value = Number(target.value);
-    const safe = Number.isFinite(value) ? Math.max(0, Math.min(15, value)) : 0;
-    teamCapacityMembers[row].days[sprint] = Math.round(safe * 100) / 100;
+    if (!Number.isInteger(weekIdx) || weekIdx < 0) return;
+    ensureMemberWeekValues(teamCapacityMembers[row], teamCapacitySprintWeeks);
+    const safe = normalizeWeekDayValue(target.value);
+    teamCapacityMembers[row].weekValues[sprint][weekIdx] = safe;
     if (rerenderAfter) renderTeamCapacityMembers();
   };
 
-  document.getElementById("team-capacity-members-body")?.addEventListener("input", (ev) => {
+  document.getElementById("team-capacity-planner")?.addEventListener("input", (ev) => {
     const target = ev.target;
     applyDaysInputValue(target, false);
     scheduleTeamCapacityAutosave();
   });
 
-  document.getElementById("team-capacity-members-body")?.addEventListener("change", (ev) => {
+  document.getElementById("team-capacity-planner")?.addEventListener("change", (ev) => {
     const target = ev.target;
     applyDaysInputValue(target, true);
     scheduleTeamCapacityAutosave(150);
   });
 
-  document.getElementById("team-capacity-members-body")?.addEventListener("click", (ev) => {
+  document.getElementById("team-capacity-planner")?.addEventListener("click", (ev) => {
     const target = ev.target;
     if (!(target instanceof HTMLElement)) return;
+
+    const adjustBtn = target.closest("[data-sprint-adjust]");
+    if (adjustBtn instanceof HTMLElement) {
+      const sprint = String(adjustBtn.getAttribute("data-sprint") || "").trim();
+      const adjust = String(adjustBtn.getAttribute("data-sprint-adjust") || "").trim();
+      if (TEAM_CAPACITY_SPRINTS.includes(sprint) && (adjust === "+" || adjust === "-")) {
+        const current = Number(teamCapacitySprintWeeks[sprint] || 2);
+        const next = adjust === "+" ? current + 1 : current - 1;
+        teamCapacitySprintWeeks[sprint] = Math.max(1, Math.min(8, next));
+        teamCapacityMembers.forEach((m) => ensureMemberWeekValues(m, teamCapacitySprintWeeks));
+        renderTeamCapacityMembers();
+        scheduleTeamCapacityAutosave();
+      }
+      return;
+    }
+
     const rowRaw = target.getAttribute("data-remove-row");
     if (rowRaw == null) return;
     const row = Number(rowRaw);
@@ -2833,6 +3090,7 @@ function bindTeamCapacityPage() {
     showTeamCapacityStatus(`${removed.displayName} removed.`, "warning");
     scheduleTeamCapacityAutosave();
   });
+
 }
 
 /* ===============

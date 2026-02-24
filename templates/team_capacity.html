@@ -25,6 +25,8 @@
 
       <label for="fixVersionSelect">Fix Version:</label>
       <select id="fixVersionSelect"></select>
+
+      <button id="team-capacity-copy-prev" class="team-capacity-btn secondary" type="button">Copy team from previous QS</button>
     </div>
 
     <div class="team-capacity-search-wrap">
@@ -38,23 +40,8 @@
 
     <div id="team-capacity-status" class="team-capacity-status info">Choose team and Fix Version to manage capacity.</div>
 
-    <div class="team-capacity-table-wrap">
-      <table class="team-capacity-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Team member</th>
-            <th>Sprint 1</th>
-            <th>Sprint 2</th>
-            <th>Sprint 3</th>
-            <th>Sprint 4</th>
-            <th>Sprint 5</th>
-            <th>Total</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="team-capacity-members-body"></tbody>
-      </table>
+    <div class="team-capacity-table-wrap" id="team-capacity-planner-wrap">
+      <div id="team-capacity-planner"></div>
     </div>
   </section>
 
