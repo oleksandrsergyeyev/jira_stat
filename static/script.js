@@ -2269,6 +2269,261 @@ function populateBacklogStatusFilter(data) {
   }
 }
 
+/* ========================
+   Team Capacity
+   ======================== */
+const TEAM_CAPACITY_SPRINTS = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"];
+let teamCapacityMembers = [];
+let teamCapacityAutosaveTimer = null;
+
+function normalizeTeamCapacityMember(raw) {
+  const row = raw && typeof raw === "object" ? raw : {};
+  const displayName = String(row.displayName || row.name || "").trim();
+  const accountId = String(row.accountId || "").trim();
+  const emailAddress = String(row.emailAddress || row.email || "").trim();
+  const rawDays = row.days && typeof row.days === "object" ? row.days : {};
+  const days = {};
+  TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
+    const val = Number(rawDays[sprint]);
+    const safe = Number.isFinite(val) ? Math.max(0, Math.min(15, val)) : 0;
+    days[sprint] = Math.round(safe * 100) / 100;
+  });
+  return { accountId, displayName, emailAddress, days };
+}
+
+function showTeamCapacityStatus(message, kind = "info") {
+  const el = document.getElementById("team-capacity-status");
+  if (!el) return;
+  el.textContent = message || "";
+  el.className = `team-capacity-status ${kind}`;
+}
+
+function renderTeamCapacityMembers() {
+  const body = document.getElementById("team-capacity-members-body");
+  if (!body) return;
+  if (!teamCapacityMembers.length) {
+    body.innerHTML = `<tr><td colspan="8" class="team-capacity-empty">No team members yet. Search Jira users and add them.</td></tr>`;
+    return;
+  }
+
+  const rows = teamCapacityMembers.map((member, idx) => {
+    const userLabel = member.emailAddress
+      ? `${escapeHtml(member.displayName)} <span class="team-capacity-email">${escapeHtml(member.emailAddress)}</span>`
+      : escapeHtml(member.displayName);
+    const sprintCells = TEAM_CAPACITY_SPRINTS.map((sprint) => {
+      const val = Number(member.days?.[sprint] || 0);
+      const valueText = Number.isInteger(val) ? String(val) : String(val);
+      return `<td><input type="number" class="team-capacity-days" data-row="${idx}" data-sprint="${escapeHtml(sprint)}" min="0" max="15" step="0.5" value="${escapeHtml(valueText)}" /></td>`;
+    }).join("");
+    const total = TEAM_CAPACITY_SPRINTS.reduce((sum, sprint) => sum + Number(member.days?.[sprint] || 0), 0);
+    const totalText = Number.isInteger(total) ? String(total) : total.toFixed(1);
+    return `<tr>
+      <td>${idx + 1}</td>
+      <td class="team-capacity-user-cell">${userLabel}</td>
+      ${sprintCells}
+      <td class="team-capacity-total">${escapeHtml(totalText)}</td>
+      <td><button type="button" class="team-capacity-remove" data-remove-row="${idx}">Remove</button></td>
+    </tr>`;
+  }).join("");
+
+  body.innerHTML = rows;
+}
+
+async function loadTeamCapacityData(forceRefresh = false) {
+  const workGroup = getSelectedWorkGroup();
+  const fixVersion = getSelectedFixVersion();
+  if (!workGroup || !fixVersion) return;
+  const url = `/team_capacity_data?workGroup=${encodeURIComponent(workGroup)}&fixVersion=${encodeURIComponent(fixVersion)}`;
+
+  try {
+    showTeamCapacityStatus("Loading capacity...", "info");
+    const resp = await fetch(url, { cache: "no-store" });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      throw new Error(json?.error || `HTTP ${resp.status}`);
+    }
+    if (!json?.ok) {
+      throw new Error(json?.error || "Failed to load capacity");
+    }
+    const members = Array.isArray(json?.data?.members) ? json.data.members : [];
+    teamCapacityMembers = members.map(normalizeTeamCapacityMember);
+    renderTeamCapacityMembers();
+    showTeamCapacityStatus(`Loaded ${teamCapacityMembers.length} members.`, "success");
+  } catch (err) {
+    teamCapacityMembers = [];
+    renderTeamCapacityMembers();
+    showTeamCapacityStatus(`Load failed: ${String(err || "Unknown error")}`, "error");
+  }
+}
+
+async function saveTeamCapacityData() {
+  const workGroup = getSelectedWorkGroup();
+  const fixVersion = getSelectedFixVersion();
+  if (!workGroup || !fixVersion) {
+    showTeamCapacityStatus("Work group and Fix Version are required.", "error");
+    return;
+  }
+
+  const payload = {
+    workGroup,
+    fixVersion,
+    members: teamCapacityMembers.map(normalizeTeamCapacityMember),
+  };
+
+  try {
+    showTeamCapacityStatus("Saving capacity...", "info");
+    const resp = await fetch("/team_capacity_data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok || !json?.ok) {
+      throw new Error(json?.error || `HTTP ${resp.status}`);
+    }
+    const cacheKey = makeCacheKey("teamCapacityData", { workGroup, fixVersion });
+    writeClientCache(cacheKey, json);
+    showTeamCapacityStatus(`Saved ${teamCapacityMembers.length} members.`, "success");
+  } catch (err) {
+    showTeamCapacityStatus(`Save failed: ${String(err || "Unknown error")}`, "error");
+  }
+}
+
+function scheduleTeamCapacityAutosave(delayMs = 350) {
+  if (teamCapacityAutosaveTimer) {
+    clearTimeout(teamCapacityAutosaveTimer);
+    teamCapacityAutosaveTimer = null;
+  }
+  teamCapacityAutosaveTimer = setTimeout(() => {
+    teamCapacityAutosaveTimer = null;
+    saveTeamCapacityData();
+  }, delayMs);
+}
+
+function addTeamCapacityMember(rawUser) {
+  const user = normalizeTeamCapacityMember(rawUser);
+  if (!user.displayName) return;
+
+  const duplicate = teamCapacityMembers.some((m) => {
+    if (user.accountId && m.accountId) return m.accountId === user.accountId;
+    return (m.displayName || "").toLowerCase() === user.displayName.toLowerCase();
+  });
+  if (duplicate) {
+    showTeamCapacityStatus(`${user.displayName} is already added.`, "warning");
+    return;
+  }
+
+  teamCapacityMembers.push(user);
+  renderTeamCapacityMembers();
+  showTeamCapacityStatus(`${user.displayName} added.`, "success");
+  scheduleTeamCapacityAutosave();
+}
+
+async function searchTeamCapacityUsers() {
+  const input = document.getElementById("team-capacity-user-search");
+  const host = document.getElementById("team-capacity-search-results");
+  if (!input || !host) return;
+  const q = String(input.value || "").trim();
+  if (q.length < 2) {
+    host.innerHTML = "";
+    showTeamCapacityStatus("Type at least 2 characters to search Jira users.", "info");
+    return;
+  }
+
+  host.innerHTML = '<div class="team-capacity-search-item">Searching...</div>';
+  try {
+    const resp = await fetch(`/jira_user_search?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok || !json?.ok) {
+      throw new Error(json?.error || `HTTP ${resp.status}`);
+    }
+    const users = Array.isArray(json.users) ? json.users : [];
+    if (!users.length) {
+      host.innerHTML = '<div class="team-capacity-search-item">No users found.</div>';
+      return;
+    }
+
+    host.innerHTML = users.map((u, idx) => {
+      const display = escapeHtml(String(u.displayName || u.name || "").trim());
+      const email = escapeHtml(String(u.emailAddress || "").trim());
+      const id = escapeHtml(String(u.accountId || "").trim());
+      return `<button type="button" class="team-capacity-search-item" data-user-idx="${idx}" data-user-id="${id}" data-user-name="${display}" data-user-email="${email}">${display}${email ? ` <span>${email}</span>` : ""}</button>`;
+    }).join("");
+
+    host.querySelectorAll("[data-user-idx]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.getAttribute("data-user-idx"));
+        const selected = users[idx];
+        addTeamCapacityMember(selected);
+      });
+    });
+  } catch (err) {
+    host.innerHTML = "";
+    showTeamCapacityStatus(`User search failed: ${String(err || "Unknown error")}`, "error");
+  }
+}
+
+function bindTeamCapacityPage() {
+  restorePlanningSettings();
+  loadTeamCapacityData();
+
+  document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
+    savePlanningSettings();
+    loadTeamCapacityData();
+  });
+  document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+    savePlanningSettings();
+    loadTeamCapacityData();
+  });
+
+  document.getElementById("team-capacity-user-search-btn")?.addEventListener("click", searchTeamCapacityUsers);
+  document.getElementById("team-capacity-user-search")?.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      searchTeamCapacityUsers();
+    }
+  });
+
+  const applyDaysInputValue = (target, rerenderAfter = false) => {
+    if (!(target instanceof HTMLInputElement)) return;
+    if (!target.classList.contains("team-capacity-days")) return;
+    const row = Number(target.getAttribute("data-row"));
+    const sprint = String(target.getAttribute("data-sprint") || "").trim();
+    if (!Number.isInteger(row) || row < 0 || row >= teamCapacityMembers.length) return;
+    if (!TEAM_CAPACITY_SPRINTS.includes(sprint)) return;
+    const value = Number(target.value);
+    const safe = Number.isFinite(value) ? Math.max(0, Math.min(15, value)) : 0;
+    teamCapacityMembers[row].days[sprint] = Math.round(safe * 100) / 100;
+    if (rerenderAfter) renderTeamCapacityMembers();
+  };
+
+  document.getElementById("team-capacity-members-body")?.addEventListener("input", (ev) => {
+    const target = ev.target;
+    applyDaysInputValue(target, false);
+    scheduleTeamCapacityAutosave();
+  });
+
+  document.getElementById("team-capacity-members-body")?.addEventListener("change", (ev) => {
+    const target = ev.target;
+    applyDaysInputValue(target, true);
+    scheduleTeamCapacityAutosave(150);
+  });
+
+  document.getElementById("team-capacity-members-body")?.addEventListener("click", (ev) => {
+    const target = ev.target;
+    if (!(target instanceof HTMLElement)) return;
+    const rowRaw = target.getAttribute("data-remove-row");
+    if (rowRaw == null) return;
+    const row = Number(rowRaw);
+    if (!Number.isInteger(row) || row < 0 || row >= teamCapacityMembers.length) return;
+    const removed = teamCapacityMembers[row];
+    teamCapacityMembers.splice(row, 1);
+    renderTeamCapacityMembers();
+    showTeamCapacityStatus(`${removed.displayName} removed.`, "warning");
+    scheduleTeamCapacityAutosave();
+  });
+}
+
 /* ===============
    Page bootstrap
    =============== */
@@ -2278,6 +2533,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const isBacklog   = !!document.getElementById("backlog-table") && !document.getElementById("committed-table");
   const isRoadmap   = !!document.getElementById("backlog-roadmap") && !document.getElementById("backlog-table");
   const isProjectFR = !!document.getElementById("project-fr-table");
+  const isTeamCapacity = !!document.getElementById("team-capacity-page");
 
   if (isDashboard) {
     restoreDashboardSettings();
@@ -2413,6 +2669,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
     loadProjectFaultReports();
+  }
+
+  if (isTeamCapacity) {
+    bindTeamCapacityPage();
   }
 
   sendUserIdToBackend().catch(() => {}).finally(showUniqueUserCount);

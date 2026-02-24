@@ -4,6 +4,8 @@ from flask import Flask, jsonify, render_template, request, send_file
 import os
 import io
 import copy
+import json
+from datetime import datetime, timezone
 import pandas as pd
 from dotenv import load_dotenv
 import re
@@ -18,6 +20,7 @@ JIRA_SEARCH = f"{JIRA_BASE_URL}/search"
 JIRA_ISSUE = f"{JIRA_BASE_URL}/issue"
 JIRA_PRIORITY = f"{JIRA_BASE_URL}/priority"
 JIRA_PROJECT = f"{JIRA_BASE_URL}/project"
+JIRA_USER_SEARCH = f"{JIRA_BASE_URL}/user/search"
 
 JIRA_TOKEN = os.getenv("JIRA_TOKEN")
 
@@ -32,6 +35,7 @@ HEADERS = {
 }
 
 _DATA_CACHE: dict[tuple, object] = {}
+TEAM_CAPACITY_FILE = "team_capacity_data.json"
 
 
 def _cache_get_or_build(cache_key: tuple, builder, force_refresh: bool = False):
@@ -235,6 +239,123 @@ def _parse_excluded(raw: str) -> set[str]:
         return set()
     parts = re.split(r'[,\n;|]+', raw)
     return { _norm_py(p) for p in parts if p and p.strip() }
+
+
+def _team_capacity_path() -> str:
+    return os.path.join(app.root_path, TEAM_CAPACITY_FILE)
+
+
+def _load_team_capacity_store() -> dict:
+    path = _team_capacity_path()
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
+    except FileNotFoundError:
+        return {}
+    except Exception:
+        return {}
+    return {}
+
+
+def _save_team_capacity_store(store: dict):
+    path = _team_capacity_path()
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(store, f, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, path)
+
+
+def _team_capacity_key(work_group: str, fix_version: str) -> str:
+    wg = (work_group or "").strip()
+    fv = (fix_version or "").strip()
+    return f"{wg}|||{fv}"
+
+
+def _coerce_day_value(raw) -> float:
+    try:
+        val = float(raw)
+    except Exception:
+        return 0.0
+    if val < 0:
+        return 0.0
+    if val > 15:
+        return 15.0
+    return round(val, 2)
+
+
+def _normalize_member(raw: dict) -> dict:
+    row = raw if isinstance(raw, dict) else {}
+    display_name = str(row.get("displayName") or row.get("name") or "").strip()
+    account_id = str(row.get("accountId") or "").strip()
+    email = str(row.get("emailAddress") or row.get("email") or "").strip()
+
+    raw_days = row.get("days") or {}
+    if not isinstance(raw_days, dict):
+        raw_days = {}
+
+    normalized_days = {}
+    for sprint in ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"]:
+        normalized_days[sprint] = _coerce_day_value(raw_days.get(sprint, 0))
+
+    return {
+        "accountId": account_id,
+        "displayName": display_name,
+        "emailAddress": email,
+        "days": normalized_days,
+    }
+
+
+def _jira_user_search(query_text: str, max_results: int = 20) -> list[dict]:
+    q = (query_text or "").strip()
+    if not q:
+        return []
+
+    users_payload = None
+    errors = []
+
+    attempts = [
+        {"query": q, "maxResults": max_results, "includeInactive": "false"},
+        {"username": q, "maxResults": max_results, "includeInactive": "false"},
+    ]
+
+    for params in attempts:
+        resp = requests.get(JIRA_USER_SEARCH, headers=HEADERS, params=params)
+        if resp.status_code == 200:
+            users_payload = resp.json()
+            break
+        errors.append(f"{resp.status_code} {resp.text}")
+
+    if users_payload is None:
+        raise RuntimeError(f"Jira user search failed: {' | '.join(errors)}")
+
+    rows = users_payload if isinstance(users_payload, list) else []
+    out = []
+    seen = set()
+    for u in rows:
+        if not isinstance(u, dict):
+            continue
+        account_id = str(u.get("accountId") or "").strip()
+        display = str(u.get("displayName") or u.get("name") or u.get("key") or "").strip()
+        if not display:
+            continue
+        dedupe_key = account_id or display.lower()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        out.append({
+            "accountId": account_id,
+            "displayName": display,
+            "emailAddress": str(u.get("emailAddress") or "").strip(),
+            "name": str(u.get("name") or "").strip(),
+            "key": str(u.get("key") or "").strip(),
+            "active": bool(u.get("active", True)),
+        })
+        if len(out) >= max_results:
+            break
+
+    return out
 
 # ---------------- Jira search ----------------
 
@@ -925,6 +1046,11 @@ def backlog():
 def roadmap():
     return render_template("roadmap.html", active_page="roadmap")
 
+
+@app.route("/team-capacity")
+def team_capacity():
+    return render_template("team_capacity.html", active_page="team-capacity")
+
 @app.route("/backlog_data")
 def backlog_data():
     work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
@@ -937,6 +1063,75 @@ def capabilities_data():
     work_group = request.args.get("workGroup", "ART - BCRC - BSW TFW")
     force_refresh = _is_force_refresh_requested()
     return jsonify(capabilities_data_service(work_group, force_refresh=force_refresh))
+
+
+@app.route("/jira_user_search")
+def jira_user_search():
+    query_text = (request.args.get("q") or "").strip()
+    if len(query_text) < 2:
+        return jsonify({"ok": True, "users": []})
+    try:
+        users = _jira_user_search(query_text, max_results=20)
+        return jsonify({"ok": True, "users": users})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "users": []}), 502
+
+
+@app.route("/team_capacity_data", methods=["GET", "POST"])
+def team_capacity_data():
+    if request.method == "GET":
+        work_group = (request.args.get("workGroup") or "").strip()
+        fix_version = (request.args.get("fixVersion") or "").strip()
+        if not work_group or not fix_version:
+            return jsonify({"ok": False, "error": "workGroup and fixVersion are required"}), 400
+
+        store = _load_team_capacity_store()
+        key = _team_capacity_key(work_group, fix_version)
+        payload = store.get(key) or {
+            "workGroup": work_group,
+            "fixVersion": fix_version,
+            "members": [],
+            "updatedAt": None,
+        }
+        return jsonify({"ok": True, "data": payload})
+
+    data = request.get_json(silent=True) or {}
+    work_group = (data.get("workGroup") or "").strip()
+    fix_version = (data.get("fixVersion") or "").strip()
+    members_raw = data.get("members") or []
+
+    if not work_group or not fix_version:
+        return jsonify({"ok": False, "error": "workGroup and fixVersion are required"}), 400
+    if not isinstance(members_raw, list):
+        return jsonify({"ok": False, "error": "members must be an array"}), 400
+
+    normalized = []
+    seen_members = set()
+    for row in members_raw:
+        member = _normalize_member(row)
+        member_name = member.get("displayName", "").strip()
+        member_id = member.get("accountId", "").strip()
+        dedupe_key = member_id or member_name.lower()
+        if not member_name:
+            continue
+        if dedupe_key in seen_members:
+            continue
+        seen_members.add(dedupe_key)
+        normalized.append(member)
+
+    updated_at = datetime.now(timezone.utc).isoformat()
+    payload = {
+        "workGroup": work_group,
+        "fixVersion": fix_version,
+        "members": normalized,
+        "updatedAt": updated_at,
+    }
+
+    store = _load_team_capacity_store()
+    store[_team_capacity_key(work_group, fix_version)] = payload
+    _save_team_capacity_store(store)
+
+    return jsonify({"ok": True, "data": payload})
 
 # --------------- Exports ---------------
 

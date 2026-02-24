@@ -1032,6 +1032,191 @@ table.pi-planning-table {
 .col-assignee    { max-width: 140px;  min-width: 90px;  width: 120px;  text-align: left; padding-left: 4px; }
 .col-reporter    { max-width: 140px;  min-width: 90px;  width: 120px;  text-align: left; padding-left: 4px; }
 .col-priority    { max-width: 36px;  min-width: 24px;  width: 32px;  text-align: right; padding-right: 4px; }
+
+/* =========================
+   Team Capacity page
+   ========================= */
+.team-capacity-page {
+  padding: 12px 16px 18px;
+}
+
+.team-capacity-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.team-capacity-btn {
+  border: 1px solid #2f5b97;
+  background: #315f9d;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.team-capacity-btn.secondary {
+  background: #6c757d;
+  border-color: #5a646d;
+}
+
+.team-capacity-btn.primary {
+  background: #1f8f52;
+  border-color: #1b7e48;
+}
+
+.team-capacity-search-wrap {
+  margin: 12px 0 8px;
+  max-width: 860px;
+}
+
+.team-capacity-search-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+#team-capacity-user-search {
+  flex: 1;
+  min-width: 320px;
+  border: 1px solid #c9d6ea;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.team-capacity-search-results {
+  margin-top: 8px;
+  max-height: 230px;
+  overflow: auto;
+  border: 1px solid #d3deef;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.team-capacity-search-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #e4ecf8;
+  background: transparent;
+  color: #1f2d44;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.team-capacity-search-item:last-child {
+  border-bottom: 0;
+}
+
+.team-capacity-search-item:hover {
+  background: #e7f1ff;
+}
+
+.team-capacity-search-item span {
+  color: #5a6f8d;
+  margin-left: 8px;
+}
+
+.team-capacity-status {
+  margin: 10px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.team-capacity-status.info {
+  background: #eaf2ff;
+  color: #234a78;
+}
+
+.team-capacity-status.success {
+  background: #e8f9ef;
+  color: #15653b;
+}
+
+.team-capacity-status.warning {
+  background: #fff6e9;
+  color: #8b6200;
+}
+
+.team-capacity-status.error {
+  background: #ffecef;
+  color: #9b1a2a;
+}
+
+.team-capacity-table-wrap {
+  overflow: auto;
+  border: 1px solid #d7e3f3;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.team-capacity-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+
+.team-capacity-table th,
+.team-capacity-table td {
+  border-bottom: 1px solid #e6edf8;
+  padding: 8px 10px;
+}
+
+.team-capacity-table th {
+  position: sticky;
+  top: 0;
+  background: #f2f7ff;
+  z-index: 1;
+  text-align: center;
+}
+
+.team-capacity-table td {
+  text-align: center;
+}
+
+.team-capacity-user-cell {
+  text-align: left !important;
+  font-weight: 600;
+}
+
+.team-capacity-email {
+  color: #647892;
+  margin-left: 6px;
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.team-capacity-days {
+  width: 74px;
+  padding: 6px 7px;
+  border: 1px solid #b8cbe4;
+  border-radius: 6px;
+  text-align: right;
+}
+
+.team-capacity-total {
+  font-weight: 700;
+  color: #29496e;
+}
+
+.team-capacity-remove {
+  border: 1px solid #d7a2aa;
+  background: #fff1f3;
+  color: #842635;
+  border-radius: 7px;
+  padding: 6px 9px;
+  cursor: pointer;
+}
+
+.team-capacity-empty {
+  color: #5d6d84;
+  text-align: left !important;
+  font-style: italic;
+}
 .col-status      { max-width: 74px;  min-width: 40px;  width: 64px; }
 .col-pi-scope    { max-width: 74px;  min-width: 40px;  width: 64px; }
 .col-links       { max-width: 120px; min-width: 66px; }
