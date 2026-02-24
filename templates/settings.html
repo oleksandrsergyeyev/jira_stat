@@ -19,29 +19,33 @@
   </nav>
 
   <section id="settings-page" class="settings-page">
-    <div class="settings-section">
-      <h2>Fix Versions</h2>
-      <div class="settings-inline-row">
-        <input id="settings-fix-input" type="text" placeholder="e.g. QS_26w10" />
-        <button id="settings-fix-add" type="button" class="team-capacity-btn">Add Fix Version</button>
-      </div>
-      <div id="settings-fix-list" class="settings-list"></div>
+    <div class="settings-actions settings-actions-top">
+      <span id="settings-status" class="team-capacity-status info">No changes yet.</span>
+      <button id="settings-save" type="button" class="team-capacity-btn primary" disabled>Save Settings</button>
     </div>
 
-    <div class="settings-section">
-      <h2>Leading Work Group Mapping</h2>
-      <div class="settings-inline-row settings-two-col">
-        <input id="settings-wg-input" type="text" placeholder="Leading Work Group (value sent to Jira)" />
-        <input id="settings-team-input" type="text" placeholder="Team Name (label shown in UI)" />
-        <button id="settings-wg-add" type="button" class="team-capacity-btn">Add Mapping</button>
+    <div class="settings-grid-two">
+      <div class="settings-section">
+        <h2>Fix Versions</h2>
+        <div class="settings-inline-row">
+          <input id="settings-fix-input" type="text" placeholder="e.g. QS_26w10" />
+          <button id="settings-fix-add" type="button" class="team-capacity-btn">Add Fix Version</button>
+        </div>
+        <div id="settings-fix-list" class="settings-list"></div>
       </div>
-      <div id="settings-wg-list" class="settings-list"></div>
+
+      <div class="settings-section">
+        <h2>Leading Work Group Mapping</h2>
+        <div class="settings-inline-row settings-two-col">
+          <input id="settings-wg-input" type="text" placeholder="Leading Work Group (value sent to Jira)" />
+          <input id="settings-team-input" type="text" placeholder="Team Name (label shown in UI)" />
+          <button id="settings-wg-add" type="button" class="team-capacity-btn">Add Mapping</button>
+        </div>
+        <div id="settings-wg-list" class="settings-list"></div>
+      </div>
     </div>
 
-    <div class="settings-actions">
-      <button id="settings-save" type="button" class="team-capacity-btn primary">Save Settings</button>
-      <span id="settings-status" class="team-capacity-status info">Manage values and click Save.</span>
-    </div>
+    <div id="settings-center-notice" class="settings-center-notice hidden" role="status" aria-live="polite"></div>
   </section>
 
   <script src="/static/script.js"></script>

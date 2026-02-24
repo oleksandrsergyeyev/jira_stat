@@ -2255,12 +2255,45 @@ function restoreBacklogSettings() {
 }
 
 let settingsEditState = { fix_versions: [], work_groups: [] };
+let settingsSavedSignature = "";
+let settingsNoticeTimer = null;
 
 function setSettingsStatus(message, kind = "info") {
   const el = document.getElementById("settings-status");
   if (!el) return;
   el.textContent = message || "";
   el.className = `team-capacity-status ${kind}`;
+}
+
+function settingsStateSignature(stateObj) {
+  return JSON.stringify(normalizeAppSettings(stateObj || {}));
+}
+
+function settingsHasUnsavedChanges() {
+  return settingsStateSignature(settingsEditState) !== settingsSavedSignature;
+}
+
+function updateSettingsSaveUi() {
+  const saveBtn = document.getElementById("settings-save");
+  const dirty = settingsHasUnsavedChanges();
+  if (saveBtn) saveBtn.disabled = !dirty;
+  if (dirty) setSettingsStatus("Unsaved changes.", "warning");
+  else setSettingsStatus("No changes yet.", "info");
+}
+
+function showSettingsCenterNotice(message, kind = "success") {
+  const el = document.getElementById("settings-center-notice");
+  if (!el) return;
+  el.textContent = message || "";
+  el.className = `settings-center-notice ${kind === "error" ? "error" : ""}`.trim();
+  if (settingsNoticeTimer) {
+    clearTimeout(settingsNoticeTimer);
+    settingsNoticeTimer = null;
+  }
+  settingsNoticeTimer = setTimeout(() => {
+    el.classList.add("hidden");
+    settingsNoticeTimer = null;
+  }, 1800);
 }
 
 function renderSettingsFixList() {
@@ -2297,6 +2330,8 @@ async function bindSettingsPage() {
   const settings = await fetchAppSettings(true);
   settingsEditState = normalizeAppSettings(settings);
   renderSettingsLists();
+  settingsSavedSignature = settingsStateSignature(settingsEditState);
+  updateSettingsSaveUi();
 
   document.getElementById("settings-fix-add")?.addEventListener("click", () => {
     const input = document.getElementById("settings-fix-input");
@@ -2306,6 +2341,7 @@ async function bindSettingsPage() {
     settingsEditState.fix_versions.push(value);
     input.value = "";
     renderSettingsFixList();
+    updateSettingsSaveUi();
   });
 
   document.getElementById("settings-wg-add")?.addEventListener("click", () => {
@@ -2319,6 +2355,7 @@ async function bindSettingsPage() {
     wgInput.value = "";
     teamInput.value = "";
     renderSettingsWgList();
+    updateSettingsSaveUi();
   });
 
   document.getElementById("settings-fix-list")?.addEventListener("input", (ev) => {
@@ -2327,6 +2364,7 @@ async function bindSettingsPage() {
     const idx = Number(target.getAttribute("data-fix-idx"));
     if (!Number.isInteger(idx) || idx < 0 || idx >= settingsEditState.fix_versions.length) return;
     settingsEditState.fix_versions[idx] = String(target.value || "");
+    updateSettingsSaveUi();
   });
 
   document.getElementById("settings-fix-list")?.addEventListener("click", (ev) => {
@@ -2338,6 +2376,7 @@ async function bindSettingsPage() {
     if (!Number.isInteger(idx) || idx < 0 || idx >= settingsEditState.fix_versions.length) return;
     settingsEditState.fix_versions.splice(idx, 1);
     renderSettingsFixList();
+    updateSettingsSaveUi();
   });
 
   document.getElementById("settings-wg-list")?.addEventListener("input", (ev) => {
@@ -2347,10 +2386,12 @@ async function bindSettingsPage() {
     const idxTeam = Number(target.getAttribute("data-wg-team"));
     if (Number.isInteger(idxLeading) && idxLeading >= 0 && idxLeading < settingsEditState.work_groups.length) {
       settingsEditState.work_groups[idxLeading].leadingWorkGroup = String(target.value || "");
+      updateSettingsSaveUi();
       return;
     }
     if (Number.isInteger(idxTeam) && idxTeam >= 0 && idxTeam < settingsEditState.work_groups.length) {
       settingsEditState.work_groups[idxTeam].teamName = String(target.value || "");
+      updateSettingsSaveUi();
     }
   });
 
@@ -2363,9 +2404,11 @@ async function bindSettingsPage() {
     if (!Number.isInteger(idx) || idx < 0 || idx >= settingsEditState.work_groups.length) return;
     settingsEditState.work_groups.splice(idx, 1);
     renderSettingsWgList();
+    updateSettingsSaveUi();
   });
 
   document.getElementById("settings-save")?.addEventListener("click", async () => {
+    if (!settingsHasUnsavedChanges()) return;
     const normalized = normalizeAppSettings(settingsEditState);
     try {
       setSettingsStatus("Saving settings...", "info");
@@ -2381,9 +2424,13 @@ async function bindSettingsPage() {
       appSettingsCache = normalizeAppSettings(json.settings);
       settingsEditState = normalizeAppSettings(json.settings);
       renderSettingsLists();
+      settingsSavedSignature = settingsStateSignature(settingsEditState);
+      updateSettingsSaveUi();
       setSettingsStatus("Settings saved. All pages now use this mapping.", "success");
+      showSettingsCenterNotice("Settings saved", "success");
     } catch (err) {
       setSettingsStatus(`Save failed: ${String(err || "Unknown error")}`, "error");
+      showSettingsCenterNotice("Save failed", "error");
     }
   });
 }
