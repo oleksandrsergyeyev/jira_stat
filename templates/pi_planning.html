@@ -58,19 +58,6 @@
     <label for="globalFilter">Filter:</label>
     <input type="text" id="globalFilter" placeholder="Search table..." />
 
-    <!-- NEW: Exclude assignees control -->
-    <label for="excludeAssigneesInput">Exclude assignees:</label>
-    <input
-      type="text"
-      id="excludeAssigneesInput"
-      placeholder="e.g. John Doe, Jane Smith"
-      list="assignee-suggestions"
-      style="min-width: 280px;"
-    />
-    <datalist id="assignee-suggestions"></datalist>
-    <button id="apply-exclude">Apply</button>
-    <button id="clear-exclude">Clear</button>
-
     <div class="page-action-group">
       <button id="export-committed-excel" class="page-export-btn">📥 Export Committed to Excel</button>
       <button id="planning-refresh" class="page-refresh-btn">🔄 Update from Jira</button>

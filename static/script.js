@@ -494,43 +494,6 @@ async function pushRoadmapMovesToJira() {
 // --- helpers ---
 const norm = s => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
 
-// Exclusion state: applied ONLY after user clicks "Apply"
-let activeExcludedRaw = "";
-
-// Parse multi-name input safely. Supports:
-// - ; | or newline as separators
-// - "Lastname, Firstname" with quotes
-// - bare "Lastname, Firstname" (pairs)
-function parseExcludedList(raw) {
-  if (!raw) return [];
-  raw = String(raw).trim();
-
-  const quoted = [];
-  raw = raw.replace(/"([^"]+)"/g, (_, m) => {
-    quoted.push(m.trim());
-    return `<<Q${quoted.length - 1}>>`;
-  });
-
-  let items = [];
-  if (/[;\n|]/.test(raw)) {
-    items = raw.split(/[;\n|]+/).map(s => s.trim()).filter(Boolean);
-  } else if (raw.includes(',')) {
-    const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
-    if (parts.length % 2 === 0) {
-      for (let i = 0; i < parts.length; i += 2) items.push(`${parts[i]}, ${parts[i + 1]}`);
-    } else {
-      items = [raw];
-    }
-  } else {
-    items = [raw];
-  }
-
-  return items.map(s =>
-    s.replace(/<<Q(\d+)>>/g, (_, i) => quoted[Number(i)] || "")
-  ).map(norm).filter(Boolean);
-}
-function getActiveExcludedSet() { return new Set(parseExcludedList(activeExcludedRaw)); }
-
 function getSelectedFixVersion() {
   const el = document.getElementById("fixVersionSelect");
   return el?.value || localStorage.getItem("selectedFixVersion") || "";
@@ -815,94 +778,19 @@ function restorePlanningSettings() {
 function showLoading() { const o = document.getElementById('loading-overlay'); if (o) o.style.display = 'flex'; }
 function hideLoading() { const o = document.getElementById('loading-overlay'); if (o) o.style.display = 'none'; }
 
-// --- Exclude UI helpers (storage only; Apply controls state) ---
-function restoreExcludedAssignees() {
-  const saved = localStorage.getItem("piPlanningExcludedAssignees");
-  const input = document.getElementById("excludeAssigneesInput");
-  if (input && saved != null) input.value = saved;
-}
-function persistExcludedAssigneesRaw(raw) {
-  localStorage.setItem("piPlanningExcludedAssignees", raw || "");
-}
-
-// Build <datalist> suggestions from data
-function populateAssigneeSuggestions(dataObj) {
-  const dl = document.getElementById("assignee-suggestions");
-  if (!dl) return;
-  const seen = new Set();
-  Object.values(dataObj || {}).forEach(f => {
-    if (f.assignee) seen.add(f.assignee);
-    if (Array.isArray(f.stories_detail)) {
-      f.stories_detail.forEach(s => {
-        const who = (s.assignee || "").trim();
-        if (who) seen.add(who);
-      });
-    }
-  });
-  dl.innerHTML = "";
-  Array.from(seen).sort((a,b)=>a.localeCompare(b)).forEach(name => {
-    const opt = document.createElement("option");
-    opt.value = name;
-    dl.appendChild(opt);
-  });
-}
-
 /* ========================
    PI Planning main loader
    ======================== */
 async function loadPIPlanningData(forceRefresh = false) {
   showLoading();
-  function getExcludedRaw() {
-    const el = document.getElementById("excludeAssigneesInput");
-    return (el?.value || "").trim();
-  }
   try {
     const fixVersion = getSelectedFixVersion();
     const workGroup  = getSelectedWorkGroup();
     if (!fixVersion || !workGroup) return;
 
-    const excludedRaw = getExcludedRaw();
-    const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}${
-      excludedRaw ? `&excludeAssignees=${encodeURIComponent(excludedRaw)}` : ""
-    }${forceRefresh ? "&forceRefresh=1" : ""}`;
-    const cacheKey = makeCacheKey("piPlanningData", { fixVersion, workGroup, excludedRaw });
+    const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
+    const cacheKey = makeCacheKey("piPlanningData", { fixVersion, workGroup });
     const data = await fetchJsonWithClientCache(url, cacheKey, forceRefresh);
-
-    // suggestions based on RAW data
-    populateAssigneeSuggestions(data);
-
-    const excluded = getActiveExcludedSet();
-
-    // 1) story-level filtering (when stories_detail is present)
-    for (const [, feature] of Object.entries(data)) {
-      const details = Array.isArray(feature.stories_detail) ? feature.stories_detail : [];
-
-      const byKeyAssignee = new Map(
-        details.filter(d => d && d.key).map(d => [String(d.key), norm(d.assignee)])
-      );
-
-      const keptDetails = excluded.size
-        ? details.filter(d => !excluded.has(norm(d.assignee)))
-        : details.slice();
-
-      feature.stories_detail = keptDetails;
-      feature.sum_story_points = keptDetails.reduce((sum, d) => sum + (Number(d.story_points) || 0), 0);
-
-      const sMap = feature.sprints || {};
-      const newSprints = {};
-      for (const [sprintName, arr] of Object.entries(sMap)) {
-        const keptKeys = (Array.isArray(arr) ? arr : []).filter(k => {
-          if (!excluded.size) return true;
-          const a = byKeyAssignee.get(String(k)); // may be undefined if backend didn’t supply details
-          return !a || !excluded.has(a);          // unknown assignee => keep
-        });
-        newSprints[sprintName] = keptKeys;
-      }
-      feature.sprints = newSprints;
-    }
-
-    // 2) feature-level filtering (ALWAYS available)
-    const dropFeature = f => excluded.size && excluded.has(norm(f.assignee));
 
     // Define sprint columns
     const sprints = ["Sprint 1","Sprint 2","Sprint 3","Sprint 4","Sprint 5","No Sprint"];
@@ -915,8 +803,6 @@ async function loadPIPlanningData(forceRefresh = false) {
     const backlog   = [];
 
     for (const [key, feature] of Object.entries(data)) {
-      if (dropFeature(feature)) continue;
-
       const scope = (feature.pi_scope || "").toLowerCase();
       const inPI = Array.isArray(feature.fixVersions)
         ? feature.fixVersions.includes(fixVersion)
@@ -3290,33 +3176,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (isPlanning) {
     restorePlanningSettings();
-    restoreExcludedAssignees();       // show only
-    activeExcludedRaw = "";           // start with FULL LIST
     loadPIPlanningData();
 
     document.getElementById("fixVersionSelect")?.addEventListener("change", () => { savePlanningSettings(); loadPIPlanningData(); });
     document.getElementById("workGroupSelect")?.addEventListener("change", () => { savePlanningSettings(); loadPIPlanningData(); });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
-
-    document.getElementById("apply-exclude")?.addEventListener("click", () => {
-      activeExcludedRaw = document.getElementById("excludeAssigneesInput")?.value || "";
-      persistExcludedAssigneesRaw(activeExcludedRaw);
-      loadPIPlanningData();
-    });
-    document.getElementById("excludeAssigneesInput")?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        activeExcludedRaw = document.getElementById("excludeAssigneesInput")?.value || "";
-        persistExcludedAssigneesRaw(activeExcludedRaw);
-        loadPIPlanningData();
-      }
-    });
-    document.getElementById("clear-exclude")?.addEventListener("click", () => {
-      const el = document.getElementById("excludeAssigneesInput");
-      if (el) el.value = "";
-      activeExcludedRaw = "";
-      persistExcludedAssigneesRaw(activeExcludedRaw);
-      loadPIPlanningData();
-    });
 
     document.getElementById("export-committed-excel")?.addEventListener("click", function () {
       const fv = getSelectedFixVersion();
@@ -3326,9 +3190,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       params.set("fixVersion", fv || "");
       params.set("workGroup", wg || "");
       if (q) params.set("q", q);
-      if (activeExcludedRaw && activeExcludedRaw.trim()) {
-        params.set("excludeAssignees", activeExcludedRaw.trim());
-      }
       window.location.href = `/export_committed_excel?${params.toString()}`;
     });
     document.getElementById("planning-refresh")?.addEventListener("click", () => {
