@@ -723,13 +723,34 @@ function applyFilter() {
   const filter = filterInput.value.toLowerCase();
   const selectedStatuses = new Set(Array.from(backlogSelectedStatuses).map(s => s.toLowerCase()));
   const hasBacklogStatusFilter = !!document.getElementById("statusFilterMenu");
-  document.querySelectorAll("table tbody tr").forEach(row => {
-    const matchesText = row.innerText.toLowerCase().includes(filter);
-    const rowStatus = (row.getAttribute("data-status") || "").toLowerCase();
-    const matchesStatus = !hasBacklogStatusFilter || selectedStatuses.has(rowStatus);
-    row.style.display = (matchesText && matchesStatus) ? "" : "none";
+  document.querySelectorAll("table").forEach((table) => {
+    const rows = Array.from(table.querySelectorAll("tbody tr"));
+    rows.forEach((row) => {
+      if (row.classList.contains("capability-block-row")) return;
+      const matchesText = row.innerText.toLowerCase().includes(filter);
+      const rowStatus = (row.getAttribute("data-status") || "").toLowerCase();
+      const matchesStatus = !hasBacklogStatusFilter || selectedStatuses.has(rowStatus);
+      row.style.display = (matchesText && matchesStatus) ? "" : "none";
+    });
+
+    if (table.closest("#backlog-table")) {
+      rows.forEach((row, index) => {
+        if (!row.classList.contains("capability-block-row")) return;
+        let hasVisibleItems = false;
+        for (let i = index + 1; i < rows.length; i++) {
+          const nextRow = rows[i];
+          if (nextRow.classList.contains("capability-block-row")) break;
+          if (nextRow.style.display !== "none") {
+            hasVisibleItems = true;
+            break;
+          }
+        }
+        row.style.display = hasVisibleItems ? "" : "none";
+      });
+    }
+
+    renumberVisibleRows(table);
   });
-  document.querySelectorAll("table").forEach(renumberVisibleRows);
 }
 
 function renumberVisibleRows(table) {
@@ -737,7 +758,7 @@ function renumberVisibleRows(table) {
   const rows = Array.from(table.querySelectorAll("tbody tr"));
   let next = 1;
   rows.forEach(row => {
-    if (row.classList.contains("totals-row")) return;
+    if (row.classList.contains("totals-row") || row.classList.contains("capability-block-row")) return;
     const numCell = row.querySelector("td.col-rownum");
     if (!numCell) return;
     if (row.style.display === "none") return;
@@ -1976,7 +1997,23 @@ function renderFeatureTable(features, containerId, sprints) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  container._features = features;
+  const isBacklogTable = containerId === 'backlog-table' && (!Array.isArray(sprints) || sprints.length === 0);
+  const renderedFeatures = isBacklogTable
+    ? [...(Array.isArray(features) ? features : [])].sort((a, b) => {
+        const featureA = a?.[1] || {};
+        const featureB = b?.[1] || {};
+        const capabilityA = `${featureA.parent_link || ''} ${featureA.parent_summary || ''}`.trim().toLowerCase();
+        const capabilityB = `${featureB.parent_link || ''} ${featureB.parent_summary || ''}`.trim().toLowerCase();
+        const aHasCapability = capabilityA.length > 0;
+        const bHasCapability = capabilityB.length > 0;
+        if (aHasCapability !== bHasCapability) return aHasCapability ? -1 : 1;
+        const byCapability = capabilityA.localeCompare(capabilityB);
+        if (byCapability !== 0) return byCapability;
+        return String(a?.[0] || '').localeCompare(String(b?.[0] || ''));
+      })
+    : features;
+
+  container._features = renderedFeatures;
   renderColumnToggles(containerId, sprints);
 
   const hidden = hiddenColumns[containerId] || new Set();
@@ -1999,8 +2036,10 @@ function renderFeatureTable(features, containerId, sprints) {
   let tableHtml = '<table class="pi-planning-table"><thead><tr>';
   const headerLabels = ['#','Capability','Feature ID','Feature Name','Feature St.P.','St.P. sum','Assignee','Reporter','Prio','Status','PI Scope','Links'];
   headerLabels.forEach((label, idx) => {
-    if (!hidden.has(idx))
-      tableHtml += `<th class="${columnClasses[idx]}" onclick="sortTable(this)">${label}</th>`;
+    if (!hidden.has(idx)) {
+      const sortAttr = isBacklogTable ? '' : ' onclick="sortTable(this)"';
+      tableHtml += `<th class="${columnClasses[idx]}"${sortAttr}>${label}</th>`;
+    }
   });
   sprints.forEach((sprint, i) => {
     if (!hidden.has(piPlanningColumns.length + i))
@@ -2009,7 +2048,25 @@ function renderFeatureTable(features, containerId, sprints) {
   tableHtml += '</tr></thead><tbody>';
 
   let rowIndex = 1;
-  for (const [featureId, feature] of features) {
+  const visibleBaseColumnCount = headerLabels.reduce((count, _, idx) => count + (hidden.has(idx) ? 0 : 1), 0);
+  const visibleSprintCount = (Array.isArray(sprints) ? sprints : []).reduce((count, _, i) => count + (hidden.has(piPlanningColumns.length + i) ? 0 : 1), 0);
+  const visibleColumnCount = visibleBaseColumnCount + visibleSprintCount;
+  let previousCapabilityBlock = null;
+
+  for (const [featureId, feature] of renderedFeatures) {
+    if (isBacklogTable) {
+      const capabilityKey = (feature.parent_link || '').trim();
+      const capabilitySummary = (feature.parent_summary || '').trim();
+      const capabilityBlockKey = `${capabilityKey}||${capabilitySummary}`;
+      if (capabilityBlockKey !== previousCapabilityBlock) {
+        const label = capabilityKey
+          ? `${capabilityKey} — ${capabilitySummary || capabilityKey}`
+          : (capabilitySummary || 'No Capability');
+        tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}">${escapeHtml(label)}</td></tr>`;
+        previousCapabilityBlock = capabilityBlockKey;
+      }
+    }
+
     const rowStatus = (feature.status || "").replace(/"/g, '&quot;');
     tableHtml += `<tr data-status="${rowStatus}">`;
     let colIdx = 0;
@@ -2082,7 +2139,7 @@ function renderFeatureTable(features, containerId, sprints) {
   if (containerId === 'committed-table') {
     let totalFeatureSP = 0;
     let totalStoriesSP = 0;
-    for (const [, feature] of features) {
+    for (const [, feature] of renderedFeatures) {
       totalFeatureSP += Number(feature.story_points) || 0;
       totalStoriesSP += Number(feature.sum_story_points) || 0;
     }

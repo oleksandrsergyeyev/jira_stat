@@ -1001,6 +1001,14 @@ th {
 th.asc::after { content: " ▲"; }
 th.desc::after { content: " ▼"; }
 
+.capability-block-row td {
+  background: #eef5ff;
+  color: #1f4f8b;
+  font-weight: 700;
+  border-top: 2px solid #c7daf5;
+  border-bottom: 1px solid #d7e5f8;
+}
+
 .one-line-cell {
   max-width: 120px;
   white-space: nowrap !important;
