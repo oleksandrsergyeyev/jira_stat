@@ -10,7 +10,9 @@
 </head>
 <body>
   <nav class="main-menu">
-    <div class="menu-app-title">Jira Stat Dashboard</div>
+    <a href="/" class="menu-logo-link" aria-label="Home">
+      <img src="/static/logo.png" alt="Logo" class="menu-logo-img" />
+    </a>
     <a href="/" class="menu-item {% if active_page == 'dashboard' %}active{% endif %}">Fault reports</a>
     <a href="/pi-planning" class="menu-item {% if active_page == 'pi-planning' %}active{% endif %}">PI Planning</a>
     <a href="/backlog" class="menu-item {% if active_page == 'backlog' %}active{% endif %}">Backlog</a>

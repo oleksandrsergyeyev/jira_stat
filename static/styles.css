@@ -16,6 +16,19 @@
   z-index: 20;
 }
 
+.menu-logo-link {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 6px;
+}
+
+.menu-logo-img {
+  display: block;
+  height: 30px;
+  width: auto;
+}
+
 .menu-item {
   color: #1f4f8b;
   text-decoration: none;
@@ -1509,6 +1522,34 @@ table.pi-planning-table {
    ========================= */
 .settings-page {
   padding: 14px 16px 20px;
+}
+
+.settings-context-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings-context-box {
+  border: 1px solid #b6cff0;
+  background: #eef6ff;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.settings-context-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #24486f;
+  margin-bottom: 8px;
+}
+
+.settings-context-row label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2a4f7b;
 }
 
 .settings-grid-two {

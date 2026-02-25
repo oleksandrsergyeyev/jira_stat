@@ -532,10 +532,12 @@ function parseExcludedList(raw) {
 function getActiveExcludedSet() { return new Set(parseExcludedList(activeExcludedRaw)); }
 
 function getSelectedFixVersion() {
-  return document.getElementById("fixVersionSelect")?.value;
+  const el = document.getElementById("fixVersionSelect");
+  return el?.value || localStorage.getItem("selectedFixVersion") || "";
 }
 function getSelectedWorkGroup() {
-  return document.getElementById("workGroupSelect")?.value;
+  const el = document.getElementById("workGroupSelect");
+  return el?.value || localStorage.getItem("selectedWorkGroup") || "";
 }
 
 function defaultAppSettings() {
@@ -652,6 +654,29 @@ async function ensureGlobalSettingsApplied(force = false) {
   const settings = await fetchAppSettings(force);
   applySettingsToPageSelectors(settings);
   return settings;
+}
+
+function restoreGlobalNavSelection() {
+  const savedFix = localStorage.getItem("selectedFixVersion") || "";
+  const savedWg = localStorage.getItem("selectedWorkGroup") || "";
+
+  const fixEl = document.getElementById("fixVersionSelect");
+  if (fixEl) {
+    if (savedFix && Array.from(fixEl.options).some((o) => o.value === savedFix)) {
+      fixEl.value = savedFix;
+    } else if (!fixEl.value && fixEl.options.length) {
+      fixEl.value = fixEl.options[0].value;
+    }
+  }
+
+  const wgEl = document.getElementById("workGroupSelect");
+  if (wgEl) {
+    if (savedWg && Array.from(wgEl.options).some((o) => o.value === savedWg)) {
+      wgEl.value = savedWg;
+    } else if (!wgEl.value && wgEl.options.length) {
+      wgEl.value = wgEl.options[0].value;
+    }
+  }
 }
 
 function makeCacheKey(scope, paramsObj) {
@@ -2327,6 +2352,17 @@ function renderSettingsLists() {
 }
 
 async function bindSettingsPage() {
+  restorePlanningSettings();
+
+  document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
+    savePlanningSettings();
+    setSettingsStatus("Default Fix Version updated.", "info");
+  });
+  document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+    savePlanningSettings();
+    setSettingsStatus("Default Team updated.", "info");
+  });
+
   const settings = await fetchAppSettings(true);
   settingsEditState = normalizeAppSettings(settings);
   renderSettingsLists();
@@ -3177,7 +3213,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (isDashboard || isPlanning || isBacklog || isRoadmap || isTeamCapacity || isSettings) {
     await ensureGlobalSettingsApplied();
+    restoreGlobalNavSelection();
   }
+
+  document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
+    savePlanningSettings();
+  });
+  document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+    savePlanningSettings();
+  });
 
   if (isDashboard) {
     restoreDashboardSettings();
