@@ -1871,8 +1871,10 @@ function renderColumnToggles(containerId, sprints) {
   if (!togglesDiv) return;
 
   const columns = [...piPlanningColumns.map(col => col.label), ...sprints];
+  const forceHiddenColumns = containerId === 'committed-table' ? new Set([1]) : new Set();
   togglesDiv.innerHTML = '';
   columns.forEach((colLabel, idx) => {
+    if (forceHiddenColumns.has(idx)) return;
     const isDisabled = idx === 0;
     const tableKey = containerId;
     const isHidden = hiddenColumns[tableKey]?.has(idx);
@@ -1924,7 +1926,8 @@ function renderFeatureTable(features, containerId, sprints) {
   container._features = renderedFeatures;
   renderColumnToggles(containerId, sprints);
 
-  const hidden = hiddenColumns[containerId] || new Set();
+  const hidden = new Set(hiddenColumns[containerId] || []);
+  if (isCommittedTable) hidden.add(1);
 
   const columnClasses = [
     'col-rownum',
