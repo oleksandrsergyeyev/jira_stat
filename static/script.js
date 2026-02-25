@@ -696,7 +696,7 @@ function applyFilter() {
       row.style.display = (matchesText && matchesStatus) ? "" : "none";
     });
 
-    if (table.closest("#backlog-table")) {
+    if (rows.some((row) => row.classList.contains("capability-block-row"))) {
       rows.forEach((row, index) => {
         if (!row.classList.contains("capability-block-row")) return;
         let hasVisibleItems = false;
@@ -735,8 +735,9 @@ function sortTable(header) {
   const index = Array.from(header.parentNode.children).indexOf(header);
   const rows = Array.from(tbody.querySelectorAll("tr"));
   const totalsRows = rows.filter(r => r.classList.contains("totals-row"));
-  const sortableRows = rows.filter(r => !r.classList.contains("totals-row"));
+  const sortableRows = rows.filter(r => !r.classList.contains("totals-row") && !r.classList.contains("capability-block-row"));
   const ascending = !header.classList.contains("asc");
+  const isCapabilityGroupedTable = table.classList.contains("capability-grouped-table");
 
   sortableRows.sort((a, b) => {
     const aText = a.cells[index]?.innerText.toLowerCase() || "";
@@ -745,7 +746,25 @@ function sortTable(header) {
   });
 
   tbody.innerHTML = "";
-  sortableRows.forEach(row => tbody.appendChild(row));
+  if (isCapabilityGroupedTable) {
+    let previousCapability = null;
+    sortableRows.forEach((row) => {
+      const capability = String(row.getAttribute("data-capability-block") || "No Capability");
+      if (capability !== previousCapability) {
+        const blockRow = document.createElement("tr");
+        blockRow.className = "capability-block-row";
+        const blockCell = document.createElement("td");
+        blockCell.colSpan = Math.max(1, header.parentNode.children.length);
+        blockCell.textContent = capability;
+        blockRow.appendChild(blockCell);
+        tbody.appendChild(blockRow);
+        previousCapability = capability;
+      }
+      tbody.appendChild(row);
+    });
+  } else {
+    sortableRows.forEach(row => tbody.appendChild(row));
+  }
   totalsRows.forEach(row => tbody.appendChild(row));
   table.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
   header.classList.add(ascending ? "asc" : "desc");
@@ -1884,7 +1903,10 @@ function renderFeatureTable(features, containerId, sprints) {
   if (!container) return;
 
   const isBacklogTable = containerId === 'backlog-table' && (!Array.isArray(sprints) || sprints.length === 0);
-  const renderedFeatures = isBacklogTable
+  const isCommittedTable = containerId === 'committed-table';
+  const isCapabilityGroupedTable = isBacklogTable || isCommittedTable;
+
+  const renderedFeatures = isCapabilityGroupedTable
     ? [...(Array.isArray(features) ? features : [])].sort((a, b) => {
         const featureA = a?.[1] || {};
         const featureB = b?.[1] || {};
@@ -1919,11 +1941,11 @@ function renderFeatureTable(features, containerId, sprints) {
     'col-links'
   ];
 
-  let tableHtml = '<table class="pi-planning-table"><thead><tr>';
+  let tableHtml = `<table class="pi-planning-table${isCapabilityGroupedTable ? ' capability-grouped-table' : ''}"><thead><tr>`;
   const headerLabels = ['#','Capability','Feature ID','Feature Name','Feature St.P.','St.P. sum','Assignee','Reporter','Prio','Status','PI Scope','Links'];
   headerLabels.forEach((label, idx) => {
     if (!hidden.has(idx)) {
-      const sortAttr = isBacklogTable ? '' : ' onclick="sortTable(this)"';
+      const sortAttr = ' onclick="sortTable(this)"';
       tableHtml += `<th class="${columnClasses[idx]}"${sortAttr}>${label}</th>`;
     }
   });
@@ -1940,7 +1962,7 @@ function renderFeatureTable(features, containerId, sprints) {
   let previousCapabilityBlock = null;
 
   for (const [featureId, feature] of renderedFeatures) {
-    if (isBacklogTable) {
+    if (isCapabilityGroupedTable) {
       const capabilityKey = (feature.parent_link || '').trim();
       const capabilitySummary = (feature.parent_summary || '').trim();
       const capabilityBlockKey = `${capabilityKey}||${capabilitySummary}`;
@@ -1954,7 +1976,10 @@ function renderFeatureTable(features, containerId, sprints) {
     }
 
     const rowStatus = (feature.status || "").replace(/"/g, '&quot;');
-    tableHtml += `<tr data-status="${rowStatus}">`;
+    const capabilityLabel = (feature.parent_link || '').trim()
+      ? `${(feature.parent_link || '').trim()} — ${((feature.parent_summary || '').trim() || (feature.parent_link || '').trim())}`
+      : (((feature.parent_summary || '').trim()) || 'No Capability');
+    tableHtml += `<tr data-status="${rowStatus}" data-capability-block="${escapeHtml(capabilityLabel)}">`;
     let colIdx = 0;
 
     if (!hidden.has(colIdx++)) tableHtml += `<td class="col-rownum">${rowIndex}</td>`;
