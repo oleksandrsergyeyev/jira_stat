@@ -934,18 +934,43 @@ canvas {
   width: 100% !important;
   height: 400px !important;
 }
-#refresh {
-  margin-top: 15px;
-  padding: 12px 20px;
-  font-size: 16px;
-  cursor: pointer;
-  background-color: #007bff;
-  color: white;
+.page-refresh-btn {
+  padding: 10px 16px;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: #8ec5ff;
+  color: #0d3b73;
+  font-weight: 700;
+  transition: background-color 0.2s ease, transform 0.15s ease;
 }
-#refresh:hover {
-  background-color: #0056b3;
+
+.page-action-group {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-export-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: #78c98f;
+  color: #0d4d23;
+  font-weight: 700;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.page-export-btn:hover {
+  background-color: #67bb7e;
+  transform: translateY(-1px);
+}
+
+.page-refresh-btn:hover {
+  background-color: #7ab8fb;
+  transform: translateY(-1px);
 }
 
 /* Tables */

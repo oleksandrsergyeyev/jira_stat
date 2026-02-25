@@ -71,20 +71,16 @@
     <button id="apply-exclude">Apply</button>
     <button id="clear-exclude">Clear</button>
 
-    <button id="planning-refresh"
-      style="margin-left: 10px; padding: 10px 16px; background-color: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">
-      🔄 Update from Jira
-    </button>
+    <div class="page-action-group">
+      <button id="export-committed-excel" class="page-export-btn">📥 Export Committed to Excel</button>
+      <button id="planning-refresh" class="page-refresh-btn">🔄 Update from Jira</button>
+    </div>
   </div>
 
   <div class="section-header">
     <h2>Committed Features</h2>
     <div>
       <button class="collapse-btn" onclick="toggleTable('committed-table', this)">⬆ Collapse</button>
-      <button id="export-committed-excel"
-        style="margin-left: 10px; padding: 10px 16px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
-        📥 Export Committed to Excel
-      </button>
     </div>
   </div>
   <!-- Column toggler bar for committed table -->
