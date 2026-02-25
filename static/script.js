@@ -750,12 +750,22 @@ function sortTable(header) {
     let previousCapability = null;
     sortableRows.forEach((row) => {
       const capability = String(row.getAttribute("data-capability-block") || "No Capability");
+      const capabilityKey = String(row.getAttribute("data-capability-key") || "").trim();
       if (capability !== previousCapability) {
         const blockRow = document.createElement("tr");
         blockRow.className = "capability-block-row";
         const blockCell = document.createElement("td");
         blockCell.colSpan = Math.max(1, header.parentNode.children.length);
-        blockCell.textContent = capability;
+        if (capabilityKey) {
+          const link = document.createElement("a");
+          link.href = `https://jira-vira.volvocars.biz/browse/${capabilityKey}`;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = capability;
+          blockCell.appendChild(link);
+        } else {
+          blockCell.textContent = capability;
+        }
         blockRow.appendChild(blockCell);
         tbody.appendChild(blockRow);
         previousCapability = capability;
@@ -1871,7 +1881,7 @@ function renderColumnToggles(containerId, sprints) {
   if (!togglesDiv) return;
 
   const columns = [...piPlanningColumns.map(col => col.label), ...sprints];
-  const forceHiddenColumns = containerId === 'committed-table' ? new Set([1]) : new Set();
+  const forceHiddenColumns = (containerId === 'committed-table' || containerId === 'backlog-table') ? new Set([1]) : new Set();
   togglesDiv.innerHTML = '';
   columns.forEach((colLabel, idx) => {
     if (forceHiddenColumns.has(idx)) return;
@@ -1927,7 +1937,7 @@ function renderFeatureTable(features, containerId, sprints) {
   renderColumnToggles(containerId, sprints);
 
   const hidden = new Set(hiddenColumns[containerId] || []);
-  if (isCommittedTable) hidden.add(1);
+  if (isCommittedTable || isBacklogTable) hidden.add(1);
 
   const columnClasses = [
     'col-rownum',
@@ -1973,7 +1983,11 @@ function renderFeatureTable(features, containerId, sprints) {
         const label = capabilityKey
           ? `${capabilityKey} — ${capabilitySummary || capabilityKey}`
           : (capabilitySummary || 'No Capability');
-        tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}">${escapeHtml(label)}</td></tr>`;
+        if (capabilityKey) {
+          tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}"><a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(capabilityKey)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a></td></tr>`;
+        } else {
+          tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}">${escapeHtml(label)}</td></tr>`;
+        }
         previousCapabilityBlock = capabilityBlockKey;
       }
     }
@@ -1982,7 +1996,8 @@ function renderFeatureTable(features, containerId, sprints) {
     const capabilityLabel = (feature.parent_link || '').trim()
       ? `${(feature.parent_link || '').trim()} — ${((feature.parent_summary || '').trim() || (feature.parent_link || '').trim())}`
       : (((feature.parent_summary || '').trim()) || 'No Capability');
-    tableHtml += `<tr data-status="${rowStatus}" data-capability-block="${escapeHtml(capabilityLabel)}">`;
+    const capabilityKeyAttr = escapeHtml((feature.parent_link || '').trim());
+    tableHtml += `<tr data-status="${rowStatus}" data-capability-block="${escapeHtml(capabilityLabel)}" data-capability-key="${capabilityKeyAttr}">`;
     let colIdx = 0;
 
     if (!hidden.has(colIdx++)) tableHtml += `<td class="col-rownum">${rowIndex}</td>`;
