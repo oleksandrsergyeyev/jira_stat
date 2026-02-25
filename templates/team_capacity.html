@@ -16,17 +16,13 @@
     <a href="/project-fault-reports" class="menu-item">Project Fault reports</a>
     <a href="/team-capacity" class="menu-item menu-item-settings active">Team Capacity</a>
     <a href="/settings" class="menu-item">Settings</a>
+    <div class="menu-global-controls">
+      <select id="workGroupSelect" class="menu-global-select" aria-label="Leading Work Group"></select>
+      <select id="fixVersionSelect" class="menu-global-select" aria-label="Fix Version"></select>
+    </div>
   </nav>
 
   <section id="team-capacity-page" class="team-capacity-page">
-    <div class="filters team-capacity-filters">
-      <label for="workGroupSelect">Leading Work Group:</label>
-      <select id="workGroupSelect"></select>
-
-      <label for="fixVersionSelect">Fix Version:</label>
-      <select id="fixVersionSelect"></select>
-    </div>
-
     <div class="team-capacity-search-wrap">
       <label for="team-capacity-user-search">Find Jira users:</label>
       <div class="team-capacity-search-row">

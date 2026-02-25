@@ -752,12 +752,12 @@ function toggleTable(id, btn) {
 
 // --- remember page selections ---
 function savePlanningSettings() {
-  localStorage.setItem("piPlanningFixVersion", getSelectedFixVersion());
-  localStorage.setItem("piPlanningWorkGroup", getSelectedWorkGroup());
+  localStorage.setItem("selectedFixVersion", getSelectedFixVersion() || "");
+  localStorage.setItem("selectedWorkGroup", getSelectedWorkGroup() || "");
 }
 function restorePlanningSettings() {
-  const fv = localStorage.getItem("piPlanningFixVersion");
-  const wg = localStorage.getItem("piPlanningWorkGroup");
+  const fv = localStorage.getItem("selectedFixVersion");
+  const wg = localStorage.getItem("selectedWorkGroup");
   if (fv) { const el = document.getElementById("fixVersionSelect"); if (el) el.value = fv; }
   if (wg) { const el = document.getElementById("workGroupSelect");  if (el) el.value = wg; }
   const fixEl = document.getElementById("fixVersionSelect");
@@ -2231,12 +2231,12 @@ function sortTableByClass() {
    Remember other selections
    ========================== */
 function saveDashboardSettings() {
-  localStorage.setItem("dashboardFixVersion", getSelectedFixVersion());
-  localStorage.setItem("dashboardWorkGroup", getSelectedWorkGroup());
+  localStorage.setItem("selectedFixVersion", getSelectedFixVersion() || "");
+  localStorage.setItem("selectedWorkGroup", getSelectedWorkGroup() || "");
 }
 function restoreDashboardSettings() {
-  const fv = localStorage.getItem("dashboardFixVersion");
-  const wg = localStorage.getItem("dashboardWorkGroup");
+  const fv = localStorage.getItem("selectedFixVersion");
+  const wg = localStorage.getItem("selectedWorkGroup");
   if (fv) { const el = document.getElementById("fixVersionSelect"); if (el) el.value = fv; }
   if (wg) { const el = document.getElementById("workGroupSelect");  if (el) el.value = wg; }
   const fixEl = document.getElementById("fixVersionSelect");
@@ -2245,10 +2245,10 @@ function restoreDashboardSettings() {
   if (wgEl && !wgEl.value && wgEl.options.length) wgEl.value = wgEl.options[0].value;
 }
 function saveBacklogSettings() {
-  localStorage.setItem("backlogWorkGroup", getSelectedWorkGroup());
+  localStorage.setItem("selectedWorkGroup", getSelectedWorkGroup() || "");
 }
 function restoreBacklogSettings() {
-  const wg = localStorage.getItem("backlogWorkGroup");
+  const wg = localStorage.getItem("selectedWorkGroup");
   if (wg) { const el = document.getElementById("workGroupSelect"); if (el) el.value = wg; }
   const wgEl = document.getElementById("workGroupSelect");
   if (wgEl && !wgEl.value && wgEl.options.length) wgEl.value = wgEl.options[0].value;

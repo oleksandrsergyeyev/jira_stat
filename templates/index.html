@@ -18,45 +18,19 @@
     <a href="/project-fault-reports" class="menu-item {% if active_page == 'project-fr' %}active{% endif %}">Project Fault reports</a>
     <a href="/team-capacity" class="menu-item menu-item-settings {% if active_page == 'team-capacity' %}active{% endif %}">Team Capacity</a>
     <a href="/settings" class="menu-item {% if active_page == 'settings' %}active{% endif %}">Settings</a>
+    <div class="menu-global-controls">
+      <select id="workGroupSelect" class="menu-global-select" aria-label="Leading Work Group"></select>
+      <select id="fixVersionSelect" class="menu-global-select" aria-label="Fix Version"></select>
+    </div>
   </nav>
 
   <div class="filters">
-    <label for="workGroupSelect">Leading Work Group:</label>
-    <select id="workGroupSelect"></select>
-
-    <label for="fixVersionSelect">Fix Version:</label>
-    <select id="fixVersionSelect"></select>
-
     <button id="refresh">Refresh Data</button>
 
     <button id="download-excel" style="margin-left: 10px; padding: 10px 16px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
       📥 Export to Excel
     </button>
   </div>
-
-  <!-- Prefill selects from localStorage so script.js picks the right defaults -->
-  <script>
-    (function() {
-      try {
-        const ls = localStorage;
-        const savedFx = ls.getItem('selectedFixVersion') || 'PI_25w10';
-        const savedWg = ls.getItem('selectedWorkGroup')  || 'ART - BCRC - BSW TFW';
-
-        const fxSel = document.getElementById('fixVersionSelect');
-        const wgSel = document.getElementById('workGroupSelect');
-
-        function setIfExists(select, value) {
-          const has = Array.from(select.options).some(o => o.value === value);
-          if (has) select.value = value;
-        }
-        setIfExists(fxSel, savedFx);
-        setIfExists(wgSel, savedWg);
-
-        fxSel.addEventListener('change', () => ls.setItem('selectedFixVersion', fxSel.value));
-        wgSel.addEventListener('change', () => ls.setItem('selectedWorkGroup',  wgSel.value));
-      } catch(e) { /* ignore */ }
-    })();
-  </script>
 
   <div class="dashboard-container">
     <div class="chart-section">
