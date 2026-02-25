@@ -423,6 +423,22 @@ def _normalize_sprint_weeks(raw: dict | None) -> dict:
     return out
 
 
+def _normalize_start_week(raw) -> str | None:
+    value = str(raw or "").strip()
+    if not value:
+        return None
+    m = re.match(r"^(\d{4})-W(\d{2})$", value, flags=re.IGNORECASE)
+    if not m:
+        return None
+    year = int(m.group(1))
+    week = int(m.group(2))
+    if week < 1:
+        week = 1
+    if week > 53:
+        week = 53
+    return f"{year}-W{week:02d}"
+
+
 def _normalize_member_week_values(raw: dict, sprint_weeks: dict) -> dict:
     row = raw if isinstance(raw, dict) else {}
     raw_week_values = row.get("weekValues") or {}
@@ -1274,16 +1290,19 @@ def team_capacity_data():
         payload = store.get(key) or {
             "workGroup": work_group,
             "fixVersion": fix_version,
+            "startWeek": None,
             "sprintWeeks": _default_sprint_weeks(),
             "members": [],
             "updatedAt": None,
         }
+        payload["startWeek"] = _normalize_start_week((payload or {}).get("startWeek"))
         return jsonify({"ok": True, "data": payload})
 
     data = request.get_json(silent=True) or {}
     work_group = (data.get("workGroup") or "").strip()
     fix_version = (data.get("fixVersion") or "").strip()
     members_raw = data.get("members") or []
+    start_week_raw = data.get("startWeek")
     sprint_weeks_raw = data.get("sprintWeeks") or {}
 
     if not work_group or not fix_version:
@@ -1292,6 +1311,7 @@ def team_capacity_data():
         return jsonify({"ok": False, "error": "members must be an array"}), 400
 
     sprint_weeks = _normalize_sprint_weeks(sprint_weeks_raw)
+    start_week = _normalize_start_week(start_week_raw)
 
     normalized = []
     seen_members = set()
@@ -1312,6 +1332,7 @@ def team_capacity_data():
     payload = {
         "workGroup": work_group,
         "fixVersion": fix_version,
+        "startWeek": start_week,
         "sprintWeeks": sprint_weeks,
         "members": normalized,
         "updatedAt": updated_at,
@@ -1441,17 +1462,113 @@ def export_committed_excel():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
-@app.route("/export_backlog_excel")
+@app.route("/export_backlog_excel", methods=["GET", "POST"])
 def export_backlog_excel():
-    work_group = request.args.get("WorkGroup", None) or request.args.get("workGroup", "ART - BCRC - BSW TFW")
-    text_query = (request.args.get("q", "") or "").strip().lower()
+    payload = request.get_json(silent=True) or {}
+    is_post = request.method == "POST"
+
+    def _issue_url(issue_key: str) -> str:
+        return f"https://jira-vira.volvocars.biz/browse/{issue_key}"
+
+    def _first_issue_key(text: str) -> str:
+        m = re.search(r"\b([A-Z][A-Z0-9]+-\d+)\b", str(text or ""))
+        return m.group(1) if m else ""
+
+    if is_post and isinstance(payload, dict):
+        visible_table = payload.get("visibleTable")
+        if isinstance(visible_table, dict):
+            headers = visible_table.get("headers") or []
+            rows = visible_table.get("rows") or []
+            if isinstance(headers, list) and isinstance(rows, list) and headers:
+                clean_headers = [str(h or "").strip() for h in headers if str(h or "").strip()]
+                if clean_headers:
+                    normalized_rows = []
+                    for row in rows:
+                        if not isinstance(row, list):
+                            continue
+                        values = [str(v or "").strip() for v in row]
+                        if not values:
+                            continue
+                        if len(values) < len(clean_headers):
+                            values = values + [""] * (len(clean_headers) - len(values))
+                        elif len(values) > len(clean_headers):
+                            values = values[:len(clean_headers)]
+                        normalized_rows.append(values)
+
+                    df = pd.DataFrame(normalized_rows, columns=clean_headers)
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                        df.to_excel(writer, index=False, sheet_name='Backlog')
+
+                        workbook = writer.book
+                        worksheet = writer.sheets['Backlog']
+                        hyperlink_format = workbook.add_format({'font_color': 'blue', 'underline': 1})
+
+                        feature_idx = clean_headers.index("Feature ID") if "Feature ID" in clean_headers else -1
+                        capability_idx = clean_headers.index("Capability") if "Capability" in clean_headers else -1
+
+                        for excel_row, row_values in enumerate(normalized_rows, start=1):
+                            if feature_idx >= 0 and feature_idx < len(row_values):
+                                feature_key = _first_issue_key(row_values[feature_idx])
+                                if feature_key:
+                                    worksheet.write_url(excel_row, feature_idx, _issue_url(feature_key), hyperlink_format, string=feature_key)
+
+                            if capability_idx >= 0 and capability_idx < len(row_values):
+                                cap_text = str(row_values[capability_idx] or "")
+                                cap_key = _first_issue_key(cap_text)
+                                if cap_key:
+                                    worksheet.write_url(excel_row, capability_idx, _issue_url(cap_key), hyperlink_format, string=cap_text)
+
+                    output.seek(0)
+                    return send_file(
+                        output,
+                        download_name="backlog_visible.xlsx",
+                        as_attachment=True,
+                        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    )
+
+    work_group = (
+        payload.get("workGroup") if is_post else (request.args.get("WorkGroup", None) or request.args.get("workGroup"))
+    ) or "ART - BCRC - BSW TFW"
+    text_query = ((payload.get("q") if is_post else request.args.get("q", "")) or "").strip().lower()
     features = backlog_data_service(work_group)
 
-    requested_statuses = request.args.getlist("status") or []
-    if not requested_statuses:
-                raw_statuses = request.args.get("statuses", "")
-                if raw_statuses:
-                        requested_statuses = [s.strip() for s in raw_statuses.split(",") if s.strip()]
+    feature_ids = []
+    if is_post:
+        raw_feature_ids = payload.get("featureIds") or []
+        if isinstance(raw_feature_ids, list):
+            feature_ids = [str(x).strip() for x in raw_feature_ids if str(x).strip()]
+        elif isinstance(raw_feature_ids, str):
+            feature_ids = [s.strip() for s in raw_feature_ids.split(",") if s.strip()]
+    else:
+        feature_ids = request.args.getlist("featureId") or []
+        if not feature_ids:
+            raw_feature_ids = request.args.get("featureIds", "")
+            if raw_feature_ids:
+                feature_ids = [s.strip() for s in raw_feature_ids.split(",") if s.strip()]
+    selected_feature_ids = {str(fid).strip() for fid in feature_ids if str(fid).strip()}
+    if selected_feature_ids:
+        by_id_features = {
+            key: feature
+            for key, feature in features.items()
+            if key in selected_feature_ids
+        }
+        if by_id_features:
+            features = by_id_features
+
+    requested_statuses = []
+    if is_post:
+        raw_statuses = payload.get("statuses") or []
+        if isinstance(raw_statuses, list):
+            requested_statuses = [str(s).strip() for s in raw_statuses if str(s).strip()]
+        elif isinstance(raw_statuses, str):
+            requested_statuses = [s.strip() for s in raw_statuses.split(",") if s.strip()]
+    else:
+        requested_statuses = request.args.getlist("status") or []
+        if not requested_statuses:
+            raw_statuses = request.args.get("statuses", "")
+            if raw_statuses:
+                requested_statuses = [s.strip() for s in raw_statuses.split(",") if s.strip()]
 
     allowed_statuses = {s.strip().lower() for s in requested_statuses if s and s.strip()}
     if allowed_statuses:
@@ -1484,13 +1601,25 @@ def export_backlog_excel():
             if _matches_text(key, feature)
         }
 
-    rows = []
     sprints = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5", "No Sprint"]
+    columns = [
+        "Capability",
+        "Feature ID",
+        "Feature Name",
+        "Story Points",
+        "Assignee",
+        "Priority",
+        "Status",
+        "PI Scope",
+        "Links",
+        *sprints,
+    ]
+    rows = []
     for key, feature in features.items():
         row = {
             "Capability": feature.get("parent_summary") or feature.get("parent_link") or "",
             "Feature ID": key,
-            "Feature Name": feature["summary"],
+            "Feature Name": feature.get("summary", ""),
             "Story Points": feature.get("story_points", ""),
             "Assignee": feature.get("assignee", ""),
             "Priority": feature.get("priority", ""),
@@ -1502,10 +1631,27 @@ def export_backlog_excel():
             row[sprint] = ", ".join(feature["sprints"].get(sprint, []))
         rows.append(row)
 
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(rows, columns=columns)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Backlog')
+
+        workbook = writer.book
+        worksheet = writer.sheets['Backlog']
+        hyperlink_format = workbook.add_format({'font_color': 'blue', 'underline': 1})
+
+        feature_idx = columns.index("Feature ID")
+        capability_idx = columns.index("Capability")
+
+        for excel_row, row in enumerate(rows, start=1):
+            feature_key = str(row.get("Feature ID") or "").strip()
+            if feature_key:
+                worksheet.write_url(excel_row, feature_idx, _issue_url(feature_key), hyperlink_format, string=feature_key)
+
+            cap_display = str(row.get("Capability") or "")
+            cap_key = _first_issue_key(str((features.get(feature_key) or {}).get("parent_link") or cap_display))
+            if cap_key:
+                worksheet.write_url(excel_row, capability_idx, _issue_url(cap_key), hyperlink_format, string=cap_display)
 
     output.seek(0)
     return send_file(

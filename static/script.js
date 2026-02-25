@@ -2590,6 +2590,7 @@ function populateBacklogStatusFilter(data) {
 const TEAM_CAPACITY_SPRINTS = ["Sprint 1", "Sprint 2", "Sprint 3", "Sprint 4", "Sprint 5"];
 let teamCapacityMembers = [];
 let teamCapacityAutosaveTimer = null;
+let teamCapacityStartWeekOverride = "";
 let teamCapacitySprintWeeks = {
   "Sprint 1": 2,
   "Sprint 2": 2,
@@ -2618,9 +2619,34 @@ function parseStartWeekFromFixVersion(fixVersion) {
   return { year, week };
 }
 
+function normalizeWeekKey(raw) {
+  const parsed = parseWeekKey(String(raw || "").trim());
+  if (!parsed) return "";
+  const safeWeek = Math.max(1, Math.min(53, Number(parsed.week || 1)));
+  return makeWeekKey(Number(parsed.year || new Date().getFullYear()), safeWeek);
+}
+
+function htmlWeekToWeekKey(htmlWeekValue) {
+  const m = String(htmlWeekValue || "").trim().match(/^(\d{4})-W(\d{2})$/i);
+  if (!m) return "";
+  return normalizeWeekKey(`${m[1]}-W${m[2]}`);
+}
+
+function weekKeyToHtmlWeek(weekKey) {
+  const parsed = parseWeekKey(weekKey);
+  if (!parsed) return "";
+  return `${parsed.year}-W${String(parsed.week).padStart(2, "0")}`;
+}
+
+function getTeamCapacityEffectiveStartWeek(fixVersion) {
+  const override = normalizeWeekKey(teamCapacityStartWeekOverride);
+  if (override) return override;
+  const auto = parseStartWeekFromFixVersion(fixVersion);
+  return makeWeekKey(auto.year, auto.week);
+}
+
 function buildTeamCapacitySprintWeekPlan(fixVersion, sprintWeeks) {
-  const start = parseStartWeekFromFixVersion(fixVersion);
-  let cursor = makeWeekKey(start.year, start.week);
+  let cursor = getTeamCapacityEffectiveStartWeek(fixVersion);
   const plan = {};
   TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
     const count = Number(sprintWeeks?.[sprint] || 2);
@@ -2770,6 +2796,11 @@ function renderTeamCapacityMembers() {
   const host = document.getElementById("team-capacity-planner");
   if (!host) return;
 
+  const startWeekInput = document.getElementById("team-capacity-first-week");
+  if (startWeekInput instanceof HTMLInputElement) {
+    startWeekInput.value = weekKeyToHtmlWeek(getTeamCapacityEffectiveStartWeek(getSelectedFixVersion()));
+  }
+
   const weekPlan = buildTeamCapacitySprintWeekPlan(getSelectedFixVersion(), teamCapacitySprintWeeks);
 
   if (!teamCapacityMembers.length) {
@@ -2872,6 +2903,7 @@ async function loadTeamCapacityData(forceRefresh = false) {
     if (!json?.ok) {
       throw new Error(json?.error || "Failed to load capacity");
     }
+    teamCapacityStartWeekOverride = normalizeWeekKey(json?.data?.startWeek || "");
     teamCapacitySprintWeeks = normalizeTeamCapacitySprintWeeks(json?.data?.sprintWeeks || teamCapacitySprintWeeks);
     const members = Array.isArray(json?.data?.members) ? json.data.members : [];
     teamCapacityMembers = members.map(normalizeTeamCapacityMember);
@@ -2895,6 +2927,7 @@ async function saveTeamCapacityData() {
   const payload = {
     workGroup,
     fixVersion,
+    startWeek: normalizeWeekKey(teamCapacityStartWeekOverride),
     sprintWeeks: normalizeTeamCapacitySprintWeeks(teamCapacitySprintWeeks),
     members: teamCapacityMembers.map(normalizeTeamCapacityMember),
   };
@@ -3034,6 +3067,7 @@ async function copyTeamMembersFromPreviousFixVersion() {
       return;
     }
 
+    const targetStartWeek = normalizeWeekKey(targetJson?.data?.startWeek || "");
     const targetSprintWeeks = normalizeTeamCapacitySprintWeeks(targetJson?.data?.sprintWeeks || teamCapacitySprintWeeks);
     const targetMembers = (Array.isArray(targetJson?.data?.members) ? targetJson.data.members : []).map(normalizeTeamCapacityMember);
     targetMembers.forEach((m) => ensureMemberWeekValues(m, targetSprintWeeks));
@@ -3067,6 +3101,7 @@ async function copyTeamMembersFromPreviousFixVersion() {
       body: JSON.stringify({
         workGroup,
         fixVersion: targetFixVersion,
+        startWeek: targetStartWeek,
         sprintWeeks: targetSprintWeeks,
         members: targetMembers,
       }),
@@ -3076,6 +3111,7 @@ async function copyTeamMembersFromPreviousFixVersion() {
       throw new Error(saveJson?.error || `Failed saving target (${saveResp.status})`);
     }
 
+    teamCapacityStartWeekOverride = targetStartWeek;
     teamCapacitySprintWeeks = normalizeTeamCapacitySprintWeeks(targetSprintWeeks);
     teamCapacityMembers = targetMembers.map(normalizeTeamCapacityMember);
     renderTeamCapacityMembers();
@@ -3101,6 +3137,18 @@ function bindTeamCapacityPage() {
 
   document.getElementById("team-capacity-user-search-btn")?.addEventListener("click", searchTeamCapacityUsers);
   document.getElementById("team-capacity-copy-prev")?.addEventListener("click", copyTeamMembersFromPreviousFixVersion);
+  document.getElementById("team-capacity-first-week")?.addEventListener("change", (ev) => {
+    const target = ev.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    teamCapacityStartWeekOverride = htmlWeekToWeekKey(target.value);
+    renderTeamCapacityMembers();
+    scheduleTeamCapacityAutosave();
+  });
+  document.getElementById("team-capacity-first-week-reset")?.addEventListener("click", () => {
+    teamCapacityStartWeekOverride = "";
+    renderTeamCapacityMembers();
+    scheduleTeamCapacityAutosave();
+  });
   document.getElementById("team-capacity-user-search")?.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter") {
       ev.preventDefault();
@@ -3231,22 +3279,75 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadBacklogData();
     document.getElementById("workGroupSelect")?.addEventListener("change", () => { saveBacklogSettings(); loadBacklogData(); });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
-    document.getElementById("export-backlog-excel")?.addEventListener("click", function () {
+    document.getElementById("export-backlog-excel")?.addEventListener("click", async function () {
       const wg = getSelectedWorkGroup();
       const textFilter = (document.getElementById("globalFilter")?.value || "").trim();
-      const params = new URLSearchParams();
-      params.set("workGroup", wg || "");
-      if (textFilter) params.set("q", textFilter);
+      const backlogTable = document.querySelector("#backlog-table table");
 
       const allStatuses = getBacklogStatusMenuValues();
       const selectedStatuses = Array.from(backlogSelectedStatuses).filter(Boolean);
       const allSelected = allStatuses.length > 0 && selectedStatuses.length === allStatuses.length;
 
-      if (!allSelected) {
-        selectedStatuses.forEach(status => params.append("status", status));
-      }
+      const visibleFeatureIds = Array.from(document.querySelectorAll("#backlog-table tbody tr"))
+        .filter((row) => {
+          if (!(row instanceof HTMLTableRowElement)) return false;
+          if (row.classList.contains("capability-block-row")) return false;
+          if (row.style.display === "none") return false;
+          return true;
+        })
+        .map((row) => row.querySelector("td.col-feature-id a")?.textContent?.trim() || "")
+        .filter(Boolean);
 
-      window.location.href = `/export_backlog_excel?${params.toString()}`;
+      const visibleHeaders = Array.from(backlogTable?.querySelectorAll("thead th") || [])
+        .map((th) => (th.textContent || "").trim())
+        .filter(Boolean);
+
+      const visibleRows = Array.from(document.querySelectorAll("#backlog-table tbody tr"))
+        .filter((row) => {
+          if (!(row instanceof HTMLTableRowElement)) return false;
+          if (row.classList.contains("capability-block-row")) return false;
+          if (row.style.display === "none") return false;
+          return true;
+        })
+        .map((row) => Array.from(row.cells).map((cell) => (cell.textContent || "").trim()));
+
+      const payload = {
+        workGroup: wg || "",
+        q: textFilter,
+        statuses: allSelected ? [] : selectedStatuses,
+        featureIds: visibleFeatureIds,
+        visibleTable: {
+          headers: visibleHeaders,
+          rows: visibleRows,
+        },
+      };
+
+      try {
+        const resp = await fetch("/export_backlog_excel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!resp.ok) {
+          throw new Error(`Export failed (HTTP ${resp.status})`);
+        }
+
+        const blob = await resp.blob();
+        const fileName = `backlog_${(getSelectedWorkGroup() || "team").replace(/[^a-z0-9_-]+/gi, "_")}.xlsx`;
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objectUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(objectUrl);
+      } catch (err) {
+        console.error("Backlog export failed:", err);
+        alert(`Export failed: ${String(err || "Unknown error")}`);
+        window.location.href = `/export_backlog_excel?workGroup=${encodeURIComponent(wg || "")}`;
+      }
     });
     document.getElementById("backlog-refresh")?.addEventListener("click", () => {
       loadBacklogData(true);

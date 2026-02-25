@@ -4,7 +4,7 @@
     "fixVersion": "QS_25w49",
     "sprintWeeks": {
       "Sprint 1": 2,
-      "Sprint 2": 2,
+      "Sprint 2": 3,
       "Sprint 3": 2,
       "Sprint 4": 2,
       "Sprint 5": 2
@@ -20,6 +20,7 @@
             0.0
           ],
           "Sprint 2": [
+            0.0,
             0.0,
             0.0
           ],
@@ -48,6 +49,7 @@
           ],
           "Sprint 2": [
             0.0,
+            0.0,
             0.0
           ],
           "Sprint 3": [
@@ -74,6 +76,7 @@
             0.0
           ],
           "Sprint 2": [
+            0.0,
             0.0,
             0.0
           ],
@@ -102,6 +105,7 @@
           ],
           "Sprint 2": [
             0.0,
+            0.0,
             0.0
           ],
           "Sprint 3": [
@@ -119,7 +123,7 @@
         }
       }
     ],
-    "updatedAt": "2026-02-25T07:46:03.746491+00:00"
+    "updatedAt": "2026-02-25T13:30:09.459371+00:00"
   },
   "ART - BCRC - SysSW CI|||QS_25w49": {
     "workGroup": "ART - BCRC - SysSW CI",

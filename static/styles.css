@@ -1246,6 +1246,26 @@ table.pi-planning-table {
   color: #9b1a2a;
 }
 
+.team-capacity-start-week-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+
+.team-capacity-start-week-wrap label {
+  font-weight: 600;
+  color: #264a79;
+}
+
+#team-capacity-first-week {
+  border: 1px solid #c9d6ea;
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: #1f4f8b;
+  background: #fff;
+}
+
 .team-capacity-table-wrap {
   overflow: auto;
   border: 1px solid #d7e3f3;
