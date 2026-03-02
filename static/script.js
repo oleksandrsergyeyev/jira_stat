@@ -1420,8 +1420,43 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     }
   }
 
+  const qsFixVersionRank = (fixVersion) => {
+    const m = String(fixVersion || "").trim().match(/^QS_(\d{2})w(\d{2})$/i);
+    if (!m) return null;
+    const year = 2000 + Number(m[1]);
+    const week = Number(m[2]);
+    if (!Number.isFinite(year) || !Number.isFinite(week)) return null;
+    return year * 100 + week;
+  };
+
+  const getCurrentQsFixVersion = () => {
+    const now = getIsoWeekParts(new Date());
+    const starts = [10, 22, 37, 49];
+    let year = Number(now.year);
+    let startWeek = 49;
+
+    if (Number(now.week) >= 10) {
+      startWeek = 10;
+      starts.forEach((w) => {
+        if (Number(now.week) >= w) startWeek = w;
+      });
+    } else {
+      year -= 1;
+      startWeek = 49;
+    }
+
+    return `QS_${String(year).slice(-2)}w${String(startWeek).padStart(2, "0")}`;
+  };
+
+  const currentQsRank = qsFixVersionRank(getCurrentQsFixVersion());
+
   const qsHeaderWithLoadCapacity = (label, fixVersion) => {
     const safeFixVersion = String(fixVersion || "").trim();
+    const headerQsRank = qsFixVersionRank(safeFixVersion);
+    if (headerQsRank != null && currentQsRank != null && headerQsRank < currentQsRank) {
+      return `${escapeHtml(label)}`;
+    }
+
     const load = Number(qsLoadByFixVersion.get(safeFixVersion) || 0);
     const plannedCapacity = Number(host._roadmapCapacityByFixVersion?.[safeFixVersion]?.planned || 0);
     const fullCapacity = Number(host._roadmapCapacityByFixVersion?.[safeFixVersion]?.full || 0);
