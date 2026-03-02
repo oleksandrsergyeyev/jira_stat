@@ -8,6 +8,7 @@ const CLIENT_CACHE_PREFIX = "jiraStatCache::v2::";
 let roadmapCollapsedCapabilities = new Set();
 let roadmapCollapsedYears = new Set();
 let roadmapPendingMovesByWorkGroup = new Map();
+let roadmapTeammatesByScope = new Map();
 let appSettingsCache = null;
 
 function roadmapPendingMoves() {
@@ -32,6 +33,28 @@ function updateRoadmapPendingUi() {
   if (floating) {
     if (pendingCount > 0) floating.classList.remove("hidden");
     else floating.classList.add("hidden");
+  }
+}
+
+async function getRoadmapTeammates(forceRefresh = false) {
+  const workGroup = (getSelectedWorkGroup() || "").trim();
+  const fixVersion = (getSelectedFixVersion() || "").trim();
+  if (!workGroup) return [];
+  const cacheScopeKey = `${workGroup}|||${fixVersion}`;
+  if (!forceRefresh && roadmapTeammatesByScope.has(cacheScopeKey)) {
+    return roadmapTeammatesByScope.get(cacheScopeKey) || [];
+  }
+
+  try {
+    const url = `/roadmap_teammates?workGroup=${encodeURIComponent(workGroup)}&fixVersion=${encodeURIComponent(fixVersion)}`;
+    const resp = await fetch(url, { cache: "no-store" });
+    const json = await resp.json().catch(() => ({}));
+    const teammates = (resp.ok && json?.ok && Array.isArray(json?.teammates)) ? json.teammates : [];
+    roadmapTeammatesByScope.set(cacheScopeKey, teammates);
+    return teammates;
+  } catch {
+    roadmapTeammatesByScope.set(cacheScopeKey, []);
+    return [];
   }
 }
 
@@ -153,7 +176,45 @@ function setPendingEstimation(featureId, estimationValue) {
   return true;
 }
 
-function showRoadmapContextMenu(featureId, x, y) {
+function setPendingAssignee(featureId, teammate) {
+  const host = document.getElementById("backlog-roadmap");
+  const feature = host?._roadmapData?.[featureId];
+  if (!feature) return false;
+
+  const targetAccountId = String(teammate?.accountId || "").trim();
+  const targetDisplayName = String(teammate?.displayName || "").trim();
+  const targetEmailAddress = String(teammate?.emailAddress || "").trim();
+  if (!targetDisplayName) return false;
+
+  const pending = roadmapPendingMoves();
+  const current = pending.get(featureId) || {};
+  const currentAssigneeName = String(feature?.assignee || "").trim();
+
+  if (targetDisplayName.toLowerCase() === currentAssigneeName.toLowerCase()) {
+    delete current.targetAssigneeAccountId;
+    delete current.targetAssigneeName;
+    delete current.targetAssigneeEmail;
+    current.assigneeDirty = false;
+  } else {
+    current.targetAssigneeAccountId = targetAccountId;
+    current.targetAssigneeName = targetDisplayName;
+    current.targetAssigneeEmail = targetEmailAddress;
+    current.assigneeDirty = true;
+  }
+
+  const hasMove = current.fixDirty === true;
+  const hasPriority = current.priorityDirty === true && Number.isInteger(current.targetPriority);
+  const hasEstimation = current.estimationDirty === true && Number.isInteger(current.targetEstimation);
+  const hasAssignee = current.assigneeDirty === true && !!String(current.targetAssigneeName || "").trim();
+  if (hasMove || hasPriority || hasEstimation || hasAssignee) pending.set(featureId, current);
+  else pending.delete(featureId);
+
+  updateRoadmapPendingUi();
+  renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
+  return true;
+}
+
+async function showRoadmapContextMenu(featureId, x, y) {
   const menu = document.getElementById("roadmap-context-menu");
   if (!menu) return;
   menu.innerHTML = "";
@@ -344,6 +405,62 @@ function showRoadmapContextMenu(featureId, x, y) {
   sep3.className = "roadmap-context-sep";
   menu.appendChild(sep3);
 
+  const reassignWrap = document.createElement("div");
+  reassignWrap.className = "roadmap-context-submenu-wrap";
+
+  const reassignMainBtn = document.createElement("button");
+  reassignMainBtn.type = "button";
+  reassignMainBtn.className = "roadmap-context-item";
+  reassignMainBtn.textContent = "Reassign to ▸";
+  reassignWrap.appendChild(reassignMainBtn);
+
+  const reassignMenu = document.createElement("div");
+  reassignMenu.className = "roadmap-context-submenu roadmap-context-submenu-reassign";
+  const reassignLoading = document.createElement("div");
+  reassignLoading.className = "roadmap-context-loading";
+  reassignLoading.textContent = "Loading teammates...";
+  reassignMenu.appendChild(reassignLoading);
+  reassignWrap.appendChild(reassignMenu);
+
+  let reassignCloseTimer = null;
+  const cancelReassignClose = () => {
+    if (reassignCloseTimer) {
+      clearTimeout(reassignCloseTimer);
+      reassignCloseTimer = null;
+    }
+  };
+  const scheduleReassignClose = () => {
+    cancelReassignClose();
+    reassignCloseTimer = setTimeout(() => {
+      reassignWrap.classList.remove("open");
+      reassignCloseTimer = null;
+    }, 180);
+  };
+
+  reassignWrap.addEventListener("mouseenter", () => {
+    cancelReassignClose();
+    reassignWrap.classList.add("open");
+  });
+  reassignWrap.addEventListener("mouseleave", scheduleReassignClose);
+
+  reassignMenu.addEventListener("mouseenter", () => {
+    cancelReassignClose();
+    reassignWrap.classList.add("open");
+  });
+  reassignMenu.addEventListener("mouseleave", scheduleReassignClose);
+
+  reassignMainBtn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    cancelReassignClose();
+    reassignWrap.classList.toggle("open");
+  });
+
+  menu.appendChild(reassignWrap);
+
+  const sep4 = document.createElement("div");
+  sep4.className = "roadmap-context-sep";
+  menu.appendChild(sep4);
+
   const infoBtn = document.createElement("button");
   infoBtn.type = "button";
   infoBtn.className = "roadmap-context-item";
@@ -383,6 +500,29 @@ function showRoadmapContextMenu(featureId, x, y) {
 
     const wouldOverflowBottom = (menuRect.top + submenuHeight) > (window.innerHeight - 6);
     if (wouldOverflowBottom) submenuWrap.classList.add("open-up");
+  });
+
+  const teammates = await getRoadmapTeammates(false);
+  reassignMenu.innerHTML = "";
+  if (!teammates.length) {
+    const empty = document.createElement("div");
+    empty.className = "roadmap-context-loading";
+    empty.textContent = "No teammates in Team Capacity";
+    reassignMenu.appendChild(empty);
+    return;
+  }
+
+  teammates.forEach((mate) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "roadmap-context-subitem roadmap-context-subitem-user";
+    btn.textContent = String(mate?.displayName || "").trim() || "Unknown";
+    btn.title = String(mate?.emailAddress || "").trim() || btn.textContent;
+    btn.addEventListener("click", () => {
+      setPendingAssignee(featureId, mate);
+      hideRoadmapContextMenu();
+    });
+    reassignMenu.appendChild(btn);
   });
 }
 
@@ -512,10 +652,14 @@ async function pushRoadmapMovesToJira() {
       const targetFixVersion = String(currentPending.targetFixVersion || "").trim();
       const targetPriority = Number.isInteger(currentPending.targetPriority) ? Number(currentPending.targetPriority) : null;
       const targetEstimation = Number.isInteger(currentPending.targetEstimation) ? Number(currentPending.targetEstimation) : null;
+      const targetAssigneeAccountId = String(currentPending.targetAssigneeAccountId || "").trim();
+      const targetAssigneeName = String(currentPending.targetAssigneeName || "").trim();
+      const targetAssigneeEmail = String(currentPending.targetAssigneeEmail || "").trim();
       const fixDirty = currentPending.fixDirty === true;
       const priorityDirty = currentPending.priorityDirty === true;
       const estimationDirty = currentPending.estimationDirty === true;
-      if (!fixDirty && !priorityDirty && !estimationDirty) {
+      const assigneeDirty = currentPending.assigneeDirty === true;
+      if (!fixDirty && !priorityDirty && !estimationDirty && !assigneeDirty) {
         pending.delete(featureId);
         continue;
       }
@@ -628,7 +772,48 @@ async function pushRoadmapMovesToJira() {
         }
       }
 
-      const stillDirty = currentPending.fixDirty === true || currentPending.priorityDirty === true || currentPending.estimationDirty === true;
+      if (assigneeDirty) {
+        const currentAssigneeName = String(feature?.assignee || "").trim();
+        const assigneeNeedsUpdate = !!targetAssigneeName && targetAssigneeName.toLowerCase() !== currentAssigneeName.toLowerCase();
+        if (!assigneeNeedsUpdate) {
+          currentPending.assigneeDirty = false;
+          delete currentPending.targetAssigneeAccountId;
+          delete currentPending.targetAssigneeName;
+          delete currentPending.targetAssigneeEmail;
+          fieldMessages.push("- Assignee: No update needed");
+          hasFieldSuccess = true;
+        } else {
+          const resp = await fetch("/update_assignee", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              issueKey: featureId,
+              accountId: targetAssigneeAccountId,
+              displayName: targetAssigneeName,
+              emailAddress: targetAssigneeEmail,
+              dryRun: false,
+            }),
+          });
+          const json = await resp.json().catch(() => ({}));
+          if (!resp.ok || !json?.ok) {
+            fieldMessages.push(`- Assignee: Failed - ${simplifyPushError(json?.error || `HTTP ${resp.status}`)}`);
+            hasFieldFailure = true;
+          } else {
+            currentPending.assigneeDirty = false;
+            delete currentPending.targetAssigneeAccountId;
+            delete currentPending.targetAssigneeName;
+            delete currentPending.targetAssigneeEmail;
+            fieldMessages.push("- Assignee: Success");
+            hasFieldSuccess = true;
+          }
+        }
+      }
+
+      const stillDirty =
+        currentPending.fixDirty === true ||
+        currentPending.priorityDirty === true ||
+        currentPending.estimationDirty === true ||
+        currentPending.assigneeDirty === true;
       if (stillDirty) pending.set(featureId, currentPending);
       else pending.delete(featureId);
 
@@ -1520,7 +1705,8 @@ function bindRoadmapDragAndDrop(host) {
             existing.targetFixVersion = "";
             const keepOtherDirty =
               (existing.priorityDirty === true && Number.isInteger(existing.targetPriority)) ||
-              (existing.estimationDirty === true && Number.isInteger(existing.targetEstimation));
+              (existing.estimationDirty === true && Number.isInteger(existing.targetEstimation)) ||
+              (existing.assigneeDirty === true && !!String(existing.targetAssigneeName || "").trim());
             if (keepOtherDirty) pending.set(featureId, existing);
             else pending.delete(featureId);
           } else {
@@ -1547,7 +1733,8 @@ function bindRoadmapDragAndDrop(host) {
           existing.targetFixVersion = "";
           const keepOtherDirty =
             (existing.priorityDirty === true && Number.isInteger(existing.targetPriority)) ||
-            (existing.estimationDirty === true && Number.isInteger(existing.targetEstimation));
+            (existing.estimationDirty === true && Number.isInteger(existing.targetEstimation)) ||
+            (existing.assigneeDirty === true && !!String(existing.targetAssigneeName || "").trim());
           if (keepOtherDirty) pending.set(featureId, existing);
           else pending.delete(featureId);
         } else {
@@ -1650,17 +1837,20 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     const effectiveStoryPoints = Number.isInteger(pending?.targetEstimation)
       ? Number(pending.targetEstimation)
       : feature?.story_points;
+    const effectiveAssignee = String(pending?.targetAssigneeName || "").trim() || String(feature?.assignee || "").trim();
     items.push({
       featureId,
       feature,
       effectivePriority,
       effectiveStoryPoints,
+      effectiveAssignee,
       capabilityKey,
       capability: capLabel,
       isMovable: !roadmapStatusLockedForMove(feature?.status),
       isPendingMove: pendingToFuture || !!pendingMatch,
       isPendingPriority: Number.isInteger(pending?.targetPriority),
       isPendingEstimation: Number.isInteger(pending?.targetEstimation),
+      isPendingAssignee: pending?.assigneeDirty === true && !!String(pending?.targetAssigneeName || "").trim(),
       startKey: slot.startKey,
       endKey: slot.endKey,
       isFuture: slot.isFuture,
@@ -2187,12 +2377,12 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
             : `Priority ${prio.priority}`;
           const titleText = item.isFuture
             ? "Future"
-            : `${item.periodLabel || "QS"}: ${item.startKey} → ${item.endKey} | ${prioLabel} | Story Points ${storyPointsLabel}`;
+            : `${item.periodLabel || "QS"}: ${item.startKey} → ${item.endKey} | ${prioLabel} | Assignee ${item.effectiveAssignee || "Unassigned"} | Story Points ${storyPointsLabel}`;
           const sepClass = timelineSlots[idx]?.isYearStart ? " roadmap-year-sep" : "";
           const qsClass = timelineSlots[idx]?.isQsStart ? " roadmap-qs-sep" : "";
           const style = `grid-column: ${idx + 2} / span ${span}; --bar-color: ${prio.background}; color: ${prio.textColor};`;
           const moveClass = item.isMovable ? " roadmap-bar-draggable" : " roadmap-bar-locked";
-          const pendingClass = (item.isPendingMove || item.isPendingPriority || item.isPendingEstimation) ? " roadmap-bar-pending" : "";
+          const pendingClass = (item.isPendingMove || item.isPendingPriority || item.isPendingEstimation || item.isPendingAssignee) ? " roadmap-bar-pending" : "";
           const pendingPrioClass = item.isPendingPriority ? " roadmap-bar-pending-priority" : "";
           html += `<div class="roadmap-bar roadmap-bar-feature${sepClass}${qsClass}${moveClass}${pendingClass}${pendingPrioClass}" data-feature-id="${escapeHtml(item.featureId)}" data-feature-row="${escapeHtml(item.featureId)}" data-cell-week="${item.isFuture ? "FUTURE" : escapeHtml(item.startKey)}" data-movable="${item.isMovable ? "1" : "0"}" style="${style}" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority" title="Priority">P${prio.priority}</span><span class="roadmap-bar-estimate" title="Story points">SP ${escapeHtml(storyPointsLabel)}</span></div>`;
           idx = endIdx + 1;
@@ -3818,6 +4008,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       saveBacklogSettings();
       persistRoadmapShowEmptyCapabilities();
       restoreRoadmapShowEmptyCapabilities();
+      roadmapTeammatesByScope.clear();
       loadBacklogData();
       updateRoadmapPendingUi();
     });

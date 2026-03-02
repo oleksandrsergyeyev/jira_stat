@@ -688,6 +688,28 @@ h1 { margin-bottom: 20px; }
   text-align: left;
 }
 
+.roadmap-context-submenu-reassign {
+  min-width: 220px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.roadmap-context-subitem-user {
+  text-align: left;
+  padding: 7px 8px;
+  font-weight: 600;
+}
+
+.roadmap-context-subitem-user:hover {
+  background: #2f4568;
+}
+
+.roadmap-context-loading {
+  color: #b8cdee;
+  font-size: 12px;
+  padding: 8px;
+}
+
 .roadmap-context-submenu-wrap.open .roadmap-context-submenu {
   display: block;
 }

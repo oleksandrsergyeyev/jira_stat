@@ -371,6 +371,52 @@ def _team_capacity_key(work_group: str, fix_version: str) -> str:
     return f"{wg}|||{fv}"
 
 
+def _team_capacity_teammates(work_group: str, fix_version: str | None = None) -> list[dict]:
+    wg = (work_group or "").strip()
+    fv = (fix_version or "").strip() if fix_version is not None else ""
+    if not wg:
+        return []
+
+    store = _load_team_capacity_store()
+    source_payloads = []
+
+    if fv:
+        payload = store.get(_team_capacity_key(wg, fv))
+        if isinstance(payload, dict):
+            source_payloads.append(payload)
+
+    if not source_payloads:
+        prefix = f"{wg}|||"
+        for key, payload in (store or {}).items():
+            if not str(key).startswith(prefix):
+                continue
+            if isinstance(payload, dict):
+                source_payloads.append(payload)
+
+    out = []
+    seen = set()
+    for payload in source_payloads:
+        for row in (payload.get("members") or []):
+            member = _normalize_member(row)
+            account_id = str(member.get("accountId") or "").strip()
+            display_name = str(member.get("displayName") or "").strip()
+            email = str(member.get("emailAddress") or "").strip()
+            if not display_name:
+                continue
+            dedupe_key = account_id or display_name.lower()
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            out.append({
+                "accountId": account_id,
+                "displayName": display_name,
+                "emailAddress": email,
+            })
+
+    out.sort(key=lambda x: (x.get("displayName") or "").lower())
+    return out
+
+
 def _coerce_day_value(raw) -> float:
     try:
         val = float(raw)
@@ -644,6 +690,158 @@ def _jira_update_issue_priority(issue_key: str, priority_id: str) -> dict:
     if resp.status_code not in (200, 204):
         raise RuntimeError(f"Failed to update issue {issue_key} priority: {resp.status_code} {resp.text}")
     return payload
+
+
+def _jira_get_issue_assignee(issue_key: str) -> dict:
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    resp = requests.get(url, headers=HEADERS, params={"fields": "assignee"})
+    if resp.status_code != 200:
+        raise RuntimeError(f"Failed to read issue {issue_key}: {resp.status_code} {resp.text}")
+    fields = (resp.json().get("fields") or {})
+    assignee = (fields.get("assignee") or {})
+    return {
+        "accountId": str(assignee.get("accountId") or "").strip(),
+        "displayName": str(assignee.get("displayName") or assignee.get("name") or "").strip(),
+        "emailAddress": str(assignee.get("emailAddress") or "").strip(),
+    }
+
+
+def _jira_update_issue_assignee(issue_key: str, assignee_identity: dict) -> dict:
+    identity = assignee_identity if isinstance(assignee_identity, dict) else {}
+
+    candidates = []
+    account_id = str(identity.get("accountId") or "").strip()
+    user_name = str(identity.get("name") or "").strip()
+    user_key = str(identity.get("key") or "").strip()
+
+    if account_id:
+        candidates.append(("accountId", account_id))
+    if user_name:
+        candidates.append(("name", user_name))
+    if user_key and user_key != user_name:
+        candidates.append(("key", user_key))
+
+    if not candidates:
+        raise RuntimeError("No valid assignee identity to update Jira issue")
+
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    errors = []
+    for mode, value in candidates:
+        payload = {"fields": {"assignee": {mode: value}}}
+        resp = requests.put(url, headers=HEADERS, json=payload)
+        if resp.status_code in (200, 204):
+            return {"mode": mode, "value": value, "payload": payload}
+        errors.append(f"{mode}={value}: {resp.status_code} {resp.text}")
+
+    raise RuntimeError(f"Failed to update issue {issue_key} assignee: {' | '.join(errors)}")
+
+
+def _resolve_user_identity(account_id: str, display_name: str, email_address: str) -> dict:
+    aid = str(account_id or "").strip()
+    if aid:
+        return {"accountId": aid, "displayName": str(display_name or "").strip(), "emailAddress": str(email_address or "").strip(), "name": "", "key": ""}
+
+    target_email = str(email_address or "").strip().lower()
+    target_name_raw = str(display_name or "").strip()
+
+    if not target_email and not target_name_raw:
+        raise RuntimeError("accountId or displayName/emailAddress is required to resolve assignee")
+
+    def _norm_name(s: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", str(s or "").lower()).strip()
+
+    def _token_set(s: str) -> set[str]:
+        return {p for p in _norm_name(s).split(" ") if p}
+
+    query_candidates = []
+    if target_email:
+        query_candidates.append(target_email)
+        local = target_email.split("@", 1)[0].replace(".", " ").replace("_", " ").strip()
+        if local:
+            query_candidates.append(local)
+
+    if target_name_raw:
+        query_candidates.append(target_name_raw)
+        cleaned = re.sub(r"[,;]", " ", target_name_raw).strip()
+        if cleaned and cleaned not in query_candidates:
+            query_candidates.append(cleaned)
+
+        parts = [p for p in re.split(r"[,\s]+", target_name_raw) if p]
+        if len(parts) >= 2:
+            swapped = f"{parts[-1]} {parts[0]}".strip()
+            if swapped and swapped not in query_candidates:
+                query_candidates.append(swapped)
+
+    all_users = []
+    seen_users = set()
+    for q in query_candidates:
+        qv = str(q or "").strip()
+        if not qv:
+            continue
+        try:
+            users = _jira_user_search(qv, max_results=50)
+        except Exception:
+            users = []
+        for u in users:
+            uid = str(u.get("accountId") or "").strip() or str(u.get("displayName") or "").strip().lower()
+            if not uid or uid in seen_users:
+                continue
+            seen_users.add(uid)
+            all_users.append(u)
+
+    if not all_users:
+        raise RuntimeError("No Jira user found for assignee resolution")
+
+    if target_email:
+        for u in all_users:
+            em = str(u.get("emailAddress") or "").strip().lower()
+            if em and em == target_email:
+                return {
+                    "accountId": str(u.get("accountId") or "").strip(),
+                    "displayName": str(u.get("displayName") or u.get("name") or "").strip(),
+                    "emailAddress": str(u.get("emailAddress") or "").strip(),
+                    "name": str(u.get("name") or "").strip(),
+                    "key": str(u.get("key") or "").strip(),
+                }
+
+    target_tokens = _token_set(target_name_raw)
+    if target_tokens:
+        for u in all_users:
+            nm = str(u.get("displayName") or u.get("name") or "").strip()
+            if _token_set(nm) == target_tokens:
+                return {
+                    "accountId": str(u.get("accountId") or "").strip(),
+                    "displayName": str(u.get("displayName") or u.get("name") or "").strip(),
+                    "emailAddress": str(u.get("emailAddress") or "").strip(),
+                    "name": str(u.get("name") or "").strip(),
+                    "key": str(u.get("key") or "").strip(),
+                }
+
+    if target_name_raw:
+        target_name = _norm_name(target_name_raw)
+        for u in all_users:
+            nm = _norm_name(str(u.get("displayName") or u.get("name") or ""))
+            if nm and (nm in target_name or target_name in nm):
+                return {
+                    "accountId": str(u.get("accountId") or "").strip(),
+                    "displayName": str(u.get("displayName") or u.get("name") or "").strip(),
+                    "emailAddress": str(u.get("emailAddress") or "").strip(),
+                    "name": str(u.get("name") or "").strip(),
+                    "key": str(u.get("key") or "").strip(),
+                }
+
+    u0 = all_users[0]
+    identity = {
+        "accountId": str(u0.get("accountId") or "").strip(),
+        "displayName": str(u0.get("displayName") or u0.get("name") or "").strip(),
+        "emailAddress": str(u0.get("emailAddress") or "").strip(),
+        "name": str(u0.get("name") or "").strip(),
+        "key": str(u0.get("key") or "").strip(),
+    }
+    if identity.get("accountId") or identity.get("name") or identity.get("key"):
+        return identity
+
+    raise RuntimeError("Failed to resolve Jira assignee identity")
 
 
 def _jira_get_issue_estimation(issue_key: str) -> int:
@@ -1285,6 +1483,16 @@ def jira_user_search():
         return jsonify({"ok": True, "users": users})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "users": []}), 502
+
+
+@app.route("/roadmap_teammates")
+def roadmap_teammates():
+    work_group = (request.args.get("workGroup") or "").strip()
+    fix_version = (request.args.get("fixVersion") or "").strip()
+    if not work_group:
+        return jsonify({"ok": False, "error": "workGroup is required", "teammates": []}), 400
+    teammates = _team_capacity_teammates(work_group, fix_version if fix_version else None)
+    return jsonify({"ok": True, "teammates": teammates})
 
 
 @app.route("/app_settings", methods=["GET", "POST"])
@@ -1938,6 +2146,52 @@ def update_estimation():
             "before": before_estimation,
             "after": after_estimation,
             "requested": estimation_value,
+            "payload": payload,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "issueKey": issue_key}), 502
+
+
+@app.route("/update_assignee", methods=["POST"])
+def update_assignee():
+    data = request.get_json(silent=True) or {}
+
+    issue_key = str(data.get("issueKey") or "").strip().upper()
+    dry_run = bool(data.get("dryRun", True))
+    account_id = str(data.get("accountId") or "").strip()
+    display_name = str(data.get("displayName") or "").strip()
+    email_address = str(data.get("emailAddress") or "").strip()
+
+    if not re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", issue_key):
+        return jsonify({"ok": False, "error": "Invalid issueKey format"}), 400
+    if not account_id and not display_name and not email_address:
+        return jsonify({"ok": False, "error": "accountId or displayName/emailAddress is required"}), 400
+
+    try:
+        before_assignee = _jira_get_issue_assignee(issue_key)
+        resolved_identity = _resolve_user_identity(account_id, display_name, email_address)
+
+        if dry_run:
+            return jsonify({
+                "ok": True,
+                "dryRun": True,
+                "issueKey": issue_key,
+                "before": before_assignee,
+                "requested": {"accountId": account_id, "displayName": display_name, "emailAddress": email_address},
+                "resolved": resolved_identity,
+            })
+
+        payload = _jira_update_issue_assignee(issue_key, resolved_identity)
+        after_assignee = _jira_get_issue_assignee(issue_key)
+
+        return jsonify({
+            "ok": True,
+            "dryRun": False,
+            "issueKey": issue_key,
+            "before": before_assignee,
+            "after": after_assignee,
+            "requested": {"accountId": account_id, "displayName": display_name, "emailAddress": email_address},
+            "resolved": resolved_identity,
             "payload": payload,
         })
     except Exception as e:
