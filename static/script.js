@@ -116,7 +116,7 @@ function setPendingPriority(featureId, priorityNumber) {
   else pending.delete(featureId);
 
   updateRoadmapPendingUi();
-  renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
+  renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
 }
 
 function showRoadmapContextMenu(featureId, x, y) {
@@ -1095,6 +1095,72 @@ function roadmapPriorityStyle(priorityRaw) {
   return { priority: p, background, textColor };
 }
 
+function roadmapComputeCapacityFromPayload(payload) {
+  const members = Array.isArray(payload?.members) ? payload.members : [];
+  let total = 0;
+
+  members.forEach((member) => {
+    TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
+      const weeks = Array.isArray(member?.weekValues?.[sprint]) ? member.weekValues[sprint] : [];
+      weeks.forEach((weekValue) => {
+        total += Number(weekValue || 0);
+      });
+    });
+  });
+
+  const safeTotal = Number.isFinite(total) ? total : 0;
+  return {
+    total: safeTotal,
+    full: safeTotal * 0.8,
+    planned: safeTotal * 0.6,
+  };
+}
+
+function roadmapQsFixVersionsFromSettings(settings) {
+  const src = Array.isArray(settings?.fix_versions) ? settings.fix_versions : [];
+  const out = [];
+  const seen = new Set();
+
+  src.forEach((value) => {
+    const fixVersion = String(value || "").trim();
+    if (!/^QS_\d{2}w\d{2}$/i.test(fixVersion)) return;
+    const key = fixVersion.toUpperCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(fixVersion);
+  });
+
+  return out;
+}
+
+async function loadRoadmapCapacityByFixVersion(workGroup, forceRefresh = false) {
+  if (!workGroup) return {};
+
+  let settings = null;
+  try {
+    settings = await fetchAppSettings();
+  } catch {
+    settings = defaultAppSettings();
+  }
+
+  const qsFixVersions = roadmapQsFixVersionsFromSettings(settings);
+  if (!qsFixVersions.length) return {};
+
+  const pairs = await Promise.all(qsFixVersions.map(async (fixVersion) => {
+    try {
+      const url = `/team_capacity_data?workGroup=${encodeURIComponent(workGroup)}&fixVersion=${encodeURIComponent(fixVersion)}`;
+      const cacheKey = makeCacheKey("teamCapacityData", { workGroup, fixVersion });
+      const json = await fetchJsonWithClientCache(url, cacheKey, forceRefresh);
+      const payload = json?.ok ? (json?.data || {}) : {};
+      return [fixVersion, roadmapComputeCapacityFromPayload(payload)];
+    } catch {
+      return [fixVersion, { total: 0, full: 0, planned: 0 }];
+    }
+  }));
+
+  return Object.fromEntries(pairs);
+}
+
 function bindRoadmapDragAndDrop(host) {
   const bars = Array.from(host.querySelectorAll(".roadmap-bar-draggable[data-feature-id]"));
   const qsBands = Array.from(host.querySelectorAll(".roadmap-qs-band[data-week-key]"));
@@ -1216,7 +1282,7 @@ function bindRoadmapDragAndDrop(host) {
             pending.set(featureId, existing);
           }
           updateRoadmapPendingUi();
-          renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
+          renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
           return;
         }
 
@@ -1242,7 +1308,7 @@ function bindRoadmapDragAndDrop(host) {
         }
 
         updateRoadmapPendingUi();
-        renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
+        renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
       };
 
       document.addEventListener("pointermove", onMove);
@@ -1262,11 +1328,14 @@ function bindRoadmapDragAndDrop(host) {
   });
 }
 
-function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
+function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacityByFixVersion = {}) {
   const host = document.getElementById("backlog-roadmap");
   if (!host) return;
   host._roadmapData = featuresObj || {};
   host._capabilitiesData = Array.isArray(capabilitiesList) ? capabilitiesList : [];
+  host._roadmapCapacityByFixVersion = roadmapCapacityByFixVersion && typeof roadmapCapacityByFixVersion === "object"
+    ? roadmapCapacityByFixVersion
+    : {};
   const capabilitiesCountEl = document.getElementById("capabilities-count");
   const hasSavedCollapseState = restoreRoadmapCollapseState();
 
@@ -1288,6 +1357,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
   }
 
   const items = [];
+  const qsLoadByFixVersion = new Map();
   const pendingMoves = roadmapPendingMoves();
   for (const [featureId, feature] of entries) {
     let slot = roadmapSlotForFeature(feature);
@@ -1339,7 +1409,27 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
       isFuture: slot.isFuture,
       periodLabel: slot.periodLabel,
     });
+
+    if (!slot.isFuture) {
+      const slotFixVersion = qsFixVersionFromWeekKey(slot.startKey);
+      if (slotFixVersion) {
+        const current = Number(qsLoadByFixVersion.get(slotFixVersion) || 0);
+        const featureLoad = Number(feature?.story_points || 0);
+        qsLoadByFixVersion.set(slotFixVersion, current + (Number.isFinite(featureLoad) ? featureLoad : 0));
+      }
+    }
   }
+
+  const qsHeaderWithLoadCapacity = (label, fixVersion) => {
+    const safeFixVersion = String(fixVersion || "").trim();
+    const load = Number(qsLoadByFixVersion.get(safeFixVersion) || 0);
+    const plannedCapacity = Number(host._roadmapCapacityByFixVersion?.[safeFixVersion]?.planned || 0);
+    const fullCapacity = Number(host._roadmapCapacityByFixVersion?.[safeFixVersion]?.full || 0);
+    let levelClass = "roadmap-qs-meta--green";
+    if (load > fullCapacity) levelClass = "roadmap-qs-meta--red";
+    else if (load > plannedCapacity) levelClass = "roadmap-qs-meta--yellow";
+    return `${escapeHtml(label)}<span class="roadmap-qs-meta ${levelClass}">Load: ${escapeHtml(formatCapacityValue(load))} / Cap: ${escapeHtml(formatCapacityValue(plannedCapacity))}(${escapeHtml(formatCapacityValue(fullCapacity))})</span>`;
+  };
 
   const datedItems = items.filter(i => !i.isFuture);
   const hasFutureItems = items.some(i => i.isFuture);
@@ -1573,7 +1663,8 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
     if (firstQsSlot > band.startSlotIdx) {
       const prevYearYY = String(Number(band.year) - 1).slice(-2);
       const leadingLabel = `${prevYearYY}QS49`;
-      html += `<div class="roadmap-header roadmap-qs-header roadmap-qs-band roadmap-year-sep" style="grid-column: ${band.startSlotIdx + 2} / span ${firstQsSlot - band.startSlotIdx}; grid-row: 2;">${escapeHtml(leadingLabel)}</div>`;
+      const leadingFixVersion = `QS_${prevYearYY}w49`;
+      html += `<div class="roadmap-header roadmap-qs-header roadmap-qs-band roadmap-year-sep" style="grid-column: ${band.startSlotIdx + 2} / span ${firstQsSlot - band.startSlotIdx}; grid-row: 2;">${qsHeaderWithLoadCapacity(leadingLabel, leadingFixVersion)}</div>`;
     }
 
     for (let i = 0; i < qsStarts.length; i += 1) {
@@ -1582,9 +1673,10 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
       const endSlot = next ? (next.slotIdx - 1) : (band.startSlotIdx + band.count - 1);
       const span = Math.max(1, endSlot - start.slotIdx + 1);
       const label = `${yy}QS${String(start.week).padStart(2, "0")}`;
+      const fixVersion = `QS_${yy}w${String(start.week).padStart(2, "0")}`;
       const sepClass = start.slotIdx === band.startSlotIdx ? " roadmap-year-sep" : "";
       const weekKeyAttr = (timelineSlots[start.slotIdx]?.weekKey || "");
-      html += `<div class="roadmap-header roadmap-qs-header roadmap-qs-band${sepClass}" data-week-key="${escapeHtml(weekKeyAttr)}" style="grid-column: ${start.slotIdx + 2} / span ${span}; grid-row: 2;">${escapeHtml(label)}</div>`;
+      html += `<div class="roadmap-header roadmap-qs-header roadmap-qs-band${sepClass}" data-week-key="${escapeHtml(weekKeyAttr)}" style="grid-column: ${start.slotIdx + 2} / span ${span}; grid-row: 2;">${qsHeaderWithLoadCapacity(label, fixVersion)}</div>`;
     }
   });
 
@@ -1792,7 +1884,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
     window.addEventListener("resize", () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
+        renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
       }, 120);
     });
   }
@@ -1805,7 +1897,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
       if (roadmapCollapsedCapabilities.has(capability)) roadmapCollapsedCapabilities.delete(capability);
       else roadmapCollapsedCapabilities.add(capability);
       persistRoadmapCollapseState();
-      renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
+      renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
     });
   });
 
@@ -1817,7 +1909,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = []) {
       if (roadmapCollapsedYears.has(year)) roadmapCollapsedYears.delete(year);
       else roadmapCollapsedYears.add(year);
       persistRoadmapYearCollapseState();
-      renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || []);
+      renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
     });
   });
 
@@ -1835,12 +1927,13 @@ async function loadBacklogData(forceRefresh = false) {
     const capabilitiesUrl = `/capabilities_data?workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
     const cacheKey = makeCacheKey("backlogDataV3", { workGroup });
     const capabilitiesCacheKey = makeCacheKey("capabilitiesDataV3", { workGroup });
-    const [data, capabilities] = await Promise.all([
+    const [data, capabilities, roadmapCapacityByFixVersion] = await Promise.all([
       fetchJsonWithClientCache(url, cacheKey, forceRefresh),
       fetchJsonWithClientCache(capabilitiesUrl, capabilitiesCacheKey, forceRefresh),
+      loadRoadmapCapacityByFixVersion(workGroup, forceRefresh),
     ]);
 
-    renderBacklogRoadmap(data, capabilities);
+    renderBacklogRoadmap(data, capabilities, roadmapCapacityByFixVersion);
     populateBacklogStatusFilter(data);
 
     renderFeatureTable(Object.entries(data), "backlog-table", []);

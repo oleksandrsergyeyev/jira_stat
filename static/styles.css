@@ -341,11 +341,42 @@ h1 { margin-bottom: 20px; }
 }
 
 .roadmap-qs-header {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   color: #5d7394;
   background: #f7faff;
   padding: 1px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1.1;
+}
+
+.roadmap-qs-meta {
+  font-size: 8px;
+  font-weight: 800;
+  color: #284b78;
+  background: #e7f0ff;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.roadmap-qs-meta--green {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.roadmap-qs-meta--yellow {
+  color: #854d0e;
+  background: #fef9c3;
+}
+
+.roadmap-qs-meta--red {
+  color: #991b1b;
+  background: #fee2e2;
 }
 
 .roadmap-qs-band.roadmap-drop-preview {
