@@ -2519,7 +2519,8 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
           const moveClass = item.isMovable ? " roadmap-bar-draggable" : " roadmap-bar-locked";
           const pendingClass = (item.isPendingMove || item.isPendingPriority || item.isPendingEstimation || item.isPendingAssignee) ? " roadmap-bar-pending" : "";
           const pendingPrioClass = item.isPendingPriority ? " roadmap-bar-pending-priority" : "";
-          html += `<div class="roadmap-bar roadmap-bar-feature${sepClass}${qsClass}${moveClass}${pendingClass}${pendingPrioClass}" data-feature-id="${escapeHtml(item.featureId)}" data-feature-row="${escapeHtml(item.featureId)}" data-cell-week="${item.isFuture ? "FUTURE" : escapeHtml(item.startKey)}" data-movable="${item.isMovable ? "1" : "0"}" style="${style}" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority" title="Priority">P${prio.priority}</span><span class="roadmap-bar-estimate" title="Story points">SP ${escapeHtml(storyPointsLabel)}</span></div>`;
+          const assigneeLabel = escapeHtml(item.effectiveAssignee || "Unassigned");
+          html += `<div class="roadmap-bar roadmap-bar-feature${sepClass}${qsClass}${moveClass}${pendingClass}${pendingPrioClass}" data-feature-id="${escapeHtml(item.featureId)}" data-feature-row="${escapeHtml(item.featureId)}" data-cell-week="${item.isFuture ? "FUTURE" : escapeHtml(item.startKey)}" data-movable="${item.isMovable ? "1" : "0"}" style="${style}" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority" title="Priority">P${prio.priority}</span><span class="roadmap-bar-assignee" title="Assignee">${assigneeLabel}</span><span class="roadmap-bar-estimate" title="Story points">SP ${escapeHtml(storyPointsLabel)}</span></div>`;
           idx = endIdx + 1;
         }
       });

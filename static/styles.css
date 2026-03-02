@@ -967,6 +967,19 @@ h1 { margin-bottom: 20px; }
   letter-spacing: 0.1px;
 }
 
+.roadmap-bar-assignee {
+  display: inline-block;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  letter-spacing: 0.1px;
+}
+
 .roadmap-bar-estimate {
   display: inline-block;
   padding: 1px 3px;
