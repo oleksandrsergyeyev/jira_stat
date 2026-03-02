@@ -112,11 +112,45 @@ function setPendingPriority(featureId, priorityNumber) {
 
   const hasMove = current.fixDirty === true;
   const hasPriority = current.priorityDirty === true && Number.isInteger(current.targetPriority);
-  if (hasMove || hasPriority) pending.set(featureId, current);
+  const hasEstimation = current.estimationDirty === true && Number.isInteger(current.targetEstimation);
+  if (hasMove || hasPriority || hasEstimation) pending.set(featureId, current);
   else pending.delete(featureId);
 
   updateRoadmapPendingUi();
   renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
+}
+
+function setPendingEstimation(featureId, estimationValue) {
+  const host = document.getElementById("backlog-roadmap");
+  const feature = host?._roadmapData?.[featureId];
+  if (!feature) return false;
+
+  const requested = Number.parseInt(String(estimationValue || "").trim(), 10);
+  if (!Number.isInteger(requested)) return false;
+
+  const pending = roadmapPendingMoves();
+  const current = pending.get(featureId) || {};
+  const currentEstimation = Number.isFinite(Number(feature?.story_points))
+    ? Number.parseInt(String(feature.story_points), 10)
+    : 0;
+
+  if (requested === currentEstimation) {
+    delete current.targetEstimation;
+    current.estimationDirty = false;
+  } else {
+    current.targetEstimation = requested;
+    current.estimationDirty = true;
+  }
+
+  const hasMove = current.fixDirty === true;
+  const hasPriority = current.priorityDirty === true && Number.isInteger(current.targetPriority);
+  const hasEstimation = current.estimationDirty === true && Number.isInteger(current.targetEstimation);
+  if (hasMove || hasPriority || hasEstimation) pending.set(featureId, current);
+  else pending.delete(featureId);
+
+  updateRoadmapPendingUi();
+  renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
+  return true;
 }
 
 function showRoadmapContextMenu(featureId, x, y) {
@@ -203,6 +237,113 @@ function showRoadmapContextMenu(featureId, x, y) {
   sep2.className = "roadmap-context-sep";
   menu.appendChild(sep2);
 
+  const estWrap = document.createElement("div");
+  estWrap.className = "roadmap-context-submenu-wrap";
+
+  const estMainBtn = document.createElement("button");
+  estMainBtn.type = "button";
+  estMainBtn.className = "roadmap-context-item";
+  estMainBtn.textContent = "Set estimation ▸";
+  estWrap.appendChild(estMainBtn);
+
+  const estMenu = document.createElement("div");
+  estMenu.className = "roadmap-context-submenu roadmap-context-submenu-estimation";
+
+  const estLabel = document.createElement("label");
+  estLabel.className = "roadmap-context-estimation-label";
+  estLabel.textContent = "Set estimation";
+
+  const estRow = document.createElement("div");
+  estRow.className = "roadmap-context-estimation-row";
+
+  const estInput = document.createElement("input");
+  estInput.type = "number";
+  estInput.step = "1";
+  estInput.className = "roadmap-context-estimation-input";
+  estInput.placeholder = "Integer";
+  const host = document.getElementById("backlog-roadmap");
+  const feature = host?._roadmapData?.[featureId];
+  const pending = roadmapPendingMoves().get(featureId) || {};
+  const currentEstimation = Number.isInteger(pending?.targetEstimation)
+    ? Number(pending.targetEstimation)
+    : (Number.isFinite(Number(feature?.story_points)) ? Number.parseInt(String(feature.story_points), 10) : 0);
+  estInput.value = String(currentEstimation);
+
+  const estSetBtn = document.createElement("button");
+  estSetBtn.type = "button";
+  estSetBtn.className = "roadmap-context-estimation-btn";
+  estSetBtn.textContent = "Set";
+
+  const submitEstimation = () => {
+    const raw = String(estInput.value || "").trim();
+    if (!/^[-+]?\d+$/.test(raw)) {
+      estInput.focus();
+      estInput.select();
+      return;
+    }
+    setPendingEstimation(featureId, Number.parseInt(raw, 10));
+    hideRoadmapContextMenu();
+  };
+
+  estSetBtn.addEventListener("click", submitEstimation);
+  estInput.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      submitEstimation();
+    }
+  });
+
+  estRow.appendChild(estInput);
+  estRow.appendChild(estSetBtn);
+  estMenu.appendChild(estLabel);
+  estMenu.appendChild(estRow);
+  estWrap.appendChild(estMenu);
+
+  let estCloseTimer = null;
+  const cancelEstClose = () => {
+    if (estCloseTimer) {
+      clearTimeout(estCloseTimer);
+      estCloseTimer = null;
+    }
+  };
+  const scheduleEstClose = () => {
+    cancelEstClose();
+    estCloseTimer = setTimeout(() => {
+      estWrap.classList.remove("open");
+      estCloseTimer = null;
+    }, 180);
+  };
+
+  estWrap.addEventListener("mouseenter", () => {
+    cancelEstClose();
+    estWrap.classList.add("open");
+  });
+  estWrap.addEventListener("mouseleave", scheduleEstClose);
+
+  estMenu.addEventListener("mouseenter", () => {
+    cancelEstClose();
+    estWrap.classList.add("open");
+  });
+  estMenu.addEventListener("mouseleave", scheduleEstClose);
+
+  estMainBtn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    cancelEstClose();
+    estWrap.classList.toggle("open");
+    if (estWrap.classList.contains("open")) {
+      setTimeout(() => {
+        estInput.focus();
+        estInput.select();
+      }, 0);
+    }
+  });
+
+  menu.appendChild(estWrap);
+
+  const sep3 = document.createElement("div");
+  sep3.className = "roadmap-context-sep";
+  menu.appendChild(sep3);
+
   const infoBtn = document.createElement("button");
   infoBtn.type = "button";
   infoBtn.className = "roadmap-context-item";
@@ -222,9 +363,9 @@ function showRoadmapContextMenu(featureId, x, y) {
   menu.style.left = `${Math.max(8, left)}px`;
   menu.style.top = `${Math.max(8, top)}px`;
 
-  const submenuWrap = menu.querySelector(".roadmap-context-submenu-wrap");
-  const submenu = menu.querySelector(".roadmap-context-submenu");
-  if (submenuWrap && submenu) {
+  menu.querySelectorAll(".roadmap-context-submenu-wrap").forEach((submenuWrap) => {
+    const submenu = submenuWrap.querySelector(".roadmap-context-submenu");
+    if (!submenu) return;
     submenuWrap.classList.remove("open-left");
     submenuWrap.classList.remove("open-up");
     const prevDisplay = submenu.style.display;
@@ -242,7 +383,7 @@ function showRoadmapContextMenu(featureId, x, y) {
 
     const wouldOverflowBottom = (menuRect.top + submenuHeight) > (window.innerHeight - 6);
     if (wouldOverflowBottom) submenuWrap.classList.add("open-up");
-  }
+  });
 }
 
 function showRoadmapNotice(message, type = "success", details = []) {
@@ -370,9 +511,11 @@ async function pushRoadmapMovesToJira() {
       const toFuture = Boolean(currentPending.toFuture);
       const targetFixVersion = String(currentPending.targetFixVersion || "").trim();
       const targetPriority = Number.isInteger(currentPending.targetPriority) ? Number(currentPending.targetPriority) : null;
+      const targetEstimation = Number.isInteger(currentPending.targetEstimation) ? Number(currentPending.targetEstimation) : null;
       const fixDirty = currentPending.fixDirty === true;
       const priorityDirty = currentPending.priorityDirty === true;
-      if (!fixDirty && !priorityDirty) {
+      const estimationDirty = currentPending.estimationDirty === true;
+      if (!fixDirty && !priorityDirty && !estimationDirty) {
         pending.delete(featureId);
         continue;
       }
@@ -452,7 +595,40 @@ async function pushRoadmapMovesToJira() {
         }
       }
 
-      const stillDirty = currentPending.fixDirty === true || currentPending.priorityDirty === true;
+      if (estimationDirty) {
+        const currentEstimation = Number.isFinite(Number(feature?.story_points))
+          ? Number.parseInt(String(feature.story_points), 10)
+          : 0;
+        const estimationNeedsUpdate = targetEstimation !== null && targetEstimation !== currentEstimation;
+        if (!estimationNeedsUpdate) {
+          currentPending.estimationDirty = false;
+          delete currentPending.targetEstimation;
+          fieldMessages.push("- Estimation: No update needed");
+          hasFieldSuccess = true;
+        } else {
+          const resp = await fetch("/update_estimation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              issueKey: featureId,
+              estimation: targetEstimation,
+              dryRun: false,
+            }),
+          });
+          const json = await resp.json().catch(() => ({}));
+          if (!resp.ok || !json?.ok) {
+            fieldMessages.push(`- Estimation: Failed - ${simplifyPushError(json?.error || `HTTP ${resp.status}`)}`);
+            hasFieldFailure = true;
+          } else {
+            currentPending.estimationDirty = false;
+            delete currentPending.targetEstimation;
+            fieldMessages.push("- Estimation: Success");
+            hasFieldSuccess = true;
+          }
+        }
+      }
+
+      const stillDirty = currentPending.fixDirty === true || currentPending.priorityDirty === true || currentPending.estimationDirty === true;
       if (stillDirty) pending.set(featureId, currentPending);
       else pending.delete(featureId);
 
@@ -1271,8 +1447,10 @@ function bindRoadmapDragAndDrop(host) {
             existing.fixDirty = false;
             existing.toFuture = false;
             existing.targetFixVersion = "";
-            const keepPriority = existing.priorityDirty === true && Number.isInteger(existing.targetPriority);
-            if (keepPriority) pending.set(featureId, existing);
+            const keepOtherDirty =
+              (existing.priorityDirty === true && Number.isInteger(existing.targetPriority)) ||
+              (existing.estimationDirty === true && Number.isInteger(existing.targetEstimation));
+            if (keepOtherDirty) pending.set(featureId, existing);
             else pending.delete(featureId);
           } else {
             const existing = pending.get(featureId) || {};
@@ -1296,8 +1474,10 @@ function bindRoadmapDragAndDrop(host) {
           existing.fixDirty = false;
           existing.toFuture = false;
           existing.targetFixVersion = "";
-          const keepPriority = existing.priorityDirty === true && Number.isInteger(existing.targetPriority);
-          if (keepPriority) pending.set(featureId, existing);
+          const keepOtherDirty =
+            (existing.priorityDirty === true && Number.isInteger(existing.targetPriority)) ||
+            (existing.estimationDirty === true && Number.isInteger(existing.targetEstimation));
+          if (keepOtherDirty) pending.set(featureId, existing);
           else pending.delete(featureId);
         } else {
           const existing = pending.get(featureId) || {};
@@ -1395,15 +1575,20 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     const effectivePriority = Number.isInteger(pending?.targetPriority)
       ? Number(pending.targetPriority)
       : feature?.priority;
+    const effectiveStoryPoints = Number.isInteger(pending?.targetEstimation)
+      ? Number(pending.targetEstimation)
+      : feature?.story_points;
     items.push({
       featureId,
       feature,
       effectivePriority,
+      effectiveStoryPoints,
       capabilityKey,
       capability: capLabel,
       isMovable: !roadmapStatusLockedForMove(feature?.status),
       isPendingMove: pendingToFuture || !!pendingMatch,
       isPendingPriority: Number.isInteger(pending?.targetPriority),
+      isPendingEstimation: Number.isInteger(pending?.targetEstimation),
       startKey: slot.startKey,
       endKey: slot.endKey,
       isFuture: slot.isFuture,
@@ -1883,7 +2068,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
         const startWeek = item.isFuture ? -1 : (weekIdx.get(item.startKey) ?? -1);
         const endWeek = item.isFuture ? -1 : (weekIdx.get(item.endKey) ?? startWeek);
         const prio = roadmapPriorityStyle(item.effectivePriority);
-        const storyPointsRaw = item.feature?.story_points;
+        const storyPointsRaw = item.effectiveStoryPoints;
         const storyPoints = Number.isFinite(Number(storyPointsRaw)) ? Number(storyPointsRaw) : 0;
         const storyPointsLabel = Number.isInteger(storyPoints) ? String(storyPoints) : String(storyPoints.toFixed(1));
 
@@ -1920,7 +2105,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
           const qsClass = timelineSlots[idx]?.isQsStart ? " roadmap-qs-sep" : "";
           const style = `grid-column: ${idx + 2} / span ${span}; --bar-color: ${prio.background}; color: ${prio.textColor};`;
           const moveClass = item.isMovable ? " roadmap-bar-draggable" : " roadmap-bar-locked";
-          const pendingClass = (item.isPendingMove || item.isPendingPriority) ? " roadmap-bar-pending" : "";
+          const pendingClass = (item.isPendingMove || item.isPendingPriority || item.isPendingEstimation) ? " roadmap-bar-pending" : "";
           const pendingPrioClass = item.isPendingPriority ? " roadmap-bar-pending-priority" : "";
           html += `<div class="roadmap-bar roadmap-bar-feature${sepClass}${qsClass}${moveClass}${pendingClass}${pendingPrioClass}" data-feature-id="${escapeHtml(item.featureId)}" data-feature-row="${escapeHtml(item.featureId)}" data-cell-week="${item.isFuture ? "FUTURE" : escapeHtml(item.startKey)}" data-movable="${item.isMovable ? "1" : "0"}" style="${style}" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority" title="Priority">P${prio.priority}</span><span class="roadmap-bar-estimate" title="Story points">SP ${escapeHtml(storyPointsLabel)}</span></div>`;
           idx = endIdx + 1;

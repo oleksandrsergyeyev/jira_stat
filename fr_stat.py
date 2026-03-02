@@ -646,6 +646,28 @@ def _jira_update_issue_priority(issue_key: str, priority_id: str) -> dict:
     return payload
 
 
+def _jira_get_issue_estimation(issue_key: str) -> int:
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    resp = requests.get(url, headers=HEADERS, params={"fields": "customfield_10708"})
+    if resp.status_code != 200:
+        raise RuntimeError(f"Failed to read issue {issue_key}: {resp.status_code} {resp.text}")
+    fields = (resp.json().get("fields") or {})
+    raw_val = fields.get("customfield_10708", 0)
+    try:
+        return int(float(raw_val or 0))
+    except Exception:
+        return 0
+
+
+def _jira_update_issue_estimation(issue_key: str, estimation_value: int) -> dict:
+    payload = {"fields": {"customfield_10708": int(estimation_value)}}
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    resp = requests.put(url, headers=HEADERS, json=payload)
+    if resp.status_code not in (200, 204):
+        raise RuntimeError(f"Failed to update issue {issue_key} estimation: {resp.status_code} {resp.text}")
+    return payload
+
+
 def _extract_text_value(raw) -> str:
     if raw is None:
         return ""
@@ -1872,6 +1894,50 @@ def update_priority():
             "after": after_priority,
             "requested": priority_number,
             "resolved": {"id": priority_id, "name": priority_name},
+            "payload": payload,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "issueKey": issue_key}), 502
+
+
+@app.route("/update_estimation", methods=["POST"])
+def update_estimation():
+    data = request.get_json(silent=True) or {}
+
+    issue_key = str(data.get("issueKey") or "").strip().upper()
+    dry_run = bool(data.get("dryRun", True))
+    raw_estimation = data.get("estimation")
+
+    if not re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", issue_key):
+        return jsonify({"ok": False, "error": "Invalid issueKey format"}), 400
+
+    try:
+        estimation_value = int(raw_estimation)
+    except Exception:
+        return jsonify({"ok": False, "error": "estimation must be an integer"}), 400
+
+    try:
+        before_estimation = _jira_get_issue_estimation(issue_key)
+
+        if dry_run:
+            return jsonify({
+                "ok": True,
+                "dryRun": True,
+                "issueKey": issue_key,
+                "before": before_estimation,
+                "requested": estimation_value,
+            })
+
+        payload = _jira_update_issue_estimation(issue_key, estimation_value)
+        after_estimation = _jira_get_issue_estimation(issue_key)
+
+        return jsonify({
+            "ok": True,
+            "dryRun": False,
+            "issueKey": issue_key,
+            "before": before_estimation,
+            "after": after_estimation,
+            "requested": estimation_value,
             "payload": payload,
         })
     except Exception as e:

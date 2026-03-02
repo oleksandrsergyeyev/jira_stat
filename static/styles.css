@@ -638,6 +638,11 @@ h1 { margin-bottom: 20px; }
   display: none;
 }
 
+.roadmap-context-submenu-estimation {
+  min-width: 198px;
+  text-align: left;
+}
+
 .roadmap-context-submenu-wrap.open .roadmap-context-submenu {
   display: block;
 }
@@ -681,6 +686,55 @@ h1 { margin-bottom: 20px; }
 
 .roadmap-context-subitem-prio:hover {
   filter: brightness(1.08);
+}
+
+.roadmap-context-estimation {
+  padding: 6px 4px 4px;
+}
+
+.roadmap-context-estimation-label {
+  display: block;
+  color: #d2e3ff;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.roadmap-context-estimation-row {
+  display: flex;
+  gap: 6px;
+}
+
+.roadmap-context-estimation-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #46608a;
+  background: #18263b;
+  color: #e8f1ff;
+  border-radius: 7px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.roadmap-context-estimation-input:focus {
+  outline: none;
+  border-color: #78a6ee;
+  box-shadow: 0 0 0 2px rgba(120, 166, 238, 0.25);
+}
+
+.roadmap-context-estimation-btn {
+  border: 1px solid #5b79a8;
+  background: #2f4568;
+  color: #e8f1ff;
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.roadmap-context-estimation-btn:hover {
+  background: #3a5783;
 }
 
 .roadmap-feature-modal {
