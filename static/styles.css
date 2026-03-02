@@ -103,6 +103,36 @@ h1 { margin-bottom: 20px; }
   white-space: nowrap;
 }
 
+#capabilities-count.roadmap-counter {
+  padding: 4px 8px;
+  font-size: 11px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+
+.roadmap-capabilities-tooltip {
+  position: fixed;
+  z-index: 100030;
+  max-width: 420px;
+  background: #1f2f49;
+  color: #e7f0ff;
+  border: 1px solid #4b6590;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  box-shadow: 0 10px 24px rgba(10, 24, 45, 0.4);
+  white-space: pre-wrap;
+  text-align: left;
+  pointer-events: none;
+}
+
+.roadmap-capabilities-tooltip.hidden {
+  display: none;
+}
+
 .roadmap-counter-pending {
   margin-left: 0;
   background: #fff6e8;
@@ -393,6 +423,21 @@ h1 { margin-bottom: 20px; }
 
 .roadmap-drop-preview-cell {
   background: #eef5ff !important;
+}
+
+.roadmap-empty-cap-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #324f78;
+  font-weight: 600;
+  user-select: none;
+}
+
+.roadmap-empty-cap-filter input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
 }
 
 .roadmap-qs-band {

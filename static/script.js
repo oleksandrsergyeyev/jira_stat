@@ -1195,6 +1195,77 @@ function roadmapYearCollapseStorageKey() {
   return `roadmapCollapsedYears::${getSelectedWorkGroup() || ""}`;
 }
 
+function roadmapShowEmptyCapabilitiesStorageKey() {
+  return `roadmapShowEmptyCapabilities::${getSelectedWorkGroup() || ""}`;
+}
+
+function getRoadmapShowEmptyCapabilities() {
+  const el = document.getElementById("roadmap-toggle-empty-capabilities");
+  if (el instanceof HTMLInputElement) return el.checked;
+  return true;
+}
+
+function restoreRoadmapShowEmptyCapabilities() {
+  const el = document.getElementById("roadmap-toggle-empty-capabilities");
+  if (!(el instanceof HTMLInputElement)) return;
+  const raw = localStorage.getItem(roadmapShowEmptyCapabilitiesStorageKey());
+  if (raw === "0") el.checked = false;
+  else el.checked = true;
+}
+
+function persistRoadmapShowEmptyCapabilities() {
+  localStorage.setItem(roadmapShowEmptyCapabilitiesStorageKey(), getRoadmapShowEmptyCapabilities() ? "1" : "0");
+}
+
+function ensureRoadmapCapabilitiesTooltip() {
+  let tip = document.getElementById("roadmap-capabilities-tooltip");
+  if (!tip) {
+    tip = document.createElement("div");
+    tip.id = "roadmap-capabilities-tooltip";
+    tip.className = "roadmap-capabilities-tooltip hidden";
+    document.body.appendChild(tip);
+  }
+  return tip;
+}
+
+function bindRoadmapCapabilitiesCounterHover() {
+  const counter = document.getElementById("capabilities-count");
+  if (!(counter instanceof HTMLElement) || counter.dataset.hoverBound === "1") return;
+  counter.dataset.hoverBound = "1";
+
+  const showTip = (ev) => {
+    const details = String(counter.dataset.fullSummary || "").trim();
+    if (!details) return;
+    const tip = ensureRoadmapCapabilitiesTooltip();
+    tip.textContent = details;
+    tip.classList.remove("hidden");
+    const x = Number(ev?.clientX || 0);
+    const y = Number(ev?.clientY || 0);
+    tip.style.left = `${Math.max(8, x + 12)}px`;
+    tip.style.top = `${Math.max(8, y + 12)}px`;
+  };
+
+  const moveTip = (ev) => {
+    const tip = document.getElementById("roadmap-capabilities-tooltip");
+    if (!(tip instanceof HTMLElement) || tip.classList.contains("hidden")) return;
+    const x = Number(ev?.clientX || 0);
+    const y = Number(ev?.clientY || 0);
+    tip.style.left = `${Math.max(8, x + 12)}px`;
+    tip.style.top = `${Math.max(8, y + 12)}px`;
+  };
+
+  const hideTip = () => {
+    const tip = document.getElementById("roadmap-capabilities-tooltip");
+    if (!(tip instanceof HTMLElement)) return;
+    tip.classList.add("hidden");
+  };
+
+  counter.addEventListener("mouseenter", showTip);
+  counter.addEventListener("mousemove", moveTip);
+  counter.addEventListener("mouseleave", hideTip);
+  counter.addEventListener("blur", hideTip);
+}
+
 function restoreRoadmapYearCollapseState() {
   try {
     const raw = localStorage.getItem(roadmapYearCollapseStorageKey());
@@ -1518,6 +1589,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     : {};
   const capabilitiesCountEl = document.getElementById("capabilities-count");
   const hasSavedCollapseState = restoreRoadmapCollapseState();
+  const showEmptyCapabilities = getRoadmapShowEmptyCapabilities();
 
   const entries = Object.entries(featuresObj || {});
   const capabilityItems = Array.isArray(capabilitiesList) ? capabilitiesList : [];
@@ -1822,7 +1894,16 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
       })
       .join("; ");
 
-    capabilitiesCountEl.textContent = `Capabilities: ${summary}`;
+    const totalCapabilities = new Set();
+    order.forEach((name) => {
+      const row = groups.get(name);
+      if (!row) return;
+      row.total.forEach((capKey) => totalCapabilities.add(capKey));
+    });
+
+    capabilitiesCountEl.textContent = `Capabilities: ${totalCapabilities.size}`;
+    capabilitiesCountEl.dataset.fullSummary = summary;
+    capabilitiesCountEl.title = "";
   }
 
   if (!hasSavedCollapseState) {
@@ -1960,7 +2041,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     html += `<div class="roadmap-header roadmap-week-header ${slot.isYearStart ? "roadmap-year-sep" : ""}${qsClass}" data-cell-week="${escapeHtml(slot.weekKey)}" style="grid-column: ${gridCol}; grid-row: 3;">${escapeHtml(wkLabel)}</div>`;
   });
 
-  Array.from(byCapability.entries())
+  const capabilityEntries = Array.from(byCapability.entries())
     .sort((a, b) => {
       const selectedWorkGroup = (getSelectedWorkGroup() || "").trim().toLowerCase();
       const aLabel = (a[0] || "").trim().toLowerCase();
@@ -2011,7 +2092,13 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
       const byPrefix = aParts.prefix.localeCompare(bParts.prefix);
       if (byPrefix !== 0) return byPrefix;
       return a[0].localeCompare(b[0]);
-    })
+    });
+
+  const visibleCapabilityEntries = showEmptyCapabilities
+    ? capabilityEntries
+    : capabilityEntries.filter(([, capItems]) => Array.isArray(capItems) && capItems.length > 0);
+
+  visibleCapabilityEntries
     .forEach(([capability, capItems], capIndex) => {
       const isCollapsed = roadmapCollapsedCapabilities.has(capability);
       const capabilityAttr = encodeURIComponent(capability);
@@ -3724,11 +3811,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (isRoadmap) {
     restoreBacklogSettings();
+    restoreRoadmapShowEmptyCapabilities();
+    bindRoadmapCapabilitiesCounterHover();
     loadBacklogData();
     document.getElementById("workGroupSelect")?.addEventListener("change", () => {
       saveBacklogSettings();
+      persistRoadmapShowEmptyCapabilities();
+      restoreRoadmapShowEmptyCapabilities();
       loadBacklogData();
       updateRoadmapPendingUi();
+    });
+    document.getElementById("roadmap-toggle-empty-capabilities")?.addEventListener("change", () => {
+      persistRoadmapShowEmptyCapabilities();
+      const host = document.getElementById("backlog-roadmap");
+      if (!host) return;
+      renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
     });
     document.getElementById("roadmap-refresh")?.addEventListener("click", () => {
       loadBacklogData(true);
