@@ -1631,12 +1631,22 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     const collapseMarker = band.isCollapsed ? "▶" : "▼";
     html += `<div class="roadmap-header roadmap-year-header roadmap-year-toggle" data-year="${yearAttr}" style="grid-column: ${band.startSlotIdx + 2} / span ${band.count}; grid-row: 1;"><span class="roadmap-year-arrow">${collapseMarker}</span><span class="roadmap-year-text">${escapeHtml(band.year)}</span></div>`;
   });
+  const qsHeaderCells = [];
+  let carryOverQs49CellIndex = -1;
+
   yearHeaderBands.forEach((band) => {
     const yy = String(band.year).slice(-2);
     const slotStartCol = band.startSlotIdx + 2;
 
     if (band.isCollapsed) {
-      html += `<div class="roadmap-header roadmap-qs-header roadmap-year-sep" style="grid-column: ${slotStartCol} / span ${band.count}; grid-row: 2;">${escapeHtml(`${yy}QS`)}</div>`;
+      carryOverQs49CellIndex = -1;
+      qsHeaderCells.push({
+        startCol: slotStartCol,
+        span: band.count,
+        classes: "roadmap-header roadmap-qs-header roadmap-year-sep",
+        weekKey: "",
+        content: escapeHtml(`${yy}QS`),
+      });
       return;
     }
 
@@ -1655,16 +1665,34 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     }).filter(Boolean);
 
     if (!qsStarts.length) {
-      html += `<div class="roadmap-header roadmap-qs-header roadmap-year-sep" style="grid-column: ${slotStartCol} / span ${band.count}; grid-row: 2;"></div>`;
+      carryOverQs49CellIndex = -1;
+      qsHeaderCells.push({
+        startCol: slotStartCol,
+        span: band.count,
+        classes: "roadmap-header roadmap-qs-header roadmap-year-sep",
+        weekKey: "",
+        content: "",
+      });
       return;
     }
 
     const firstQsSlot = qsStarts[0].slotIdx;
     if (firstQsSlot > band.startSlotIdx) {
-      const prevYearYY = String(Number(band.year) - 1).slice(-2);
-      const leadingLabel = `${prevYearYY}QS49`;
-      const leadingFixVersion = `QS_${prevYearYY}w49`;
-      html += `<div class="roadmap-header roadmap-qs-header roadmap-qs-band roadmap-year-sep" style="grid-column: ${band.startSlotIdx + 2} / span ${firstQsSlot - band.startSlotIdx}; grid-row: 2;">${qsHeaderWithLoadCapacity(leadingLabel, leadingFixVersion)}</div>`;
+      const leadingSpan = firstQsSlot - band.startSlotIdx;
+      if (carryOverQs49CellIndex >= 0 && qsHeaderCells[carryOverQs49CellIndex]) {
+        qsHeaderCells[carryOverQs49CellIndex].span += leadingSpan;
+      } else {
+        const prevYearYY = String(Number(band.year) - 1).slice(-2);
+        const leadingLabel = `${prevYearYY}QS49`;
+        const leadingFixVersion = `QS_${prevYearYY}w49`;
+        qsHeaderCells.push({
+          startCol: band.startSlotIdx + 2,
+          span: leadingSpan,
+          classes: "roadmap-header roadmap-qs-header roadmap-qs-band",
+          weekKey: "",
+          content: qsHeaderWithLoadCapacity(leadingLabel, leadingFixVersion),
+        });
+      }
     }
 
     for (let i = 0; i < qsStarts.length; i += 1) {
@@ -1676,8 +1704,22 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
       const fixVersion = `QS_${yy}w${String(start.week).padStart(2, "0")}`;
       const sepClass = start.slotIdx === band.startSlotIdx ? " roadmap-year-sep" : "";
       const weekKeyAttr = (timelineSlots[start.slotIdx]?.weekKey || "");
-      html += `<div class="roadmap-header roadmap-qs-header roadmap-qs-band${sepClass}" data-week-key="${escapeHtml(weekKeyAttr)}" style="grid-column: ${start.slotIdx + 2} / span ${span}; grid-row: 2;">${qsHeaderWithLoadCapacity(label, fixVersion)}</div>`;
+      qsHeaderCells.push({
+        startCol: start.slotIdx + 2,
+        span,
+        classes: `roadmap-header roadmap-qs-header roadmap-qs-band${sepClass}`,
+        weekKey: weekKeyAttr,
+        content: qsHeaderWithLoadCapacity(label, fixVersion),
+      });
+
+      if (!next && start.week === 49) carryOverQs49CellIndex = qsHeaderCells.length - 1;
+      else carryOverQs49CellIndex = -1;
     }
+  });
+
+  qsHeaderCells.forEach((cell) => {
+    const weekKeyData = cell.weekKey ? ` data-week-key="${escapeHtml(cell.weekKey)}"` : "";
+    html += `<div class="${cell.classes}"${weekKeyData} style="grid-column: ${cell.startCol} / span ${cell.span}; grid-row: 2;">${cell.content}</div>`;
   });
 
   timelineSlots.forEach((slot, slotIdx) => {
