@@ -837,9 +837,7 @@ async function loadPIPlanningData(forceRefresh = false) {
         ? feature.fixVersions.includes(fixVersion)
         : false;
 
-      const hasStories = Array.isArray(feature.stories_detail) && feature.stories_detail.length > 0;
-
-      if (scope.startsWith("committed") && (inPI || hasStories)) {
+      if (scope.startsWith("committed") && inPI) {
         committed.push([key, feature]);
       } else if (!isDone(feature)) {
         backlog.push([key, feature]);

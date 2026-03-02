@@ -51,6 +51,10 @@
     {
       "leadingWorkGroup": "ART - BCRC - Moni",
       "teamName": "TPMS"
+    },
+    {
+      "leadingWorkGroup": "ART - BCRC - Test and Strategy",
+      "teamName": "Test Strategy"
     }
   ]
 }
