@@ -1322,11 +1322,10 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
         "customfield_13803",  # Target end
     ]
 
-    # Narrow on the server (but don't use issuetype name to avoid env differences)
+    # Back to efficient mode: seed only non-done issues for backlog table.
     jql = f'"Leading Work Group" = "{work_group}" AND statusCategory != Done'
 
-    # >>> KEY CHANGE: paginate instead of taking only the first 1000
-    cache_key = ("backlog_issues_v4", work_group)
+    cache_key = ("backlog_issues_v6", work_group)
     issues = _cache_get_or_build(
         cache_key,
         lambda: _jira_search_all(jql, fields_needed, page_size=500, hard_cap=20000),
@@ -1370,6 +1369,46 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
             "target_end": (f.get("customfield_13803") or ""),
             "stories_detail": [],
         }
+
+    # Attach child Story/Fault Report estimation sums to seeded features.
+    # Use a separate child query to avoid scan-all on backlog seed set.
+    if features:
+        child_fields = [
+            "issuetype",
+            "customfield_10708",  # Story Points
+            "customfield_10702",  # Epic Link
+            "parent",
+            "issuelinks",
+            "status",
+            "assignee",
+        ]
+        child_jql = f'"Leading Work Group" = "{work_group}" AND updated >= -365d ORDER BY updated DESC'
+        child_cache_key = ("backlog_child_issues_v2", work_group)
+        child_issues = _cache_get_or_build(
+            child_cache_key,
+            lambda: _jira_search_all(child_jql, child_fields, page_size=500, hard_cap=40000),
+            force_refresh=force_refresh,
+        )
+
+        feature_keys = set(features.keys())
+        for it in (child_issues or []):
+            child_key = it.get("key", "")
+            f = it.get("fields") or {}
+            itype_name = ((f.get("issuetype") or {}).get("name") or "").strip().lower()
+            if itype_name not in ("story", "fault report"):
+                continue
+            parent_key = _resolve_parent_feature_key(f, feature_keys)
+            if not parent_key or parent_key not in features:
+                continue
+
+            sp_val = _story_points(f)
+            features[parent_key]["sum_story_points"] += sp_val
+            features[parent_key]["stories_detail"].append({
+                "key": child_key,
+                "story_points": sp_val,
+                "assignee": _assignee_name(f) or "Unassigned",
+                "status": ((f.get("status") or {}).get("name") or ""),
+            })
 
     print(f"[Backlog] WG='{work_group}': scanned={len(issues)} features_not_done={len(features)}")
     return features
