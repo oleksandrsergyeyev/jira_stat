@@ -1451,6 +1451,72 @@ function bindRoadmapCapabilitiesCounterHover() {
   counter.addEventListener("blur", hideTip);
 }
 
+function ensureRoadmapQsLoadTooltip() {
+  let tip = document.getElementById("roadmap-qs-load-tooltip");
+  if (!tip) {
+    tip = document.createElement("div");
+    tip.id = "roadmap-qs-load-tooltip";
+    tip.className = "roadmap-qs-load-tooltip hidden";
+    document.body.appendChild(tip);
+  }
+  return tip;
+}
+
+function bindRoadmapQsMetaHover(host) {
+  if (!(host instanceof HTMLElement)) return;
+  const metas = Array.from(host.querySelectorAll(".roadmap-qs-meta[data-team-breakdown-json]"));
+  if (!metas.length) return;
+
+  const showTip = (ev) => {
+    const target = ev.currentTarget;
+    if (!(target instanceof HTMLElement)) return;
+    const encoded = String(target.getAttribute("data-team-breakdown-json") || "").trim();
+    if (!encoded) return;
+    let rows = [];
+    try {
+      rows = JSON.parse(decodeURIComponent(encoded));
+    } catch {
+      rows = [];
+    }
+    if (!Array.isArray(rows) || !rows.length) return;
+
+    const tip = ensureRoadmapQsLoadTooltip();
+    tip.innerHTML = rows.map((row) => {
+      const name = escapeHtml(String(row?.name || ""));
+      const text = escapeHtml(String(row?.text || ""));
+      const cls = String(row?.levelClass || "roadmap-qs-meta--green");
+      return `<div class="roadmap-qs-breakdown-row"><span class="roadmap-qs-breakdown-name">${name}</span><span class="roadmap-qs-breakdown-badge ${cls}">${text}</span></div>`;
+    }).join("");
+    tip.classList.remove("hidden");
+    const x = Number(ev?.clientX || 0);
+    const y = Number(ev?.clientY || 0);
+    tip.style.left = `${Math.max(8, x + 12)}px`;
+    tip.style.top = `${Math.max(8, y + 12)}px`;
+  };
+
+  const moveTip = (ev) => {
+    const tip = document.getElementById("roadmap-qs-load-tooltip");
+    if (!(tip instanceof HTMLElement) || tip.classList.contains("hidden")) return;
+    const x = Number(ev?.clientX || 0);
+    const y = Number(ev?.clientY || 0);
+    tip.style.left = `${Math.max(8, x + 12)}px`;
+    tip.style.top = `${Math.max(8, y + 12)}px`;
+  };
+
+  const hideTip = () => {
+    const tip = document.getElementById("roadmap-qs-load-tooltip");
+    if (!(tip instanceof HTMLElement)) return;
+    tip.classList.add("hidden");
+  };
+
+  metas.forEach((meta) => {
+    meta.addEventListener("mouseenter", showTip);
+    meta.addEventListener("mousemove", moveTip);
+    meta.addEventListener("mouseleave", hideTip);
+    meta.addEventListener("blur", hideTip);
+  });
+}
+
 function restoreRoadmapYearCollapseState() {
   try {
     const raw = localStorage.getItem(roadmapYearCollapseStorageKey());
@@ -1530,13 +1596,28 @@ function roadmapPriorityStyle(priorityRaw) {
 function roadmapComputeCapacityFromPayload(payload) {
   const members = Array.isArray(payload?.members) ? payload.members : [];
   let total = 0;
+  const teammateRows = [];
 
   members.forEach((member) => {
+    let memberTotal = 0;
     TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
       const weeks = Array.isArray(member?.weekValues?.[sprint]) ? member.weekValues[sprint] : [];
       weeks.forEach((weekValue) => {
-        total += Number(weekValue || 0);
+        const n = Number(weekValue || 0);
+        total += n;
+        memberTotal += n;
       });
+    });
+
+    const memberName = String(member?.displayName || "").trim();
+    if (!memberName) return;
+    const safeMemberTotal = Number.isFinite(memberTotal) ? memberTotal : 0;
+    teammateRows.push({
+      name: memberName,
+      email: String(member?.emailAddress || "").trim(),
+      total: safeMemberTotal,
+      full: safeMemberTotal * 0.8,
+      planned: safeMemberTotal * 0.6,
     });
   });
 
@@ -1545,6 +1626,7 @@ function roadmapComputeCapacityFromPayload(payload) {
     total: safeTotal,
     full: safeTotal * 0.8,
     planned: safeTotal * 0.6,
+    teammates: teammateRows,
   };
 }
 
@@ -1797,6 +1879,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
 
   const items = [];
   const qsLoadByFixVersion = new Map();
+  const qsLoadByFixVersionByAssignee = new Map();
   const pendingMoves = roadmapPendingMoves();
   for (const [featureId, feature] of entries) {
     let slot = roadmapSlotForFeature(feature);
@@ -1861,8 +1944,18 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
       const slotFixVersion = qsFixVersionFromWeekKey(slot.startKey);
       if (slotFixVersion) {
         const current = Number(qsLoadByFixVersion.get(slotFixVersion) || 0);
-        const featureLoad = Number(feature?.story_points || 0);
+        const featureLoad = Number(effectiveStoryPoints || 0);
         qsLoadByFixVersion.set(slotFixVersion, current + (Number.isFinite(featureLoad) ? featureLoad : 0));
+
+        const assigneeKey = String(effectiveAssignee || "").trim().toLowerCase();
+        if (assigneeKey && assigneeKey !== "unassigned") {
+          if (!qsLoadByFixVersionByAssignee.has(slotFixVersion)) {
+            qsLoadByFixVersionByAssignee.set(slotFixVersion, new Map());
+          }
+          const byAssignee = qsLoadByFixVersionByAssignee.get(slotFixVersion);
+          const prev = Number(byAssignee.get(assigneeKey) || 0);
+          byAssignee.set(assigneeKey, prev + (Number.isFinite(featureLoad) ? featureLoad : 0));
+        }
       }
     }
   }
@@ -1907,10 +2000,52 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     const load = Number(qsLoadByFixVersion.get(safeFixVersion) || 0);
     const plannedCapacity = Number(host._roadmapCapacityByFixVersion?.[safeFixVersion]?.planned || 0);
     const fullCapacity = Number(host._roadmapCapacityByFixVersion?.[safeFixVersion]?.full || 0);
+    const teammateCapacity = Array.isArray(host._roadmapCapacityByFixVersion?.[safeFixVersion]?.teammates)
+      ? host._roadmapCapacityByFixVersion[safeFixVersion].teammates
+      : [];
+    const teammateLoadMap = qsLoadByFixVersionByAssignee.get(safeFixVersion) || new Map();
+
+    const teammateRows = [];
+    const seenAssignees = new Set();
+
+    teammateCapacity.forEach((row) => {
+      const teammateName = String(row?.name || "").trim();
+      if (!teammateName) return;
+      const teammateKey = teammateName.toLowerCase();
+      seenAssignees.add(teammateKey);
+      const teammateLoad = Number(teammateLoadMap.get(teammateKey) || 0);
+      const teammatePlanned = Number(row?.planned || 0);
+      const teammateFull = Number(row?.full || 0);
+      let teammateLevelClass = "roadmap-qs-meta--green";
+      if (teammateLoad > teammateFull) teammateLevelClass = "roadmap-qs-meta--red";
+      else if (teammateLoad > teammatePlanned) teammateLevelClass = "roadmap-qs-meta--yellow";
+      teammateRows.push({
+        name: teammateName,
+        levelClass: teammateLevelClass,
+        text: `Load: ${formatCapacityValue(teammateLoad)} / Cap: ${formatCapacityValue(teammatePlanned)}(${formatCapacityValue(teammateFull)})`,
+      });
+    });
+
+    teammateLoadMap.forEach((value, teammateKey) => {
+      if (seenAssignees.has(teammateKey)) return;
+      const teammateName = teammateKey.split(" ").map(x => x ? x[0].toUpperCase() + x.slice(1) : "").join(" ");
+      const teammateLoad = Number(value || 0);
+      teammateRows.push({
+        name: teammateName || "Unknown",
+        levelClass: teammateLoad > 0 ? "roadmap-qs-meta--red" : "roadmap-qs-meta--green",
+        text: `Load: ${formatCapacityValue(teammateLoad)} / Cap: 0(0)`,
+      });
+    });
+
+    teammateRows.sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
+
     let levelClass = "roadmap-qs-meta--green";
     if (load > fullCapacity) levelClass = "roadmap-qs-meta--red";
     else if (load > plannedCapacity) levelClass = "roadmap-qs-meta--yellow";
-    return `${escapeHtml(label)}<span class="roadmap-qs-meta ${levelClass}">Load: ${escapeHtml(formatCapacityValue(load))} / Cap: ${escapeHtml(formatCapacityValue(plannedCapacity))}(${escapeHtml(formatCapacityValue(fullCapacity))})</span>`;
+    const breakdownJson = teammateRows.length ? encodeURIComponent(JSON.stringify(teammateRows)) : "";
+    const breakdownAttr = breakdownJson ? ` data-team-breakdown-json="${escapeHtml(breakdownJson)}"` : "";
+    const hasBreakdownClass = breakdownJson ? " has-breakdown" : "";
+    return `${escapeHtml(label)}<span class="roadmap-qs-meta ${levelClass}${hasBreakdownClass}"${breakdownAttr}>Load: ${escapeHtml(formatCapacityValue(load))} / Cap: ${escapeHtml(formatCapacityValue(plannedCapacity))}(${escapeHtml(formatCapacityValue(fullCapacity))})</span>`;
   };
 
   const datedItems = items.filter(i => !i.isFuture);
@@ -2452,6 +2587,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     });
   });
 
+  bindRoadmapQsMetaHover(host);
   bindRoadmapDragAndDrop(host);
   updateRoadmapPendingUi();
 }

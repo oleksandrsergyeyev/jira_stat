@@ -394,6 +394,52 @@ h1 { margin-bottom: 20px; }
   white-space: nowrap;
 }
 
+.roadmap-qs-meta.has-breakdown {
+  cursor: help;
+}
+
+.roadmap-qs-load-tooltip {
+  position: fixed;
+  z-index: 100031;
+  max-width: 460px;
+  background: #f7faff;
+  color: #405a82;
+  border: 1px solid #d7e2f3;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.35;
+  box-shadow: 0 10px 24px rgba(19, 42, 78, 0.2);
+  text-align: left;
+  pointer-events: none;
+}
+
+.roadmap-qs-load-tooltip.hidden {
+  display: none;
+}
+
+.roadmap-qs-breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 2px 0;
+}
+
+.roadmap-qs-breakdown-name {
+  color: #5d7394;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.roadmap-qs-breakdown-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
 .roadmap-qs-meta--green {
   color: #166534;
   background: #dcfce7;
