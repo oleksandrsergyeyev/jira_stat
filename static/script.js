@@ -1051,6 +1051,10 @@ function applyFilter() {
     const rows = Array.from(table.querySelectorAll("tbody tr"));
     rows.forEach((row) => {
       if (row.classList.contains("capability-block-row")) return;
+      if (row.classList.contains("totals-row")) {
+        row.style.display = "";
+        return;
+      }
       const matchesText = row.innerText.toLowerCase().includes(filter);
       const rowStatus = (row.getAttribute("data-status") || "").toLowerCase();
       const matchesStatus = !hasBacklogStatusFilter || selectedStatuses.has(rowStatus);
@@ -1074,7 +1078,43 @@ function applyFilter() {
     }
 
     renumberVisibleRows(table);
+    recalculateVisibleTotals(table);
   });
+}
+
+function recalculateVisibleTotals(table) {
+  if (!table) return;
+  const totalsRow = table.querySelector("tbody tr.totals-row");
+  if (!(totalsRow instanceof HTMLTableRowElement)) return;
+
+  const headers = Array.from(table.querySelectorAll("thead th")).map((th) => (th.textContent || "").trim().toLowerCase());
+  const featureNameIdx = headers.findIndex((h) => h === "feature name");
+  const featureSpIdx = headers.findIndex((h) => h === "feature st.p.");
+  const storySumIdx = headers.findIndex((h) => h === "st.p. sum");
+  if (featureSpIdx < 0 || storySumIdx < 0) return;
+
+  let totalFeatureSp = 0;
+  let totalStorySum = 0;
+  const rows = Array.from(table.querySelectorAll("tbody tr"));
+  rows.forEach((row) => {
+    if (!(row instanceof HTMLTableRowElement)) return;
+    if (row.classList.contains("totals-row") || row.classList.contains("capability-block-row")) return;
+    if (row.style.display === "none") return;
+
+    const featureSpText = (row.cells[featureSpIdx]?.textContent || "").trim();
+    const storySumText = (row.cells[storySumIdx]?.textContent || "").trim();
+    totalFeatureSp += Number.parseFloat(featureSpText) || 0;
+    totalStorySum += Number.parseFloat(storySumText) || 0;
+  });
+
+  const toDisplay = (value) => {
+    const rounded = Math.round(value * 100) / 100;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  };
+
+  if (featureNameIdx >= 0 && totalsRow.cells[featureNameIdx]) totalsRow.cells[featureNameIdx].textContent = "Total";
+  if (totalsRow.cells[featureSpIdx]) totalsRow.cells[featureSpIdx].textContent = toDisplay(totalFeatureSp);
+  if (totalsRow.cells[storySumIdx]) totalsRow.cells[storySumIdx].textContent = toDisplay(totalStorySum);
 }
 
 function renumberVisibleRows(table) {
@@ -1140,6 +1180,7 @@ function sortTable(header) {
   table.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
   header.classList.add(ascending ? "asc" : "desc");
   renumberVisibleRows(table);
+  recalculateVisibleTotals(table);
 }
 
 function toggleTable(id, btn) {
@@ -2684,6 +2725,7 @@ function renderFeatureTable(features, containerId, sprints) {
   const isBacklogTable = containerId === 'backlog-table' && (!Array.isArray(sprints) || sprints.length === 0);
   const isCommittedTable = containerId === 'committed-table';
   const isCapabilityGroupedTable = isBacklogTable || isCommittedTable;
+  const includeBacklogFixVersionColumn = isBacklogTable;
 
   const renderedFeatures = isCapabilityGroupedTable
     ? [...(Array.isArray(features) ? features : [])].sort((a, b) => {
@@ -2733,23 +2775,29 @@ function renderFeatureTable(features, containerId, sprints) {
     if (!hidden.has(piPlanningColumns.length + i))
       tableHtml += `<th class="story-cell">${sprint}</th>`;
   });
+  if (includeBacklogFixVersionColumn) {
+    tableHtml += `<th class="col-fix-versions" onclick="sortTable(this)">Fix Version</th>`;
+  }
   tableHtml += '</tr></thead><tbody>';
 
   let rowIndex = 1;
   const visibleBaseColumnCount = headerLabels.reduce((count, _, idx) => count + (hidden.has(idx) ? 0 : 1), 0);
   const visibleSprintCount = (Array.isArray(sprints) ? sprints : []).reduce((count, _, i) => count + (hidden.has(piPlanningColumns.length + i) ? 0 : 1), 0);
-  const visibleColumnCount = visibleBaseColumnCount + visibleSprintCount;
+  const visibleExtraColumns = includeBacklogFixVersionColumn ? 1 : 0;
+  const visibleColumnCount = visibleBaseColumnCount + visibleSprintCount + visibleExtraColumns;
   let previousCapabilityBlock = null;
 
   for (const [featureId, feature] of renderedFeatures) {
     if (isCapabilityGroupedTable) {
       const capabilityKey = (feature.parent_link || '').trim();
       const capabilitySummary = (feature.parent_summary || '').trim();
-      const capabilityBlockKey = `${capabilityKey}||${capabilitySummary}`;
+      const capabilityLeadingGroup = (feature.parent_leading_work_group || '').trim();
+      const capabilityBlockKey = `${capabilityKey}||${capabilitySummary}||${capabilityLeadingGroup}`;
       if (capabilityBlockKey !== previousCapabilityBlock) {
-        const label = capabilityKey
+        const baseLabel = capabilityKey
           ? `${capabilityKey} — ${capabilitySummary || capabilityKey}`
           : (capabilitySummary || 'No Capability');
+        const label = capabilityLeadingGroup ? `${baseLabel} (${capabilityLeadingGroup})` : baseLabel;
         if (capabilityKey) {
           tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}"><a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(capabilityKey)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a></td></tr>`;
         } else {
@@ -2760,9 +2808,11 @@ function renderFeatureTable(features, containerId, sprints) {
     }
 
     const rowStatus = (feature.status || "").replace(/"/g, '&quot;');
-    const capabilityLabel = (feature.parent_link || '').trim()
+    const capabilityLeadingGroup = (feature.parent_leading_work_group || '').trim();
+    const capabilityBaseLabel = (feature.parent_link || '').trim()
       ? `${(feature.parent_link || '').trim()} — ${((feature.parent_summary || '').trim() || (feature.parent_link || '').trim())}`
       : (((feature.parent_summary || '').trim()) || 'No Capability');
+    const capabilityLabel = capabilityLeadingGroup ? `${capabilityBaseLabel} (${capabilityLeadingGroup})` : capabilityBaseLabel;
     const capabilityKeyAttr = escapeHtml((feature.parent_link || '').trim());
     tableHtml += `<tr data-status="${rowStatus}" data-capability-block="${escapeHtml(capabilityLabel)}" data-capability-key="${capabilityKeyAttr}">`;
     let colIdx = 0;
@@ -2828,11 +2878,16 @@ function renderFeatureTable(features, containerId, sprints) {
       }
     });
 
+    if (includeBacklogFixVersionColumn) {
+      const fixVersionsText = Array.isArray(feature.fixVersions) ? feature.fixVersions.join(", ") : "";
+      tableHtml += `<td class="col-fix-versions">${fixVersionsText}</td>`;
+    }
+
     tableHtml += '</tr>';
     rowIndex++;
   }
 
-  if (containerId === 'committed-table') {
+  if (containerId === 'committed-table' || containerId === 'backlog-table') {
     let totalFeatureSP = 0;
     let totalStoriesSP = 0;
     for (const [, feature] of renderedFeatures) {
@@ -2855,12 +2910,17 @@ function renderFeatureTable(features, containerId, sprints) {
     sprints.forEach((_, i) => {
       if (!hidden.has(piPlanningColumns.length + i)) tableHtml += `<td class="story-cell"></td>`;
     });
+    if (includeBacklogFixVersionColumn) {
+      tableHtml += `<td class="col-fix-versions"></td>`;
+    }
     tableHtml += '</tr>';
   }
 
   tableHtml += '</tbody></table>';
   container.innerHTML = tableHtml;
-  renumberVisibleRows(container.querySelector("table"));
+  const renderedTable = container.querySelector("table");
+  renumberVisibleRows(renderedTable);
+  recalculateVisibleTotals(renderedTable);
 
   // tooltips for story counts and link badges
   document.querySelectorAll('.story-badge').forEach(b => {
