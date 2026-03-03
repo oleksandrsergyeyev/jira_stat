@@ -967,6 +967,21 @@ h1 { margin-bottom: 20px; }
   letter-spacing: 0.1px;
 }
 
+.roadmap-capability-prio-chip {
+  display: inline-block;
+  margin: 0 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.1px;
+  background: var(--cap-prio-bg, #2f75d6);
+  color: var(--cap-prio-fg, #ffffff);
+  border: 1px solid rgba(16, 32, 56, 0.25);
+  vertical-align: middle;
+}
+
 .roadmap-bar-assignee {
   display: inline-block;
   max-width: 150px;

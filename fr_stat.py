@@ -190,23 +190,24 @@ def _get_issue_summary(key: str, cache: dict) -> str:
 
 def _get_issue_meta(key: str, cache: dict[str, dict]) -> dict:
     if not key:
-        return {"summary": "", "leading_work_group": "", "created": ""}
+        return {"summary": "", "leading_work_group": "", "created": "", "priority": ""}
     if key in cache:
         return cache[key]
 
     url = f"{JIRA_ISSUE}/{key}"
-    resp = requests.get(url, headers=HEADERS, params={"fields": "summary,customfield_14400,created"})
+    resp = requests.get(url, headers=HEADERS, params={"fields": "summary,customfield_14400,created,priority"})
     if resp.status_code == 200:
         fields = (resp.json().get("fields") or {})
         meta = {
             "summary": fields.get("summary", "") or "",
             "leading_work_group": _leading_work_group_value(fields),
             "created": fields.get("created", "") or "",
+            "priority": _priority_name(fields),
         }
         cache[key] = meta
         return meta
 
-    meta = {"summary": "", "leading_work_group": "", "created": ""}
+    meta = {"summary": "", "leading_work_group": "", "created": "", "priority": ""}
     cache[key] = meta
     return meta
 
@@ -1347,7 +1348,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
             continue
 
         cap_key = _extract_capability_key(f)
-        cap_meta = _get_issue_meta(cap_key, cap_cache) if cap_key else {"summary": "", "leading_work_group": "", "created": ""}
+        cap_meta = _get_issue_meta(cap_key, cap_cache) if cap_key else {"summary": "", "leading_work_group": "", "created": "", "priority": ""}
         features[key] = {
             "summary": f.get("summary", "") or "",
             "status": ((f.get("status") or {}).get("name") or ""),
@@ -1357,6 +1358,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
             "parent_summary": cap_meta.get("summary", ""),
             "parent_leading_work_group": cap_meta.get("leading_work_group", ""),
             "parent_created": cap_meta.get("created", ""),
+            "parent_priority": cap_meta.get("priority", ""),
             "fixVersions": _fix_versions(f),
             "archived_fixVersions": _archived_fix_versions(f),
             "linked_issues": _extract_linked_issue_links((f.get("issuelinks") or [])),
@@ -1418,7 +1420,7 @@ def capabilities_data_service(work_group: str, force_refresh: bool = False) -> l
     """
     Return all Capability issues for selected WG, including capabilities without linked features.
     """
-    fields_needed = ["summary", "issuetype", "status", "customfield_14400", "created"]
+    fields_needed = ["summary", "issuetype", "status", "customfield_14400", "created", "priority"]
     jql = f'"Leading Work Group" = "{work_group}" AND issuetype = Capability ORDER BY key ASC'
 
     cache_key = ("capability_issues_v3", work_group)
@@ -1438,6 +1440,7 @@ def capabilities_data_service(work_group: str, force_refresh: bool = False) -> l
             "status": ((fields.get("status") or {}).get("name") or ""),
             "leading_work_group": _leading_work_group_value(fields),
             "created": fields.get("created", "") or "",
+            "priority": _priority_name(fields),
         })
 
     return out

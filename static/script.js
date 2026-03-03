@@ -1581,14 +1581,31 @@ function persistRoadmapYearCollapseState() {
   );
 }
 
-function capabilityLabelWithLeadingGroup(key, summary, leadingWorkGroup) {
+function capabilityLabelWithLeadingGroup(key, summary, leadingWorkGroup, priority) {
   const capabilityKey = (key || "").trim();
   const capabilitySummary = (summary || "").trim();
+  const capabilityPriority = (priority || "").trim();
   const baseLabel = capabilityKey
     ? `${capabilityKey} — ${capabilitySummary || capabilityKey}`
     : (capabilitySummary || "No Capability");
+  const withPriority = capabilityPriority ? `${baseLabel} [P: ${capabilityPriority}]` : baseLabel;
   const group = (leadingWorkGroup || "").trim();
-  return group ? `${baseLabel} (${group})` : baseLabel;
+  return group ? `${withPriority} (${group})` : withPriority;
+}
+
+function capabilityLabelToHtml(label) {
+  const raw = String(label || "");
+  const match = raw.match(/\[P:\s*([^\]]+)\]/i);
+  if (!match) return escapeHtml(raw);
+
+  const before = raw.slice(0, match.index || 0).trimEnd();
+  const after = raw.slice((match.index || 0) + match[0].length).trimStart();
+  const prio = roadmapPriorityStyle(match[1]);
+  const badge = `<span class="roadmap-capability-prio-chip" style="--cap-prio-bg: ${prio.background}; --cap-prio-fg: ${prio.textColor};" title="Capability priority">P${escapeHtml(String(prio.priority))}</span>`;
+
+  let html = `${escapeHtml(before)} ${badge}`;
+  if (after) html += ` ${escapeHtml(after)}`;
+  return html;
 }
 
 function roadmapPriorityNumber(priorityRaw) {
@@ -1911,6 +1928,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
       summary: (cap?.summary || "").trim(),
       leadingWorkGroup: (cap?.leading_work_group || "").trim(),
       created: (cap?.created || "").trim(),
+      priority: (cap?.priority || "").trim(),
     });
   });
   if (!entries.length && !capabilityItems.length) {
@@ -1950,10 +1968,12 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     const capabilityMeta = capabilityKey ? capabilityMetaByKey.get(capabilityKey) : null;
     const capabilitySummary = (capabilityMeta?.summary || feature?.parent_summary || capabilityKey || "").trim();
     const capabilityLeadingGroup = (capabilityMeta?.leadingWorkGroup || feature?.parent_leading_work_group || "").trim();
+    const capabilityPriority = (capabilityMeta?.priority || feature?.parent_priority || "").trim();
     const capLabel = capabilityLabelWithLeadingGroup(
       capabilityKey,
       capabilitySummary,
-      capabilityLeadingGroup
+      capabilityLeadingGroup,
+      capabilityPriority
     );
     const effectivePriority = Number.isInteger(pending?.targetPriority)
       ? Number(pending.targetPriority)
@@ -2187,7 +2207,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
   capabilityItems.forEach((cap) => {
     const key = (cap?.key || "").trim();
     const summary = (cap?.summary || "").trim();
-    const groupedLabel = capabilityLabelWithLeadingGroup(key, summary, cap?.leading_work_group || "");
+    const groupedLabel = capabilityLabelWithLeadingGroup(key, summary, cap?.leading_work_group || "", cap?.priority || "");
     if (!byCapability.has(groupedLabel)) byCapability.set(groupedLabel, []);
     const created = (cap?.created || "").trim();
     if (created && !capabilityCreatedByLabel.has(groupedLabel)) {
@@ -2204,7 +2224,8 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     const groupLabel = capabilityLabelWithLeadingGroup(
       capKey,
       capMeta?.summary || featureSummary,
-      capMeta?.leadingWorkGroup || featureLeadingGroup
+      capMeta?.leadingWorkGroup || featureLeadingGroup,
+      capMeta?.priority || it?.feature?.parent_priority || ""
     );
     if (!byCapability.has(groupLabel)) byCapability.set(groupLabel, []);
     byCapability.get(groupLabel).push(it);
@@ -2469,7 +2490,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
       const isCollapsed = roadmapCollapsedCapabilities.has(capability);
       const capabilityAttr = encodeURIComponent(capability);
       const arrow = isCollapsed ? "▶" : "▼";
-      html += `<div class="roadmap-capability roadmap-capability-toggle" data-capability="${capabilityAttr}" style="grid-column: 1 / span ${timelineCols + 1};"><span class="roadmap-capability-arrow">${arrow}</span><span class="roadmap-capability-index">${capIndex + 1}.</span><span>${escapeHtml(capability)}</span><span class="roadmap-capability-count">(${capItems.length})</span></div>`;
+      html += `<div class="roadmap-capability roadmap-capability-toggle" data-capability="${capabilityAttr}" style="grid-column: 1 / span ${timelineCols + 1};"><span class="roadmap-capability-arrow">${arrow}</span><span class="roadmap-capability-index">${capIndex + 1}.</span><span>${capabilityLabelToHtml(capability)}</span><span class="roadmap-capability-count">(${capItems.length})</span></div>`;
 
       capItems.sort((a, b) => a.startKey.localeCompare(b.startKey) || a.featureId.localeCompare(b.featureId));
 
@@ -2792,16 +2813,19 @@ function renderFeatureTable(features, containerId, sprints) {
       const capabilityKey = (feature.parent_link || '').trim();
       const capabilitySummary = (feature.parent_summary || '').trim();
       const capabilityLeadingGroup = (feature.parent_leading_work_group || '').trim();
-      const capabilityBlockKey = `${capabilityKey}||${capabilitySummary}||${capabilityLeadingGroup}`;
+      const capabilityPriority = (feature.parent_priority || '').trim();
+      const capabilityBlockKey = `${capabilityKey}||${capabilitySummary}||${capabilityLeadingGroup}||${capabilityPriority}`;
       if (capabilityBlockKey !== previousCapabilityBlock) {
-        const baseLabel = capabilityKey
-          ? `${capabilityKey} — ${capabilitySummary || capabilityKey}`
-          : (capabilitySummary || 'No Capability');
-        const label = capabilityLeadingGroup ? `${baseLabel} (${capabilityLeadingGroup})` : baseLabel;
+        const label = capabilityLabelWithLeadingGroup(
+          capabilityKey,
+          capabilitySummary || capabilityKey,
+          capabilityLeadingGroup,
+          capabilityPriority
+        );
         if (capabilityKey) {
-          tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}"><a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(capabilityKey)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a></td></tr>`;
+          tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}"><a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(capabilityKey)}" target="_blank" rel="noopener noreferrer">${capabilityLabelToHtml(label)}</a></td></tr>`;
         } else {
-          tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}">${escapeHtml(label)}</td></tr>`;
+          tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}">${capabilityLabelToHtml(label)}</td></tr>`;
         }
         previousCapabilityBlock = capabilityBlockKey;
       }
@@ -2809,10 +2833,13 @@ function renderFeatureTable(features, containerId, sprints) {
 
     const rowStatus = (feature.status || "").replace(/"/g, '&quot;');
     const capabilityLeadingGroup = (feature.parent_leading_work_group || '').trim();
-    const capabilityBaseLabel = (feature.parent_link || '').trim()
-      ? `${(feature.parent_link || '').trim()} — ${((feature.parent_summary || '').trim() || (feature.parent_link || '').trim())}`
-      : (((feature.parent_summary || '').trim()) || 'No Capability');
-    const capabilityLabel = capabilityLeadingGroup ? `${capabilityBaseLabel} (${capabilityLeadingGroup})` : capabilityBaseLabel;
+    const capabilityPriority = (feature.parent_priority || '').trim();
+    const capabilityLabel = capabilityLabelWithLeadingGroup(
+      (feature.parent_link || '').trim(),
+      ((feature.parent_summary || '').trim() || (feature.parent_link || '').trim() || 'No Capability'),
+      capabilityLeadingGroup,
+      capabilityPriority
+    );
     const capabilityKeyAttr = escapeHtml((feature.parent_link || '').trim());
     tableHtml += `<tr data-status="${rowStatus}" data-capability-block="${escapeHtml(capabilityLabel)}" data-capability-key="${capabilityKeyAttr}">`;
     let colIdx = 0;
