@@ -1430,20 +1430,19 @@ function capabilityOrderStorageKey() {
 }
 
 function getCapabilityOrderMode() {
-  const el = document.getElementById("capability-order-select");
-  if (el instanceof HTMLSelectElement) {
-    const v = String(el.value || "default").trim().toLowerCase();
-    return v === "priority" ? "priority" : "default";
+  const el = document.getElementById("capability-order-priority");
+  if (el instanceof HTMLInputElement) {
+    return el.checked ? "priority" : "default";
   }
   const raw = String(localStorage.getItem(capabilityOrderStorageKey()) || "default").trim().toLowerCase();
   return raw === "priority" ? "priority" : "default";
 }
 
 function restoreCapabilityOrderMode() {
-  const el = document.getElementById("capability-order-select");
-  if (!(el instanceof HTMLSelectElement)) return;
+  const el = document.getElementById("capability-order-priority");
+  if (!(el instanceof HTMLInputElement)) return;
   const raw = String(localStorage.getItem(capabilityOrderStorageKey()) || "default").trim().toLowerCase();
-  el.value = raw === "priority" ? "priority" : "default";
+  el.checked = raw === "priority";
 }
 
 function persistCapabilityOrderMode() {
@@ -1451,13 +1450,13 @@ function persistCapabilityOrderMode() {
 }
 
 function getRoadmapShowEmptyCapabilities() {
-  const el = document.getElementById("roadmap-toggle-empty-capabilities");
+  const el = document.getElementById("roadmap-show-empty-capabilities") || document.getElementById("roadmap-toggle-empty-capabilities");
   if (el instanceof HTMLInputElement) return el.checked;
   return true;
 }
 
 function restoreRoadmapShowEmptyCapabilities() {
-  const el = document.getElementById("roadmap-toggle-empty-capabilities");
+  const el = document.getElementById("roadmap-show-empty-capabilities") || document.getElementById("roadmap-toggle-empty-capabilities");
   if (!(el instanceof HTMLInputElement)) return;
   const raw = localStorage.getItem(roadmapShowEmptyCapabilitiesStorageKey());
   if (raw === "0") el.checked = false;
@@ -2492,8 +2491,10 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
 
       const aSelected = selectedWorkGroup && extractLeadingGroup(a[0]) === selectedWorkGroup;
       const bSelected = selectedWorkGroup && extractLeadingGroup(b[0]) === selectedWorkGroup;
-      if (aSelected && !bSelected) return -1;
-      if (!aSelected && bSelected) return 1;
+      if (capabilityOrderMode !== "priority") {
+        if (aSelected && !bSelected) return -1;
+        if (!aSelected && bSelected) return 1;
+      }
 
       if (capabilityOrderMode === "priority") {
         const aPrio = capabilityPriorityByLabel.has(a[0]) ? Number(capabilityPriorityByLabel.get(a[0])) : Number.POSITIVE_INFINITY;
@@ -3434,6 +3435,24 @@ function setupBacklogStatusDropdown() {
   });
 }
 
+function setupCapabilityFilterDropdown() {
+  const toggle = document.getElementById("capabilityFilterToggle");
+  const menu = document.getElementById("capabilityFilterMenu");
+  if (!toggle || !menu || toggle.dataset.bound === "1") return;
+
+  toggle.dataset.bound = "1";
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    menu.classList.toggle("open");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!menu.classList.contains("open")) return;
+    if (menu.contains(e.target) || toggle.contains(e.target)) return;
+    menu.classList.remove("open");
+  });
+}
+
 function populateBacklogStatusFilter(data) {
   const menu = document.getElementById("statusFilterMenu");
   if (!menu) return;
@@ -4210,6 +4229,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     restoreBacklogSettings();
     restoreCapabilityOrderMode();
     setupBacklogStatusDropdown();
+    setupCapabilityFilterDropdown();
     loadBacklogData();
     document.getElementById("workGroupSelect")?.addEventListener("change", () => {
       saveBacklogSettings();
@@ -4290,7 +4310,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("backlog-refresh")?.addEventListener("click", () => {
       loadBacklogData(true);
     });
-    document.getElementById("capability-order-select")?.addEventListener("change", () => {
+    document.getElementById("capability-order-priority")?.addEventListener("change", () => {
       persistCapabilityOrderMode();
       const tableHost = document.getElementById("backlog-table");
       const rawData = tableHost?._rawBacklogData || {};
@@ -4303,6 +4323,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     restoreBacklogSettings();
     restoreCapabilityOrderMode();
     restoreRoadmapShowEmptyCapabilities();
+    setupCapabilityFilterDropdown();
     bindRoadmapCapabilitiesCounterHover();
     loadBacklogData();
     document.getElementById("workGroupSelect")?.addEventListener("change", () => {
@@ -4314,13 +4335,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       loadBacklogData();
       updateRoadmapPendingUi();
     });
-    document.getElementById("roadmap-toggle-empty-capabilities")?.addEventListener("change", () => {
+    document.getElementById("roadmap-show-empty-capabilities")?.addEventListener("change", () => {
       persistRoadmapShowEmptyCapabilities();
       const host = document.getElementById("backlog-roadmap");
       if (!host) return;
       renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
     });
-    document.getElementById("capability-order-select")?.addEventListener("change", () => {
+    document.getElementById("capability-order-priority")?.addEventListener("change", () => {
       persistCapabilityOrderMode();
       const host = document.getElementById("backlog-roadmap");
       if (!host) return;

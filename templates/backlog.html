@@ -63,11 +63,15 @@
       <div id="statusFilterMenu" class="backlog-status-menu" aria-label="Status filter"></div>
     </div>
 
-    <label for="capability-order-select">Capability order:</label>
-    <select id="capability-order-select" class="backlog-order-select" aria-label="Capability order">
-      <option value="default">Default</option>
-      <option value="priority">By capability priority</option>
-    </select>
+    <div class="backlog-status-dropdown">
+      <button id="capabilityFilterToggle" type="button" class="backlog-status-toggle">Filters / order</button>
+      <div id="capabilityFilterMenu" class="backlog-status-menu" aria-label="Capability filters and ordering">
+        <label class="backlog-status-option">
+          <input type="checkbox" id="capability-order-priority" />
+          <span>Order capabilities by priority</span>
+        </label>
+      </div>
+    </div>
 
     <div class="page-action-group">
       <button id="export-backlog-excel" class="page-export-btn">📥 Export Backlog to Excel</button>
