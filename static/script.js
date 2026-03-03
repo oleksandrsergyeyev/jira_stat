@@ -1209,6 +1209,35 @@ function restorePlanningSettings() {
 function showLoading() { const o = document.getElementById('loading-overlay'); if (o) o.style.display = 'flex'; }
 function hideLoading() { const o = document.getElementById('loading-overlay'); if (o) o.style.display = 'none'; }
 
+function updateStickyLayoutOffsets() {
+  const root = document.documentElement;
+  const menu = document.querySelector(".main-menu");
+  const filters = document.querySelector(".filters");
+  const toggles = document.getElementById("backlog-column-toggles");
+
+  const menuH = menu ? Math.ceil(menu.getBoundingClientRect().height) : 0;
+  const filtersH = filters ? Math.ceil(filters.getBoundingClientRect().height) : 0;
+  const togglesH = (toggles && toggles.offsetParent !== null)
+    ? Math.ceil(toggles.getBoundingClientRect().height)
+    : 0;
+
+  root.style.setProperty("--sticky-menu-h", `${menuH}px`);
+  root.style.setProperty("--sticky-filters-h", `${filtersH}px`);
+  root.style.setProperty("--sticky-toggles-h", `${togglesH}px`);
+}
+
+function setupStickyLayoutOffsets() {
+  updateStickyLayoutOffsets();
+  if (window.__stickyLayoutBound) return;
+  window.__stickyLayoutBound = true;
+
+  let timer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(timer);
+    timer = setTimeout(updateStickyLayoutOffsets, 80);
+  });
+}
+
 /* ========================
    PI Planning main loader
    ======================== */
@@ -2700,6 +2729,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
   bindRoadmapQsMetaHover(host);
   bindRoadmapDragAndDrop(host);
   updateRoadmapPendingUi();
+  updateStickyLayoutOffsets();
 }
 
 async function loadBacklogData(forceRefresh = false) {
@@ -3013,6 +3043,7 @@ function renderFeatureTable(features, containerId, sprints) {
   const renderedTable = container.querySelector("table");
   renumberVisibleRows(renderedTable);
   recalculateVisibleTotals(renderedTable);
+  updateStickyLayoutOffsets();
 
   // tooltips for story counts and link badges
   document.querySelectorAll('.story-badge').forEach(b => {
@@ -4186,6 +4217,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     await ensureGlobalSettingsApplied();
     restoreGlobalNavSelection();
   }
+
+  setupStickyLayoutOffsets();
 
   document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
     savePlanningSettings();
