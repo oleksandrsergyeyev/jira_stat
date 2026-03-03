@@ -1425,6 +1425,31 @@ function roadmapShowEmptyCapabilitiesStorageKey() {
   return `roadmapShowEmptyCapabilities::${getSelectedWorkGroup() || ""}`;
 }
 
+function capabilityOrderStorageKey() {
+  return `capabilityOrderMode::${getSelectedWorkGroup() || ""}`;
+}
+
+function getCapabilityOrderMode() {
+  const el = document.getElementById("capability-order-select");
+  if (el instanceof HTMLSelectElement) {
+    const v = String(el.value || "default").trim().toLowerCase();
+    return v === "priority" ? "priority" : "default";
+  }
+  const raw = String(localStorage.getItem(capabilityOrderStorageKey()) || "default").trim().toLowerCase();
+  return raw === "priority" ? "priority" : "default";
+}
+
+function restoreCapabilityOrderMode() {
+  const el = document.getElementById("capability-order-select");
+  if (!(el instanceof HTMLSelectElement)) return;
+  const raw = String(localStorage.getItem(capabilityOrderStorageKey()) || "default").trim().toLowerCase();
+  el.value = raw === "priority" ? "priority" : "default";
+}
+
+function persistCapabilityOrderMode() {
+  localStorage.setItem(capabilityOrderStorageKey(), getCapabilityOrderMode());
+}
+
 function getRoadmapShowEmptyCapabilities() {
   const el = document.getElementById("roadmap-toggle-empty-capabilities");
   if (el instanceof HTMLInputElement) return el.checked;
@@ -1917,6 +1942,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
   const capabilitiesCountEl = document.getElementById("capabilities-count");
   const hasSavedCollapseState = restoreRoadmapCollapseState();
   const showEmptyCapabilities = getRoadmapShowEmptyCapabilities();
+  const capabilityOrderMode = getCapabilityOrderMode();
 
   const entries = Object.entries(featuresObj || {});
   const capabilityItems = Array.isArray(capabilitiesList) ? capabilitiesList : [];
@@ -2202,6 +2228,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
 
   const byCapability = new Map();
   const capabilityCreatedByLabel = new Map();
+  const capabilityPriorityByLabel = new Map();
   const officialCapabilityLabels = new Set();
 
   capabilityItems.forEach((cap) => {
@@ -2212,6 +2239,10 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     const created = (cap?.created || "").trim();
     if (created && !capabilityCreatedByLabel.has(groupedLabel)) {
       capabilityCreatedByLabel.set(groupedLabel, created);
+    }
+    const rawPriority = String(cap?.priority || "").trim();
+    if (rawPriority && !capabilityPriorityByLabel.has(groupedLabel)) {
+      capabilityPriorityByLabel.set(groupedLabel, roadmapPriorityNumber(rawPriority));
     }
     officialCapabilityLabels.add(groupedLabel);
   });
@@ -2232,6 +2263,10 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     const created = (capMeta?.created || it?.feature?.parent_created || "").trim();
     if (created && !capabilityCreatedByLabel.has(groupLabel)) {
       capabilityCreatedByLabel.set(groupLabel, created);
+    }
+    if (!capabilityPriorityByLabel.has(groupLabel)) {
+      const rawPriority = String(capMeta?.priority || it?.feature?.parent_priority || "").trim();
+      if (rawPriority) capabilityPriorityByLabel.set(groupLabel, roadmapPriorityNumber(rawPriority));
     }
   });
 
@@ -2460,6 +2495,12 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
       if (aSelected && !bSelected) return -1;
       if (!aSelected && bSelected) return 1;
 
+      if (capabilityOrderMode === "priority") {
+        const aPrio = capabilityPriorityByLabel.has(a[0]) ? Number(capabilityPriorityByLabel.get(a[0])) : Number.POSITIVE_INFINITY;
+        const bPrio = capabilityPriorityByLabel.has(b[0]) ? Number(capabilityPriorityByLabel.get(b[0])) : Number.POSITIVE_INFINITY;
+        if (aPrio !== bPrio) return aPrio - bPrio;
+      }
+
       const parseCreatedMs = (label) => {
         const raw = capabilityCreatedByLabel.get(label);
         if (!raw) return Number.POSITIVE_INFINITY;
@@ -2492,7 +2533,12 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
       const arrow = isCollapsed ? "▶" : "▼";
       html += `<div class="roadmap-capability roadmap-capability-toggle" data-capability="${capabilityAttr}" style="grid-column: 1 / span ${timelineCols + 1};"><span class="roadmap-capability-arrow">${arrow}</span><span class="roadmap-capability-index">${capIndex + 1}.</span><span>${capabilityLabelToHtml(capability)}</span><span class="roadmap-capability-count">(${capItems.length})</span></div>`;
 
-      capItems.sort((a, b) => a.startKey.localeCompare(b.startKey) || a.featureId.localeCompare(b.featureId));
+      capItems.sort((a, b) => {
+        const pa = roadmapPriorityNumber(a?.effectivePriority);
+        const pb = roadmapPriorityNumber(b?.effectivePriority);
+        if (pa !== pb) return pa - pb;
+        return a.featureId.localeCompare(b.featureId);
+      });
 
       if (isCollapsed) {
         const activeSlots = Array(timelineCols).fill(false);
@@ -2671,6 +2717,9 @@ async function loadBacklogData(forceRefresh = false) {
       loadRoadmapCapacityByFixVersion(workGroup, forceRefresh),
     ]);
 
+    const backlogTableHost = document.getElementById("backlog-table");
+    if (backlogTableHost) backlogTableHost._rawBacklogData = data;
+
     renderBacklogRoadmap(data, capabilities, roadmapCapacityByFixVersion);
     populateBacklogStatusFilter(data);
 
@@ -2747,6 +2796,7 @@ function renderFeatureTable(features, containerId, sprints) {
   const isCommittedTable = containerId === 'committed-table';
   const isCapabilityGroupedTable = isBacklogTable || isCommittedTable;
   const includeBacklogFixVersionColumn = isBacklogTable;
+  const capabilityOrderMode = getCapabilityOrderMode();
 
   const renderedFeatures = isCapabilityGroupedTable
     ? [...(Array.isArray(features) ? features : [])].sort((a, b) => {
@@ -2757,8 +2807,22 @@ function renderFeatureTable(features, containerId, sprints) {
         const aHasCapability = capabilityA.length > 0;
         const bHasCapability = capabilityB.length > 0;
         if (aHasCapability !== bHasCapability) return aHasCapability ? -1 : 1;
-        const byCapability = capabilityA.localeCompare(capabilityB);
+
+        let byCapability = 0;
+        if (isBacklogTable && capabilityOrderMode === "priority") {
+          const capPrioA = String(featureA.parent_priority || "").trim();
+          const capPrioB = String(featureB.parent_priority || "").trim();
+          const capPrioNumA = capPrioA ? roadmapPriorityNumber(capPrioA) : Number.POSITIVE_INFINITY;
+          const capPrioNumB = capPrioB ? roadmapPriorityNumber(capPrioB) : Number.POSITIVE_INFINITY;
+          if (capPrioNumA !== capPrioNumB) byCapability = capPrioNumA - capPrioNumB;
+        }
+        if (byCapability === 0) byCapability = capabilityA.localeCompare(capabilityB);
         if (byCapability !== 0) return byCapability;
+
+        const featurePrioA = roadmapPriorityNumber(featureA.priority);
+        const featurePrioB = roadmapPriorityNumber(featureB.priority);
+        if (featurePrioA !== featurePrioB) return featurePrioA - featurePrioB;
+
         return String(a?.[0] || '').localeCompare(String(b?.[0] || ''));
       })
     : features;
@@ -4144,9 +4208,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (isBacklog) {
     restoreBacklogSettings();
+    restoreCapabilityOrderMode();
     setupBacklogStatusDropdown();
     loadBacklogData();
-    document.getElementById("workGroupSelect")?.addEventListener("change", () => { saveBacklogSettings(); loadBacklogData(); });
+    document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+      saveBacklogSettings();
+      restoreCapabilityOrderMode();
+      loadBacklogData();
+    });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
     document.getElementById("export-backlog-excel")?.addEventListener("click", async function () {
       const wg = getSelectedWorkGroup();
@@ -4221,15 +4290,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("backlog-refresh")?.addEventListener("click", () => {
       loadBacklogData(true);
     });
+    document.getElementById("capability-order-select")?.addEventListener("change", () => {
+      persistCapabilityOrderMode();
+      const tableHost = document.getElementById("backlog-table");
+      const rawData = tableHost?._rawBacklogData || {};
+      renderFeatureTable(Object.entries(rawData), "backlog-table", []);
+      applyFilter();
+    });
   }
 
   if (isRoadmap) {
     restoreBacklogSettings();
+    restoreCapabilityOrderMode();
     restoreRoadmapShowEmptyCapabilities();
     bindRoadmapCapabilitiesCounterHover();
     loadBacklogData();
     document.getElementById("workGroupSelect")?.addEventListener("change", () => {
       saveBacklogSettings();
+      restoreCapabilityOrderMode();
       persistRoadmapShowEmptyCapabilities();
       restoreRoadmapShowEmptyCapabilities();
       roadmapTeammatesByScope.clear();
@@ -4238,6 +4316,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     document.getElementById("roadmap-toggle-empty-capabilities")?.addEventListener("change", () => {
       persistRoadmapShowEmptyCapabilities();
+      const host = document.getElementById("backlog-roadmap");
+      if (!host) return;
+      renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
+    });
+    document.getElementById("capability-order-select")?.addEventListener("change", () => {
+      persistCapabilityOrderMode();
       const host = document.getElementById("backlog-roadmap");
       if (!host) return;
       renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
