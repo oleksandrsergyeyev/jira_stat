@@ -1454,6 +1454,10 @@ function roadmapShowEmptyCapabilitiesStorageKey() {
   return `roadmapShowEmptyCapabilities::${getSelectedWorkGroup() || ""}`;
 }
 
+function roadmapQsFilterStorageKey() {
+  return `roadmapQsFilter::${getSelectedWorkGroup() || ""}`;
+}
+
 function capabilityOrderStorageKey() {
   return `capabilityOrderMode::${getSelectedWorkGroup() || ""}`;
 }
@@ -1494,6 +1498,59 @@ function restoreRoadmapShowEmptyCapabilities() {
 
 function persistRoadmapShowEmptyCapabilities() {
   localStorage.setItem(roadmapShowEmptyCapabilitiesStorageKey(), getRoadmapShowEmptyCapabilities() ? "1" : "0");
+}
+
+function getRoadmapQsFilter() {
+  const el = document.getElementById("roadmap-qs-filter");
+  if (el instanceof HTMLSelectElement) return String(el.value || "").trim();
+  return String(localStorage.getItem(roadmapQsFilterStorageKey()) || "").trim();
+}
+
+function restoreRoadmapQsFilter() {
+  const el = document.getElementById("roadmap-qs-filter");
+  if (!(el instanceof HTMLSelectElement)) return;
+  const saved = String(localStorage.getItem(roadmapQsFilterStorageKey()) || "").trim();
+  el.dataset.pendingValue = saved;
+}
+
+function persistRoadmapQsFilter() {
+  localStorage.setItem(roadmapQsFilterStorageKey(), getRoadmapQsFilter());
+}
+
+function syncRoadmapQsFilterOptions(qsValues = []) {
+  const el = document.getElementById("roadmap-qs-filter");
+  if (!(el instanceof HTMLSelectElement)) return "";
+
+  const wanted = new Set((Array.isArray(qsValues) ? qsValues : []).map(v => String(v || "").trim()).filter(Boolean));
+  const pending = String(el.dataset.pendingValue || "").trim();
+  const current = String(el.value || "").trim();
+  const saved = String(localStorage.getItem(roadmapQsFilterStorageKey()) || "").trim();
+  const preferred = pending || current || saved;
+
+  el.innerHTML = "";
+  const allOpt = document.createElement("option");
+  allOpt.value = "";
+  allOpt.textContent = "All";
+  el.appendChild(allOpt);
+
+  const ordered = Array.from(wanted).sort((a, b) => {
+    const ma = a.match(/^QS_(\d{2})w(\d{2})$/i);
+    const mb = b.match(/^QS_(\d{2})w(\d{2})$/i);
+    const ra = ma ? (2000 + Number(ma[1])) * 100 + Number(ma[2]) : Number.MAX_SAFE_INTEGER;
+    const rb = mb ? (2000 + Number(mb[1])) * 100 + Number(mb[2]) : Number.MAX_SAFE_INTEGER;
+    return ra - rb;
+  });
+
+  ordered.forEach((qs) => {
+    const opt = document.createElement("option");
+    opt.value = qs;
+    opt.textContent = qs;
+    el.appendChild(opt);
+  });
+
+  el.value = wanted.has(preferred) ? preferred : "";
+  el.dataset.pendingValue = "";
+  return String(el.value || "").trim();
 }
 
 function ensureRoadmapCapabilitiesTooltip() {
@@ -1991,6 +2048,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
   }
 
   const items = [];
+  const availableQsSet = new Set();
   const qsLoadByFixVersion = new Map();
   const qsLoadByFixVersionByAssignee = new Map();
   const pendingMoves = roadmapPendingMoves();
@@ -2058,6 +2116,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     if (!slot.isFuture) {
       const slotFixVersion = qsFixVersionFromWeekKey(slot.startKey);
       if (slotFixVersion) {
+        availableQsSet.add(slotFixVersion);
         const current = Number(qsLoadByFixVersion.get(slotFixVersion) || 0);
         const featureLoad = Number(effectiveStoryPoints || 0);
         qsLoadByFixVersion.set(slotFixVersion, current + (Number.isFinite(featureLoad) ? featureLoad : 0));
@@ -2074,6 +2133,15 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
       }
     }
   }
+
+  const selectedQsFilter = syncRoadmapQsFilterOptions(Array.from(availableQsSet));
+  const visibleItems = selectedQsFilter
+    ? items.filter((it) => {
+        if (it?.isFuture) return false;
+        const fv = qsFixVersionFromWeekKey(it?.startKey);
+        return String(fv || "").trim() === selectedQsFilter;
+      })
+    : items;
 
   const qsFixVersionRank = (fixVersion) => {
     const m = String(fixVersion || "").trim().match(/^QS_(\d{2})w(\d{2})$/i);
@@ -2163,8 +2231,8 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     return `${escapeHtml(label)}<span class="roadmap-qs-meta ${levelClass}${hasBreakdownClass}"${breakdownAttr}>Load: ${escapeHtml(formatCapacityValue(load))} / Cap: ${escapeHtml(formatCapacityValue(plannedCapacity))}(${escapeHtml(formatCapacityValue(fullCapacity))})</span>`;
   };
 
-  const datedItems = items.filter(i => !i.isFuture);
-  const hasFutureItems = items.some(i => i.isFuture);
+  const datedItems = visibleItems.filter(i => !i.isFuture);
+  const hasFutureItems = visibleItems.some(i => i.isFuture);
   const currentYear = new Date().getFullYear();
   const previousYearQsStart = makeWeekKey(currentYear - 1, 49);
   const currentYearStart = makeWeekKey(currentYear, 1);
@@ -2275,7 +2343,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     officialCapabilityLabels.add(groupedLabel);
   });
 
-  items.forEach(it => {
+  visibleItems.forEach(it => {
     const capKey = (it.capabilityKey || "").trim();
     const capMeta = capKey ? capabilityMetaByKey.get(capKey) : null;
     const featureSummary = (it.feature?.parent_summary || capKey || "No Capability").trim();
@@ -2319,7 +2387,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
       officialKeys.add(capKey);
     });
 
-    items.forEach((it) => {
+    visibleItems.forEach((it) => {
       const capKey = (it?.capabilityKey || "").trim();
       if (!capKey) return;
       const capMeta = capabilityMetaByKey.get(capKey);
@@ -2556,6 +2624,7 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
     ? capabilityEntries
     : capabilityEntries.filter(([, capItems]) => Array.isArray(capItems) && capItems.length > 0);
 
+  let featureDisplayIndex = 1;
   visibleCapabilityEntries
     .forEach(([capability, capItems], capIndex) => {
       const isCollapsed = roadmapCollapsedCapabilities.has(capability);
@@ -2630,7 +2699,8 @@ function renderBacklogRoadmap(featuresObj, capabilitiesList = [], roadmapCapacit
         });
 
         const label = `${item.featureId} — ${item.feature?.summary || ""}`;
-        html += `<div class="roadmap-feature-col" data-feature-row="${escapeHtml(item.featureId)}" title="${escapeHtml(label)}"><a href="https://jira-vira.volvocars.biz/browse/${encodeURIComponent(item.featureId)}" target="_blank">${escapeHtml(item.featureId)}</a> ${escapeHtml(item.feature?.summary || "")}</div>`;
+        html += `<div class="roadmap-feature-col" data-feature-row="${escapeHtml(item.featureId)}" title="${escapeHtml(label)}"><span class="roadmap-feature-index">${featureDisplayIndex}.</span> <a href="https://jira-vira.volvocars.biz/browse/${encodeURIComponent(item.featureId)}" target="_blank">${escapeHtml(item.featureId)}</a> ${escapeHtml(item.feature?.summary || "")}</div>`;
+        featureDisplayIndex += 1;
         let idx = 0;
         while (idx < timelineCols) {
           if (!activeSlots[idx]) {
@@ -4356,6 +4426,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     restoreBacklogSettings();
     restoreCapabilityOrderMode();
     restoreRoadmapShowEmptyCapabilities();
+    restoreRoadmapQsFilter();
     setupCapabilityFilterDropdown();
     bindRoadmapCapabilitiesCounterHover();
     loadBacklogData();
@@ -4364,6 +4435,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       restoreCapabilityOrderMode();
       persistRoadmapShowEmptyCapabilities();
       restoreRoadmapShowEmptyCapabilities();
+      restoreRoadmapQsFilter();
       roadmapTeammatesByScope.clear();
       loadBacklogData();
       updateRoadmapPendingUi();
@@ -4376,6 +4448,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     document.getElementById("capability-order-priority")?.addEventListener("change", () => {
       persistCapabilityOrderMode();
+      const host = document.getElementById("backlog-roadmap");
+      if (!host) return;
+      renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});
+    });
+    document.getElementById("roadmap-qs-filter")?.addEventListener("change", () => {
+      persistRoadmapQsFilter();
       const host = document.getElementById("backlog-roadmap");
       if (!host) return;
       renderBacklogRoadmap(host._roadmapData || {}, host._capabilitiesData || [], host._roadmapCapacityByFixVersion || {});

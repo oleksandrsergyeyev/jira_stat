@@ -535,6 +535,12 @@ h1 { margin-bottom: 20px; }
   background: #fff;
 }
 
+.roadmap-feature-index {
+  color: #5d7394;
+  font-weight: 700;
+  margin-right: 2px;
+}
+
 .roadmap-capability {
   background: #eaf1fc;
   border: 1px solid #d6e3f7;
@@ -1156,6 +1162,22 @@ h1 { margin-bottom: 20px; }
   margin-bottom: 4px;
   padding-bottom: 8px;
   font-weight: 600;
+}
+
+.roadmap-qs-filter-option {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.roadmap-qs-filter-select {
+  min-width: 120px;
+  max-width: 160px;
+  padding: 3px 6px;
+  border: 1px solid #cfd5dd;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #2f3a48;
+  font-size: 12px;
 }
 
 /* Chart */
