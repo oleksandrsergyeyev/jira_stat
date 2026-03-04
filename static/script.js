@@ -1758,6 +1758,18 @@ function setPlanningLoadMode(mode) {
   localStorage.setItem(planningLoadModeStorageKey(), safe);
 }
 
+function collapseAllCommittedStories() {
+  const tableHost = document.getElementById('committed-table');
+  const featureIds = (Array.isArray(tableHost?._features) ? tableHost._features : [])
+    .map((row) => String(row?.[0] || '').trim())
+    .filter(Boolean);
+  committedCollapsedFeatures = new Set(featureIds);
+  persistCommittedTreeCollapseState();
+  const nextSprints = Array.isArray(tableHost?._treeSprints) ? tableHost._treeSprints : [];
+  window._rerenderFeatureTable('committed-table', nextSprints);
+  applyFilter();
+}
+
 function planningAssignedByStories(rows) {
   const assignedByPerson = new Map();
   rows.forEach(([, feature]) => {
@@ -5116,6 +5128,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("fixVersionSelect")?.addEventListener("change", () => { savePlanningSettings(); loadPIPlanningData(); });
     document.getElementById("workGroupSelect")?.addEventListener("change", () => { savePlanningSettings(); loadPIPlanningData(); });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
+    document.getElementById("pi-collapse-all-stories")?.addEventListener("click", collapseAllCommittedStories);
 
     document.getElementById("export-committed-excel")?.addEventListener("click", function () {
       const fv = getSelectedFixVersion();

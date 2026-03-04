@@ -1382,6 +1382,20 @@ th.desc::after { content: " ▼"; }
   align-items: center;
   margin-top: 14px;
 }
+
+.section-header > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pi-section-title {
+  margin: 0;
+  font-size: 16px;
+  color: #1f4f8b;
+  font-weight: 700;
+}
+
 .collapse-btn {
   font-size: 13px;
   padding: 6px 12px;
@@ -1460,6 +1474,29 @@ th.desc::after { content: " ▼"; }
   border-color: #1f62be;
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(31, 98, 190, 0.35);
+}
+
+.pi-load-tree-btn {
+  border: 1px solid #c8d7ee;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #274b7a;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pi-load-tree-btn:hover {
+  border-color: #9eb8de;
+  box-shadow: 0 2px 8px rgba(39, 75, 122, 0.16);
+}
+
+.pi-load-tree-btn:focus {
+  outline: none;
+  border-color: #5e8fce;
+  box-shadow: 0 0 0 3px rgba(94, 143, 206, 0.24);
 }
 
 .pi-capacity-summary-totals {
