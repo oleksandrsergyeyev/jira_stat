@@ -1310,6 +1310,47 @@ th.desc::after { content: " ▼"; }
   border-bottom: 1px solid #d7e5f8;
 }
 
+.committed-cap-toggle,
+.committed-feature-toggle {
+  border: 1px solid #b9cceb;
+  background: #ffffff;
+  color: #1f4f8b;
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  line-height: 18px;
+  padding: 0;
+  margin-right: 6px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.committed-feature-toggle {
+  width: 18px;
+  height: 18px;
+  line-height: 16px;
+  margin-right: 5px;
+}
+
+.committed-story-row td {
+  background: #fbfdff;
+  color: #364a67;
+}
+
+.committed-story-id {
+  padding-left: 14px;
+}
+
+.committed-story-name {
+  font-style: italic;
+  color: #4f6381;
+}
+
+.committed-story-sprint {
+  color: #2f75d6;
+  font-weight: 700;
+}
+
 .one-line-cell {
   max-width: 120px;
   white-space: nowrap !important;

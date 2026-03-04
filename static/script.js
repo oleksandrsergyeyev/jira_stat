@@ -10,6 +10,115 @@ let roadmapCollapsedYears = new Set();
 let roadmapPendingMovesByWorkGroup = new Map();
 let roadmapTeammatesByScope = new Map();
 let appSettingsCache = null;
+let committedCollapsedCapabilities = new Set();
+let committedCollapsedFeatures = new Set();
+
+function committedCapabilityCollapseStorageKey() {
+  return `committedCollapsedCapabilities::${getSelectedWorkGroup() || ""}::${getSelectedFixVersion() || ""}`;
+}
+
+function committedFeatureCollapseStorageKey() {
+  return `committedCollapsedFeatures::${getSelectedWorkGroup() || ""}::${getSelectedFixVersion() || ""}`;
+}
+
+function restoreCommittedTreeCollapseState() {
+  try {
+    const rawCaps = localStorage.getItem(committedCapabilityCollapseStorageKey());
+    const rawFeatures = localStorage.getItem(committedFeatureCollapseStorageKey());
+    const capArr = rawCaps ? JSON.parse(rawCaps) : [];
+    const featureArr = rawFeatures ? JSON.parse(rawFeatures) : [];
+    committedCollapsedCapabilities = new Set(Array.isArray(capArr) ? capArr.map(String) : []);
+    committedCollapsedFeatures = new Set(Array.isArray(featureArr) ? featureArr.map(String) : []);
+  } catch {
+    committedCollapsedCapabilities = new Set();
+    committedCollapsedFeatures = new Set();
+  }
+}
+
+function persistCommittedTreeCollapseState() {
+  try {
+    localStorage.setItem(
+      committedCapabilityCollapseStorageKey(),
+      JSON.stringify(Array.from(committedCollapsedCapabilities))
+    );
+    localStorage.setItem(
+      committedFeatureCollapseStorageKey(),
+      JSON.stringify(Array.from(committedCollapsedFeatures))
+    );
+  } catch {
+    // ignore storage issues
+  }
+}
+
+function updateCommittedCapabilityRowVisibility(table) {
+  if (!(table instanceof HTMLTableElement) || !table.closest('#committed-table')) return;
+  const rows = Array.from(table.querySelectorAll('tbody tr'));
+  rows.forEach((row, index) => {
+    if (String(row.getAttribute('data-row-kind') || '') !== 'capability') return;
+    const capId = String(row.getAttribute('data-capability-id') || '').trim();
+    if (capId && committedCollapsedCapabilities.has(capId)) {
+      row.style.display = '';
+      return;
+    }
+    let hasVisibleFeature = false;
+    for (let i = index + 1; i < rows.length; i += 1) {
+      const next = rows[i];
+      const nextKind = String(next.getAttribute('data-row-kind') || '');
+      if (nextKind === 'capability') break;
+      if (nextKind !== 'feature') continue;
+      if (next.style.display !== 'none') {
+        hasVisibleFeature = true;
+        break;
+      }
+    }
+    row.style.display = hasVisibleFeature ? '' : 'none';
+  });
+}
+
+function applyCommittedTreeVisibility(table) {
+  if (!(table instanceof HTMLTableElement) || !table.closest('#committed-table')) return;
+  const rows = Array.from(table.querySelectorAll('tbody tr'));
+  let currentCapabilityCollapsed = false;
+  let currentFeatureCollapsed = false;
+  let currentFeatureVisible = false;
+
+  rows.forEach((row) => {
+    const rowKind = String(row.getAttribute('data-row-kind') || '');
+    if (rowKind === 'capability') {
+      const capId = String(row.getAttribute('data-capability-id') || '');
+      currentCapabilityCollapsed = !!capId && committedCollapsedCapabilities.has(capId);
+      currentFeatureCollapsed = false;
+      currentFeatureVisible = false;
+      const arrow = row.querySelector('.committed-cap-toggle');
+      if (arrow) arrow.textContent = currentCapabilityCollapsed ? '▶' : '▼';
+      return;
+    }
+
+    if (rowKind === 'feature') {
+      const featureId = String(row.getAttribute('data-feature-id') || '');
+      currentFeatureCollapsed = !!featureId && committedCollapsedFeatures.has(featureId);
+      const arrow = row.querySelector('.committed-feature-toggle');
+      if (arrow) arrow.textContent = currentFeatureCollapsed ? '▶' : '▼';
+
+      const hiddenByFilter = row.style.display === 'none';
+      if (currentCapabilityCollapsed || hiddenByFilter) {
+        row.style.display = 'none';
+        currentFeatureVisible = false;
+      } else {
+        row.style.display = '';
+        currentFeatureVisible = true;
+      }
+      return;
+    }
+
+    if (rowKind === 'story') {
+      const shouldHide = currentCapabilityCollapsed || !currentFeatureVisible || currentFeatureCollapsed;
+      row.style.display = shouldHide ? 'none' : '';
+    }
+  });
+
+  updateCommittedCapabilityRowVisibility(table);
+}
 
 function backlogColumnFilterStorageKey() {
   return `backlogColumnFilters::${getSelectedWorkGroup() || ""}`;
@@ -1281,12 +1390,15 @@ function applyFilter() {
 
     const rows = Array.from(table.querySelectorAll("tbody tr"));
     rows.forEach((row) => {
+      const rowKind = String(row.getAttribute("data-row-kind") || "");
+      if (rowKind === "story") return;
       if (row.classList.contains("capability-block-row")) return;
       if (row.classList.contains("totals-row")) {
         row.style.display = "";
         return;
       }
-      const matchesText = row.innerText.toLowerCase().includes(filter);
+      const storySearch = String(row.getAttribute("data-story-search") || "").toLowerCase();
+      const matchesText = row.innerText.toLowerCase().includes(filter) || (!!filter && storySearch.includes(filter));
       const rowStatus = (row.getAttribute("data-status") || "").toLowerCase();
       const matchesStatus = !hasBacklogStatusFilter || selectedStatuses.has(rowStatus);
 
@@ -1323,6 +1435,8 @@ function applyFilter() {
       });
     }
 
+    applyCommittedTreeVisibility(table);
+
     renumberVisibleRows(table);
     recalculateVisibleTotals(table);
   });
@@ -1344,6 +1458,8 @@ function recalculateVisibleTotals(table) {
   const rows = Array.from(table.querySelectorAll("tbody tr"));
   rows.forEach((row) => {
     if (!(row instanceof HTMLTableRowElement)) return;
+    const rowKind = String(row.getAttribute("data-row-kind") || "");
+    if (rowKind === "story") return;
     if (row.classList.contains("totals-row") || row.classList.contains("capability-block-row")) return;
     if (row.style.display === "none") return;
 
@@ -1368,6 +1484,8 @@ function renumberVisibleRows(table) {
   const rows = Array.from(table.querySelectorAll("tbody tr"));
   let next = 1;
   rows.forEach(row => {
+    const rowKind = String(row.getAttribute("data-row-kind") || "");
+    if (rowKind === "story") return;
     if (row.classList.contains("totals-row") || row.classList.contains("capability-block-row")) return;
     const numCell = row.querySelector("td.col-rownum");
     if (!numCell) return;
@@ -1381,8 +1499,21 @@ function sortTable(header) {
   const tbody = table.querySelector("tbody");
   const index = Array.from(header.parentNode.children).indexOf(header);
   const rows = Array.from(tbody.querySelectorAll("tr"));
+  const storyRowsByFeature = new Map();
+  rows.forEach((row) => {
+    const kind = String(row.getAttribute("data-row-kind") || "");
+    if (kind !== "story") return;
+    const parentFeatureId = String(row.getAttribute("data-parent-feature-id") || "").trim();
+    if (!parentFeatureId) return;
+    if (!storyRowsByFeature.has(parentFeatureId)) storyRowsByFeature.set(parentFeatureId, []);
+    storyRowsByFeature.get(parentFeatureId).push(row);
+  });
   const totalsRows = rows.filter(r => r.classList.contains("totals-row"));
-  const sortableRows = rows.filter(r => !r.classList.contains("totals-row") && !r.classList.contains("capability-block-row"));
+  const sortableRows = rows.filter((r) => {
+    const kind = String(r.getAttribute("data-row-kind") || "");
+    if (kind === "story") return false;
+    return !r.classList.contains("totals-row") && !r.classList.contains("capability-block-row");
+  });
   const ascending = !header.classList.contains("asc");
   const isCapabilityGroupedTable = table.classList.contains("capability-grouped-table");
 
@@ -1398,11 +1529,24 @@ function sortTable(header) {
     sortableRows.forEach((row) => {
       const capability = String(row.getAttribute("data-capability-block") || "No Capability");
       const capabilityKey = String(row.getAttribute("data-capability-key") || "").trim();
+      const capabilityId = String(row.getAttribute("data-capability-id") || capability || "").trim();
       if (capability !== previousCapability) {
         const blockRow = document.createElement("tr");
         blockRow.className = "capability-block-row";
+        blockRow.setAttribute("data-row-kind", "capability");
+        blockRow.setAttribute("data-capability-id", capabilityId);
         const blockCell = document.createElement("td");
         blockCell.colSpan = Math.max(1, header.parentNode.children.length);
+        const isCommittedTable = !!table.closest("#committed-table");
+        if (isCommittedTable) {
+          const arrow = document.createElement("button");
+          arrow.type = "button";
+          arrow.className = "committed-cap-toggle";
+          arrow.setAttribute("data-capability-id", capabilityId);
+          arrow.textContent = "▼";
+          arrow.title = "Collapse/expand capability";
+          blockCell.appendChild(arrow);
+        }
         if (capabilityKey) {
           const link = document.createElement("a");
           link.href = `https://jira-vira.volvocars.biz/browse/${capabilityKey}`;
@@ -1418,13 +1562,22 @@ function sortTable(header) {
         previousCapability = capability;
       }
       tbody.appendChild(row);
+      const featureId = String(row.getAttribute("data-feature-id") || "").trim();
+      const storyRows = storyRowsByFeature.get(featureId) || [];
+      storyRows.forEach((storyRow) => tbody.appendChild(storyRow));
     });
   } else {
-    sortableRows.forEach(row => tbody.appendChild(row));
+    sortableRows.forEach((row) => {
+      tbody.appendChild(row);
+      const featureId = String(row.getAttribute("data-feature-id") || "").trim();
+      const storyRows = storyRowsByFeature.get(featureId) || [];
+      storyRows.forEach((storyRow) => tbody.appendChild(storyRow));
+    });
   }
   totalsRows.forEach(row => tbody.appendChild(row));
   table.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
   header.classList.add(ascending ? "asc" : "desc");
+  applyCommittedTreeVisibility(table);
   renumberVisibleRows(table);
   recalculateVisibleTotals(table);
 }
@@ -3329,12 +3482,14 @@ window._rerenderFeatureTable = function(containerId, sprints) {
 function renderFeatureTable(features, containerId, sprints) {
   const container = document.getElementById(containerId);
   if (!container) return;
+  container._treeSprints = Array.isArray(sprints) ? [...sprints] : [];
 
   const isBacklogTable = containerId === 'backlog-table' && (!Array.isArray(sprints) || sprints.length === 0);
   const isCommittedTable = containerId === 'committed-table';
   const isCapabilityGroupedTable = isBacklogTable || isCommittedTable;
   const includeBacklogFixVersionColumn = isBacklogTable;
   const capabilityOrderMode = getCapabilityOrderMode();
+  if (isCommittedTable) restoreCommittedTreeCollapseState();
 
   const renderedFeatures = isCapabilityGroupedTable
     ? [...(Array.isArray(features) ? features : [])].sort((a, b) => {
@@ -3364,6 +3519,18 @@ function renderFeatureTable(features, containerId, sprints) {
         return String(a?.[0] || '').localeCompare(String(b?.[0] || ''));
       })
     : features;
+
+  if (isCommittedTable) {
+    const hasSavedFeatureCollapseState = localStorage.getItem(committedFeatureCollapseStorageKey()) != null;
+    if (!hasSavedFeatureCollapseState) {
+      committedCollapsedFeatures = new Set(
+        (Array.isArray(renderedFeatures) ? renderedFeatures : [])
+          .map((row) => String(row?.[0] || '').trim())
+          .filter(Boolean)
+      );
+      persistCommittedTreeCollapseState();
+    }
+  }
 
   container._features = renderedFeatures;
   renderColumnToggles(containerId, sprints);
@@ -3443,10 +3610,19 @@ function renderFeatureTable(features, containerId, sprints) {
           capabilityLeadingGroup,
           capabilityPriority
         );
+        const capabilityStableId = capabilityKey || label;
         if (capabilityKey) {
-          tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}"><a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(capabilityKey)}" target="_blank" rel="noopener noreferrer">${capabilityLabelToHtml(label)}</a></td></tr>`;
+          if (isCommittedTable) {
+            tableHtml += `<tr class="capability-block-row" data-row-kind="capability" data-capability-id="${escapeHtml(capabilityStableId)}"><td colspan="${visibleColumnCount}"><button type="button" class="committed-cap-toggle" data-capability-id="${escapeHtml(capabilityStableId)}" title="Collapse/expand capability">▼</button><a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(capabilityKey)}" target="_blank" rel="noopener noreferrer">${capabilityLabelToHtml(label)}</a></td></tr>`;
+          } else {
+            tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}"><a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(capabilityKey)}" target="_blank" rel="noopener noreferrer">${capabilityLabelToHtml(label)}</a></td></tr>`;
+          }
         } else {
-          tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}">${capabilityLabelToHtml(label)}</td></tr>`;
+          if (isCommittedTable) {
+            tableHtml += `<tr class="capability-block-row" data-row-kind="capability" data-capability-id="${escapeHtml(capabilityStableId)}"><td colspan="${visibleColumnCount}"><button type="button" class="committed-cap-toggle" data-capability-id="${escapeHtml(capabilityStableId)}" title="Collapse/expand capability">▼</button>${capabilityLabelToHtml(label)}</td></tr>`;
+          } else {
+            tableHtml += `<tr class="capability-block-row"><td colspan="${visibleColumnCount}">${capabilityLabelToHtml(label)}</td></tr>`;
+          }
         }
         previousCapabilityBlock = capabilityBlockKey;
       }
@@ -3461,8 +3637,11 @@ function renderFeatureTable(features, containerId, sprints) {
       capabilityLeadingGroup,
       capabilityPriority
     );
+    const capabilityStableId = (feature.parent_link || '').trim() || capabilityLabel;
     const capabilityKeyAttr = escapeHtml((feature.parent_link || '').trim());
-    tableHtml += `<tr data-status="${rowStatus}" data-capability-block="${escapeHtml(capabilityLabel)}" data-capability-key="${capabilityKeyAttr}">`;
+    const storiesDetail = Array.isArray(feature.stories_detail) ? feature.stories_detail : [];
+    const storySearchTokens = storiesDetail.map((story) => String(story?.key || '').trim()).filter(Boolean).join(' ').toLowerCase();
+    tableHtml += `<tr data-row-kind="feature" data-feature-id="${escapeHtml(featureId)}" data-status="${rowStatus}" data-capability-id="${escapeHtml(capabilityStableId)}" data-capability-block="${escapeHtml(capabilityLabel)}" data-capability-key="${capabilityKeyAttr}" data-story-search="${escapeHtml(storySearchTokens)}">`;
     let colIdx = 0;
 
     if (!hidden.has(colIdx++)) tableHtml += `<td class="col-rownum">${rowIndex}</td>`;
@@ -3474,8 +3653,12 @@ function renderFeatureTable(features, containerId, sprints) {
     }
     if (!hidden.has(colIdx++))
       tableHtml += `<td class="col-feature-id"><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${featureId}</a></td>`;
-    if (!hidden.has(colIdx++))
-      tableHtml += `<td class="col-feature-name"><a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>`;
+    if (!hidden.has(colIdx++)) {
+      const treeToggle = isCommittedTable
+        ? `<button type="button" class="committed-feature-toggle" data-feature-id="${escapeHtml(featureId)}" title="Collapse/expand stories">▼</button>`
+        : "";
+      tableHtml += `<td class="col-feature-name">${treeToggle}<a href="https://jira-vira.volvocars.biz/browse/${featureId}" target="_blank">${feature.summary}</a></td>`;
+    }
     if (!hidden.has(colIdx++)) {
       let sp = feature.story_points ?? "";
       if (sp && !isNaN(Number(sp))) sp = parseFloat(sp);
@@ -3532,6 +3715,60 @@ function renderFeatureTable(features, containerId, sprints) {
     }
 
     tableHtml += '</tr>';
+
+    if (isCommittedTable) {
+      const storySprintMap = new Map();
+      sprints.forEach((sprintName) => {
+        const arr = Array.isArray(feature?.sprints?.[sprintName]) ? feature.sprints[sprintName] : [];
+        arr.forEach((storyKey) => {
+          const key = String(storyKey || '').trim();
+          if (!key) return;
+          if (!storySprintMap.has(key)) storySprintMap.set(key, new Set());
+          storySprintMap.get(key).add(sprintName);
+        });
+      });
+
+      const sortedStories = [...storiesDetail]
+        .filter((story) => String(story?.key || '').trim())
+        .sort((a, b) => String(a?.key || '').localeCompare(String(b?.key || '')));
+
+      sortedStories.forEach((story) => {
+        const storyKey = String(story?.key || '').trim();
+        const storySp = Number(story?.story_points || 0);
+        const storySpText = Number.isFinite(storySp)
+          ? (Number.isInteger(storySp) ? String(storySp) : storySp.toFixed(1))
+          : "";
+        const storyAssignee = String(story?.assignee || '').trim();
+        const storyStatus = String(story?.status || '').trim();
+        const storySprints = storySprintMap.get(storyKey) || new Set();
+
+        tableHtml += `<tr class="committed-story-row" data-row-kind="story" data-parent-feature-id="${escapeHtml(featureId)}" data-capability-id="${escapeHtml(capabilityStableId)}" data-status="${escapeHtml(storyStatus)}">`;
+        let storyColIdx = 0;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-rownum"></td>`;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-capability"></td>`;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-feature-id committed-story-id"><a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(storyKey)}" target="_blank">↳ ${escapeHtml(storyKey)}</a></td>`;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-feature-name committed-story-name">Story</td>`;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-story-points">${escapeHtml(storySpText)}</td>`;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-story-points"></td>`;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-assignee">${escapeHtml(storyAssignee)}</td>`;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-reporter"></td>`;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-priority"></td>`;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-status">${escapeHtml(storyStatus)}</td>`;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-pi-scope"></td>`;
+        if (!hidden.has(storyColIdx++)) tableHtml += `<td class="col-links"></td>`;
+
+        sprints.forEach((sprintName, sprintIdx) => {
+          if (!hidden.has(piPlanningColumns.length + sprintIdx)) {
+            tableHtml += storySprints.has(sprintName)
+              ? `<td class="story-cell committed-story-sprint">•</td>`
+              : `<td class="story-cell"></td>`;
+          }
+        });
+
+        tableHtml += '</tr>';
+      });
+    }
+
     rowIndex++;
   }
 
@@ -3571,6 +3808,10 @@ function renderFeatureTable(features, containerId, sprints) {
     renderedTable.dataset.visibleColumnKeys = JSON.stringify(visibleColumnKeys);
     bindBacklogColumnFilters(renderedTable);
   }
+  if (isCommittedTable) {
+    bindCommittedTreeToggles(containerId, sprints);
+    applyCommittedTreeVisibility(renderedTable);
+  }
   renumberVisibleRows(renderedTable);
   recalculateVisibleTotals(renderedTable);
   updateStickyLayoutOffsets();
@@ -3590,6 +3831,47 @@ function renderFeatureTable(features, containerId, sprints) {
   });
 
   ensureTooltip();
+}
+
+function bindCommittedTreeToggles(containerId, sprints) {
+  const container = document.getElementById(containerId);
+  if (!container || containerId !== 'committed-table') return;
+  if (container.dataset.treeBound === '1') return;
+  container.dataset.treeBound = '1';
+
+  container.addEventListener('click', (ev) => {
+    const target = ev.target instanceof Element ? ev.target : null;
+    if (!target) return;
+
+    const capBtn = target.closest('.committed-cap-toggle[data-capability-id]');
+    if (capBtn) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const capId = String(capBtn.getAttribute('data-capability-id') || '').trim();
+      if (!capId) return;
+      if (committedCollapsedCapabilities.has(capId)) committedCollapsedCapabilities.delete(capId);
+      else committedCollapsedCapabilities.add(capId);
+      persistCommittedTreeCollapseState();
+      const nextSprints = Array.isArray(container._treeSprints) ? container._treeSprints : sprints;
+      window._rerenderFeatureTable(containerId, nextSprints);
+      applyFilter();
+      return;
+    }
+
+    const featureBtn = target.closest('.committed-feature-toggle[data-feature-id]');
+    if (featureBtn) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const featureId = String(featureBtn.getAttribute('data-feature-id') || '').trim();
+      if (!featureId) return;
+      if (committedCollapsedFeatures.has(featureId)) committedCollapsedFeatures.delete(featureId);
+      else committedCollapsedFeatures.add(featureId);
+      persistCommittedTreeCollapseState();
+      const nextSprints = Array.isArray(container._treeSprints) ? container._treeSprints : sprints;
+      window._rerenderFeatureTable(containerId, nextSprints);
+      applyFilter();
+    }
+  });
 }
 
 /* ==============
