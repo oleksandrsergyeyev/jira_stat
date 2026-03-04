@@ -1350,6 +1350,117 @@ th.desc::after { content: " ▼"; }
   background-color: #e2e6ea;
 }
 
+#committed-summary {
+  margin: 10px 0 14px;
+  text-align: left;
+}
+
+.pi-capacity-summary-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+
+.pi-capacity-summary-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #1f4f8b;
+}
+
+.pi-capacity-summary-totals {
+  font-size: 13px;
+  color: #3a4c67;
+  font-weight: 600;
+}
+
+.pi-capacity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.pi-capacity-card {
+  border: 1px solid #d4dfef;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(18, 43, 84, 0.08);
+}
+
+.pi-capacity-card.ok {
+  border-left: 4px solid #2ea44f;
+}
+
+.pi-capacity-card.near-full {
+  border-left: 4px solid #d39a1c;
+}
+
+.pi-capacity-card.overloaded,
+.pi-capacity-card.no-capacity {
+  border-left: 4px solid #cf3f3f;
+}
+
+.pi-capacity-person {
+  font-size: 13px;
+  font-weight: 700;
+  color: #273b5c;
+  margin-bottom: 8px;
+}
+
+.pi-capacity-pie-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.pi-capacity-pie {
+  --used: 0;
+  --used-color: #2ea44f;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: conic-gradient(var(--used-color) calc(var(--used) * 1%), #dce8fb 0);
+  border: 1px solid #c7d8f0;
+}
+
+.pi-capacity-card.ok .pi-capacity-pie {
+  --used-color: #2ea44f;
+}
+
+.pi-capacity-card.near-full .pi-capacity-pie {
+  --used-color: #d29a1e;
+}
+
+.pi-capacity-card.overloaded .pi-capacity-pie,
+.pi-capacity-card.no-capacity .pi-capacity-pie {
+  --used-color: #cf3f3f;
+}
+
+.pi-capacity-pie-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e3f6d;
+}
+
+.pi-capacity-meta {
+  font-size: 12px;
+  color: #4a5d7a;
+  line-height: 1.35;
+}
+
+.pi-capacity-empty {
+  border: 1px dashed #cad7ea;
+  border-radius: 8px;
+  background: #f7faff;
+  padding: 12px;
+  color: #4a5d7a;
+  font-size: 13px;
+}
+
 /* =========================
    Custom floating tooltip
    ========================= */

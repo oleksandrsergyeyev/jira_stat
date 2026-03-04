@@ -1529,7 +1529,7 @@ async function loadPIPlanningData(forceRefresh = false) {
     // Don't let summary kill the Gantt
     try {
       if (typeof renderCommittedSummary === "function") {
-        renderCommittedSummary(committed, "committed-summary");
+        await renderCommittedSummary(committed, "committed-summary");
       }
     } catch (e) {
       console.error("renderCommittedSummary failed, skipping summary:", e);
@@ -1542,6 +1542,189 @@ async function loadPIPlanningData(forceRefresh = false) {
   } finally {
     hideLoading();
   }
+}
+
+function planningPersonNameKey(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[,]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function planningPersonAliasKeys(nameRaw) {
+  const name = String(nameRaw || "").trim();
+  if (!name) return [];
+  const aliases = new Set();
+  const normalized = planningPersonNameKey(name);
+  if (normalized) aliases.add(normalized);
+
+  const commaParts = name.split(",").map((part) => String(part || "").trim()).filter(Boolean);
+  if (commaParts.length >= 2) {
+    const reordered = `${commaParts.slice(1).join(" ")} ${commaParts[0]}`.trim();
+    const reorderedKey = planningPersonNameKey(reordered);
+    if (reorderedKey) aliases.add(reorderedKey);
+  }
+
+  const pieces = normalized.split(" ").filter(Boolean);
+  if (pieces.length >= 2) {
+    aliases.add(`${pieces[0]} ${pieces[pieces.length - 1]}`);
+    aliases.add(pieces[0]);
+  } else if (pieces.length === 1) {
+    aliases.add(pieces[0]);
+  }
+
+  return Array.from(aliases);
+}
+
+function planningComputeMemberCapacity(member) {
+  let total = 0;
+  TEAM_CAPACITY_SPRINTS.forEach((sprint) => {
+    const weeks = Array.isArray(member?.weekValues?.[sprint]) ? member.weekValues[sprint] : [];
+    weeks.forEach((weekValue) => {
+      const n = Number(weekValue || 0);
+      if (Number.isFinite(n)) total += n;
+    });
+  });
+  const safeTotal = Number.isFinite(total) ? total : 0;
+  return {
+    total: safeTotal,
+    full: safeTotal * 0.8,
+  };
+}
+
+async function fetchPlanningTeamCapacity(workGroup, fixVersion) {
+  if (!workGroup || !fixVersion) return [];
+  try {
+    const url = `/team_capacity_data?workGroup=${encodeURIComponent(workGroup)}&fixVersion=${encodeURIComponent(fixVersion)}`;
+    const cacheKey = makeCacheKey("teamCapacityData", { workGroup, fixVersion });
+    const json = await fetchJsonWithClientCache(url, cacheKey, false);
+    const payload = json?.ok ? (json?.data || {}) : {};
+    return Array.isArray(payload?.members) ? payload.members : [];
+  } catch {
+    return [];
+  }
+}
+
+function planningCapacityPercent(assigned, fullCapacity) {
+  const assignedNum = Number(assigned || 0);
+  const fullNum = Number(fullCapacity || 0);
+  if (!Number.isFinite(assignedNum) || !Number.isFinite(fullNum) || fullNum <= 0) return 0;
+  return Math.max(0, Math.min(100, (assignedNum / fullNum) * 100));
+}
+
+function planningCapacityStatusClass(assigned, fullCapacity) {
+  const assignedNum = Number(assigned || 0);
+  const fullNum = Number(fullCapacity || 0);
+  if (!Number.isFinite(fullNum) || fullNum <= 0) return "no-capacity";
+  if (assignedNum > fullNum) return "overloaded";
+  if (assignedNum >= fullNum * 0.8) return "near-full";
+  return "ok";
+}
+
+async function renderCommittedSummary(committed, containerId) {
+  const host = document.getElementById(containerId);
+  if (!host) return;
+
+  const rows = Array.isArray(committed) ? committed : [];
+  const workGroup = getSelectedWorkGroup();
+  const fixVersion = getSelectedFixVersion();
+
+  const assignedByPerson = new Map();
+  rows.forEach(([, feature]) => {
+    const assignee = String(feature?.assignee || "").trim();
+    if (!assignee) return;
+    const assigneeKey = planningPersonNameKey(assignee);
+    if (!assigneeKey || assigneeKey === "unassigned") return;
+    const storyPoints = Number(feature?.sum_story_points ?? feature?.story_points ?? 0);
+    const safeStoryPoints = Number.isFinite(storyPoints) ? storyPoints : 0;
+    assignedByPerson.set(assigneeKey, Number(assignedByPerson.get(assigneeKey) || 0) + safeStoryPoints);
+  });
+
+  const members = await fetchPlanningTeamCapacity(workGroup, fixVersion);
+  const cards = [];
+  const matchedAssignedKeys = new Set();
+
+  members.forEach((member) => {
+    const displayName = String(member?.displayName || "").trim();
+    if (!displayName) return;
+    const aliases = planningPersonAliasKeys(displayName);
+    let assigned = 0;
+    aliases.forEach((alias) => {
+      if (!assignedByPerson.has(alias)) return;
+      assigned += Number(assignedByPerson.get(alias) || 0);
+      matchedAssignedKeys.add(alias);
+    });
+
+    const capacity = planningComputeMemberCapacity(member);
+    const fullCapacity = Number(capacity.full || 0);
+    const usedPercent = planningCapacityPercent(assigned, fullCapacity);
+    const buffer = Math.max(0, fullCapacity - assigned);
+    const overload = Math.max(0, assigned - fullCapacity);
+    const statusClass = planningCapacityStatusClass(assigned, fullCapacity);
+    const safePercent = usedPercent.toFixed(1);
+
+    cards.push({
+      displayName,
+      assigned,
+      fullCapacity,
+      buffer,
+      overload,
+      usedPercent: safePercent,
+      statusClass,
+    });
+  });
+
+  assignedByPerson.forEach((assigned, assigneeKey) => {
+    if (matchedAssignedKeys.has(assigneeKey)) return;
+    if (!assigneeKey) return;
+    cards.push({
+      displayName: assigneeKey.split(" ").map((part) => part ? part[0].toUpperCase() + part.slice(1) : "").join(" "),
+      assigned,
+      fullCapacity: 0,
+      buffer: 0,
+      overload: assigned,
+      usedPercent: "0.0",
+      statusClass: "no-capacity",
+    });
+  });
+
+  cards.sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || "")));
+
+  const totalAssigned = cards.reduce((sum, item) => sum + Number(item.assigned || 0), 0);
+  const totalCapacity = cards.reduce((sum, item) => sum + Number(item.fullCapacity || 0), 0);
+
+  const cardsHtml = cards.length
+    ? cards.map((item) => {
+        const pieStyle = `--used:${item.usedPercent};`;
+        const fullLabel = formatCapacityValue(item.fullCapacity);
+        const assignedLabel = formatCapacityValue(item.assigned);
+        const bufferLabel = formatCapacityValue(item.buffer);
+        const overloadLabel = formatCapacityValue(item.overload);
+        return `
+          <div class="pi-capacity-card ${item.statusClass}">
+            <div class="pi-capacity-person">${escapeHtml(item.displayName)}</div>
+            <div class="pi-capacity-pie-wrap">
+              <div class="pi-capacity-pie" style="${pieStyle}" title="Assigned ${escapeHtml(assignedLabel)} of ${escapeHtml(fullLabel)}"></div>
+              <div class="pi-capacity-pie-label">${escapeHtml(item.usedPercent)}%</div>
+            </div>
+            <div class="pi-capacity-meta">Assigned: ${escapeHtml(assignedLabel)} / Capacity: ${escapeHtml(fullLabel)}</div>
+            <div class="pi-capacity-meta">Buffer: ${escapeHtml(bufferLabel)}${item.overload > 0 ? ` | Overload: ${escapeHtml(overloadLabel)}` : ""}</div>
+          </div>
+        `;
+      }).join("")
+    : '<div class="pi-capacity-empty">No Team Capacity members found for selected Team + PI.</div>';
+
+  const totalUsagePercent = totalCapacity > 0 ? Math.max(0, (totalAssigned / totalCapacity) * 100) : 0;
+  const totalUsageLabel = Number.isFinite(totalUsagePercent) ? totalUsagePercent.toFixed(1) : "0.0";
+
+  host.innerHTML = `
+    <div class="pi-capacity-summary-header">
+      <h3>Capacity by Person</h3>
+      <div class="pi-capacity-summary-totals">Total assigned: ${escapeHtml(formatCapacityValue(totalAssigned))} / Total capacity: ${escapeHtml(formatCapacityValue(totalCapacity))} (${escapeHtml(totalUsageLabel)}%)</div>
+    </div>
+    <div class="pi-capacity-grid">${cardsHtml}</div>
+  `;
 }
 
 /* =====================
@@ -4121,6 +4304,12 @@ function formatCapacityValue(value) {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
+function teamCapacityRoundInteger(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n);
+}
+
 function renderTeamCapacityMembers() {
   const host = document.getElementById("team-capacity-planner");
   if (!host) return;
@@ -4175,8 +4364,8 @@ function renderTeamCapacityMembers() {
     });
 
     const total = teamCapacityMemberTotal(member);
-    const fullCapacity = total * 0.8;
-    const plannedCapacity = total * 0.6;
+    const fullCapacity = teamCapacityRoundInteger(total * 0.8);
+    const plannedCapacity = teamCapacityRoundInteger(total * 0.6);
     return `<tr>
       <td>${idx + 1}</td>
       <td class="team-capacity-user-cell"><span class="team-capacity-user-main">${userLabel}</span><button type="button" class="team-capacity-remove team-capacity-remove-inline" data-remove-row="${idx}" aria-label="Remove ${escapeHtml(member.displayName || "member")}" title="Remove">[X]</button></td>
@@ -4199,8 +4388,8 @@ function renderTeamCapacityMembers() {
     });
   });
   const bottomTotal = teamCapacityMembers.reduce((sum, member) => sum + teamCapacityMemberTotal(member), 0);
-  const bottomFullCapacity = bottomTotal * 0.8;
-  const bottomPlannedCapacity = bottomTotal * 0.6;
+  const bottomFullCapacity = teamCapacityRoundInteger(bottomTotal * 0.8);
+  const bottomPlannedCapacity = teamCapacityRoundInteger(bottomTotal * 0.6);
   const bottomBuffer = bottomFullCapacity - bottomPlannedCapacity;
   const totalsRow = `<tr class="team-capacity-bottom-row"><td></td><td class="team-capacity-bottom-label">Total per week</td>${totalsCells}<td class="team-capacity-total team-capacity-bottom-grand team-capacity-cap-cell">${escapeHtml(formatCapacityValue(bottomTotal))}</td><td class="team-capacity-total team-capacity-bottom-grand team-capacity-cap-cell">${escapeHtml(formatCapacityValue(bottomFullCapacity))}</td><td class="team-capacity-total team-capacity-bottom-grand team-capacity-cap-cell">${escapeHtml(formatCapacityValue(bottomPlannedCapacity))}</td></tr>`;
 
