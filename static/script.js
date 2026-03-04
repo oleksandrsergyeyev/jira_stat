@@ -1589,7 +1589,8 @@ function planningComputeMemberCapacity(member) {
   const safeTotal = Number.isFinite(total) ? total : 0;
   return {
     total: safeTotal,
-    full: safeTotal * 0.8,
+    full: teamCapacityRoundInteger(safeTotal * 0.8),
+    planned: teamCapacityRoundInteger(safeTotal * 0.6),
   };
 }
 
