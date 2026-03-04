@@ -1164,6 +1164,31 @@ h1 { margin-bottom: 20px; }
   font-weight: 600;
 }
 
+.backlog-column-filters th {
+  background: #f8fbff;
+  border-top: 1px solid #e6edf8;
+  border-bottom: 1px solid #e6edf8;
+  padding: 4px 6px;
+}
+
+.backlog-col-filter-input {
+  width: 100%;
+  min-width: 56px;
+  box-sizing: border-box;
+  border: 1px solid #cfd8e5;
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 11px;
+  background: #ffffff;
+  color: #2f3a48;
+}
+
+.backlog-col-filter-input:focus {
+  outline: none;
+  border-color: #8fb0df;
+  box-shadow: 0 0 0 2px rgba(143, 176, 223, 0.25);
+}
+
 .roadmap-qs-filter-option {
   justify-content: space-between;
   gap: 12px;

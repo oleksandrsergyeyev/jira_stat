@@ -11,6 +11,74 @@ let roadmapPendingMovesByWorkGroup = new Map();
 let roadmapTeammatesByScope = new Map();
 let appSettingsCache = null;
 
+function backlogColumnFilterStorageKey() {
+  return `backlogColumnFilters::${getSelectedWorkGroup() || ""}`;
+}
+
+function getBacklogColumnFilterState() {
+  try {
+    const raw = localStorage.getItem(backlogColumnFilterStorageKey());
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return (parsed && typeof parsed === "object") ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function setBacklogColumnFilterState(state) {
+  try {
+    localStorage.setItem(backlogColumnFilterStorageKey(), JSON.stringify(state || {}));
+  } catch {
+    // ignore
+  }
+}
+
+function getBacklogVisibleColumnKeys(table) {
+  if (!(table instanceof HTMLTableElement)) return [];
+  try {
+    const raw = table.dataset.visibleColumnKeys || "[]";
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map((x) => String(x || "")) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getBacklogColumnFiltersForTable(table) {
+  const out = {};
+  if (!(table instanceof HTMLTableElement)) return out;
+  table.querySelectorAll('thead tr.backlog-column-filters [data-filter-key]').forEach((el) => {
+    const key = String(el.getAttribute('data-filter-key') || '').trim();
+    if (!key) return;
+    const val = (el instanceof HTMLInputElement || el instanceof HTMLSelectElement)
+      ? String(el.value || '').trim().toLowerCase()
+      : '';
+    if (val) out[key] = val;
+  });
+  return out;
+}
+
+function bindBacklogColumnFilters(table) {
+  if (!(table instanceof HTMLTableElement)) return;
+  table.querySelectorAll('thead tr.backlog-column-filters [data-filter-key]').forEach((el) => {
+    const handler = () => {
+      const state = getBacklogColumnFilterState();
+      const key = String(el.getAttribute('data-filter-key') || '').trim();
+      if (!key) return;
+      const value = (el instanceof HTMLInputElement || el instanceof HTMLSelectElement)
+        ? String(el.value || '').trim()
+        : '';
+      if (value) state[key] = value;
+      else delete state[key];
+      setBacklogColumnFilterState(state);
+      applyFilter();
+    };
+    el.addEventListener('input', handler);
+    el.addEventListener('change', handler);
+  });
+}
+
 function roadmapPendingMoves() {
   const workGroup = (getSelectedWorkGroup() || "").trim();
   if (!roadmapPendingMovesByWorkGroup.has(workGroup)) {
@@ -1048,6 +1116,10 @@ function applyFilter() {
   const selectedStatuses = new Set(Array.from(backlogSelectedStatuses).map(s => s.toLowerCase()));
   const hasBacklogStatusFilter = !!document.getElementById("statusFilterMenu");
   document.querySelectorAll("table").forEach((table) => {
+    const isBacklogTable = !!table.closest('#backlog-table');
+    const backlogColumnFilters = isBacklogTable ? getBacklogColumnFiltersForTable(table) : {};
+    const backlogVisibleKeys = isBacklogTable ? getBacklogVisibleColumnKeys(table) : [];
+
     const rows = Array.from(table.querySelectorAll("tbody tr"));
     rows.forEach((row) => {
       if (row.classList.contains("capability-block-row")) return;
@@ -1058,7 +1130,22 @@ function applyFilter() {
       const matchesText = row.innerText.toLowerCase().includes(filter);
       const rowStatus = (row.getAttribute("data-status") || "").toLowerCase();
       const matchesStatus = !hasBacklogStatusFilter || selectedStatuses.has(rowStatus);
-      row.style.display = (matchesText && matchesStatus) ? "" : "none";
+
+      let matchesColumnFilters = true;
+      if (isBacklogTable && backlogVisibleKeys.length) {
+        for (let i = 0; i < backlogVisibleKeys.length; i += 1) {
+          const key = backlogVisibleKeys[i];
+          const wanted = String(backlogColumnFilters[key] || '').trim();
+          if (!wanted || key === 'rownum') continue;
+          const cellText = String(row.cells[i]?.innerText || '').toLowerCase();
+          if (!cellText.includes(wanted)) {
+            matchesColumnFilters = false;
+            break;
+          }
+        }
+      }
+
+      row.style.display = (matchesText && matchesStatus && matchesColumnFilters) ? "" : "none";
     });
 
     if (rows.some((row) => row.classList.contains("capability-block-row"))) {
@@ -2933,6 +3020,7 @@ function renderFeatureTable(features, containerId, sprints) {
 
   const hidden = new Set(hiddenColumns[containerId] || []);
   if (isCommittedTable || isBacklogTable) hidden.add(1);
+  const backlogColumnFilterState = isBacklogTable ? getBacklogColumnFilterState() : {};
 
   const columnClasses = [
     'col-rownum',
@@ -2951,8 +3039,10 @@ function renderFeatureTable(features, containerId, sprints) {
 
   let tableHtml = `<table class="pi-planning-table${isCapabilityGroupedTable ? ' capability-grouped-table' : ''}"><thead><tr>`;
   const headerLabels = ['#','Capability','Feature ID','Feature Name','Feature St.P.','St.P. sum','Assignee','Reporter','Prio','Status','PI Scope','Links'];
+  const visibleColumnKeys = [];
   headerLabels.forEach((label, idx) => {
     if (!hidden.has(idx)) {
+      visibleColumnKeys.push(String(piPlanningColumns[idx]?.key || `col_${idx}`));
       const sortAttr = ' onclick="sortTable(this)"';
       tableHtml += `<th class="${columnClasses[idx]}"${sortAttr}>${label}</th>`;
     }
@@ -2962,9 +3052,25 @@ function renderFeatureTable(features, containerId, sprints) {
       tableHtml += `<th class="story-cell">${sprint}</th>`;
   });
   if (includeBacklogFixVersionColumn) {
+    visibleColumnKeys.push('fixversions');
     tableHtml += `<th class="col-fix-versions" onclick="sortTable(this)">Fix Version</th>`;
   }
-  tableHtml += '</tr></thead><tbody>';
+  tableHtml += '</tr>';
+
+  if (isBacklogTable) {
+    tableHtml += '<tr class="backlog-column-filters">';
+    visibleColumnKeys.forEach((key) => {
+      if (key === 'rownum') {
+        tableHtml += '<th class="col-rownum"></th>';
+        return;
+      }
+      const val = escapeHtml(String(backlogColumnFilterState[key] || ''));
+      tableHtml += `<th><input type="text" class="backlog-col-filter-input" data-filter-key="${escapeHtml(key)}" value="${val}" placeholder="Filter..." /></th>`;
+    });
+    tableHtml += '</tr>';
+  }
+
+  tableHtml += '</thead><tbody>';
 
   let rowIndex = 1;
   const visibleBaseColumnCount = headerLabels.reduce((count, _, idx) => count + (hidden.has(idx) ? 0 : 1), 0);
@@ -3111,6 +3217,10 @@ function renderFeatureTable(features, containerId, sprints) {
   tableHtml += '</tbody></table>';
   container.innerHTML = tableHtml;
   const renderedTable = container.querySelector("table");
+  if (isBacklogTable && renderedTable instanceof HTMLTableElement) {
+    renderedTable.dataset.visibleColumnKeys = JSON.stringify(visibleColumnKeys);
+    bindBacklogColumnFilters(renderedTable);
+  }
   renumberVisibleRows(renderedTable);
   recalculateVisibleTotals(renderedTable);
   updateStickyLayoutOffsets();
