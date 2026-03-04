@@ -867,6 +867,37 @@ def _jira_update_issue_estimation(issue_key: str, estimation_value: int) -> dict
     return payload
 
 
+def _jira_get_issue_pi_scope(issue_key: str) -> str:
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    resp = requests.get(url, headers=HEADERS, params={"fields": "customfield_14700"})
+    if resp.status_code != 200:
+        raise RuntimeError(f"Failed to read issue {issue_key}: {resp.status_code} {resp.text}")
+    fields = (resp.json().get("fields") or {})
+    return _pi_scope_value(fields)
+
+
+def _jira_update_issue_pi_scope(issue_key: str, pi_scope_value: str) -> dict:
+    raw = str(pi_scope_value or "").strip()
+    normalized = raw.lower()
+
+    if not normalized or normalized == "none":
+        payload = {"fields": {"customfield_14700": None}}
+    elif normalized == "committed":
+        payload = {"fields": {"customfield_14700": {"value": "Committed"}}}
+    elif normalized == "stretch":
+        payload = {"fields": {"customfield_14700": {"value": "Stretch"}}}
+    elif normalized in ("not included", "notincluded"):
+        payload = {"fields": {"customfield_14700": {"value": "Not Included"}}}
+    else:
+        raise RuntimeError("piScope must be one of: None, Committed, Stretch, Not Included")
+
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    resp = requests.put(url, headers=HEADERS, json=payload)
+    if resp.status_code not in (200, 204):
+        raise RuntimeError(f"Failed to update issue {issue_key} PI Scope: {resp.status_code} {resp.text}")
+    return payload
+
+
 def _extract_text_value(raw) -> str:
     if raw is None:
         return ""
@@ -2234,6 +2265,57 @@ def update_assignee():
             "after": after_assignee,
             "requested": {"accountId": account_id, "displayName": display_name, "emailAddress": email_address},
             "resolved": resolved_identity,
+            "payload": payload,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "issueKey": issue_key}), 502
+
+
+@app.route("/update_pi_scope", methods=["POST"])
+def update_pi_scope():
+    data = request.get_json(silent=True) or {}
+
+    issue_key = str(data.get("issueKey") or "").strip().upper()
+    dry_run = bool(data.get("dryRun", True))
+    raw_scope = str(data.get("piScope") or "").strip()
+
+    if not re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", issue_key):
+        return jsonify({"ok": False, "error": "Invalid issueKey format"}), 400
+
+    try:
+        before_scope = _jira_get_issue_pi_scope(issue_key)
+
+        normalized = raw_scope.lower()
+        if not normalized or normalized == "none":
+            requested_scope = ""
+        elif normalized == "committed":
+            requested_scope = "Committed"
+        elif normalized == "stretch":
+            requested_scope = "Stretch"
+        elif normalized in ("not included", "notincluded"):
+            requested_scope = "Not Included"
+        else:
+            return jsonify({"ok": False, "error": "piScope must be one of: None, Committed, Stretch, Not Included"}), 400
+
+        if dry_run:
+            return jsonify({
+                "ok": True,
+                "dryRun": True,
+                "issueKey": issue_key,
+                "before": before_scope,
+                "requested": requested_scope,
+            })
+
+        payload = _jira_update_issue_pi_scope(issue_key, requested_scope)
+        after_scope = _jira_get_issue_pi_scope(issue_key)
+
+        return jsonify({
+            "ok": True,
+            "dryRun": False,
+            "issueKey": issue_key,
+            "before": before_scope,
+            "after": after_scope,
+            "requested": requested_scope,
             "payload": payload,
         })
     except Exception as e:
