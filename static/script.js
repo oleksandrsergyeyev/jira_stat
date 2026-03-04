@@ -1469,10 +1469,7 @@ function recalculateVisibleTotals(table) {
     totalStorySum += Number.parseFloat(storySumText) || 0;
   });
 
-  const toDisplay = (value) => {
-    const rounded = Math.round(value * 100) / 100;
-    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-  };
+  const toDisplay = (value) => formatEstimationValue(value);
 
   if (featureNameIdx >= 0 && totalsRow.cells[featureNameIdx]) totalsRow.cells[featureNameIdx].textContent = "Total";
   if (totalsRow.cells[featureSpIdx]) totalsRow.cells[featureSpIdx].textContent = toDisplay(totalFeatureSp);
@@ -1747,6 +1744,58 @@ function planningComputeMemberCapacity(member) {
   };
 }
 
+function planningLoadModeStorageKey() {
+  return `piLoadMode::${getSelectedWorkGroup() || ""}::${getSelectedFixVersion() || ""}`;
+}
+
+function getPlanningLoadMode() {
+  const raw = String(localStorage.getItem(planningLoadModeStorageKey()) || "stories").trim().toLowerCase();
+  return raw === "features" ? "features" : "stories";
+}
+
+function setPlanningLoadMode(mode) {
+  const safe = String(mode || "").trim().toLowerCase() === "features" ? "features" : "stories";
+  localStorage.setItem(planningLoadModeStorageKey(), safe);
+}
+
+function planningAssignedByStories(rows) {
+  const assignedByPerson = new Map();
+  rows.forEach(([, feature]) => {
+    const details = Array.isArray(feature?.stories_detail) ? feature.stories_detail : [];
+    details.forEach((story) => {
+      const storyAssignee = String(story?.assignee || "").trim();
+      if (!storyAssignee) return;
+      const assigneeKey = planningPersonNameKey(storyAssignee);
+      if (!assigneeKey || assigneeKey === "unassigned") return;
+      const storyPoints = Number(story?.story_points ?? 0);
+      const safeStoryPoints = Number.isFinite(storyPoints) ? storyPoints : 0;
+      assignedByPerson.set(assigneeKey, Number(assignedByPerson.get(assigneeKey) || 0) + safeStoryPoints);
+    });
+  });
+  return assignedByPerson;
+}
+
+function planningAssignedByFeatures(rows) {
+  const assignedByPerson = new Map();
+  rows.forEach(([, feature]) => {
+    const featureAssignee = String(feature?.assignee || "").trim();
+    if (!featureAssignee) return;
+    const assigneeKey = planningPersonNameKey(featureAssignee);
+    if (!assigneeKey || assigneeKey === "unassigned") return;
+    const featureEstimation = Number(feature?.story_points ?? 0);
+    const safeFeatureEstimation = Number.isFinite(featureEstimation) ? featureEstimation : 0;
+    assignedByPerson.set(assigneeKey, Number(assignedByPerson.get(assigneeKey) || 0) + safeFeatureEstimation);
+  });
+  return assignedByPerson;
+}
+
+function formatEstimationValue(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return "0";
+  if (Number.isInteger(n)) return String(n);
+  return String(n);
+}
+
 async function fetchPlanningTeamCapacity(workGroup, fixVersion) {
   if (!workGroup || !fixVersion) return [];
   try {
@@ -1783,17 +1832,10 @@ async function renderCommittedSummary(committed, containerId) {
   const rows = Array.isArray(committed) ? committed : [];
   const workGroup = getSelectedWorkGroup();
   const fixVersion = getSelectedFixVersion();
-
-  const assignedByPerson = new Map();
-  rows.forEach(([, feature]) => {
-    const assignee = String(feature?.assignee || "").trim();
-    if (!assignee) return;
-    const assigneeKey = planningPersonNameKey(assignee);
-    if (!assigneeKey || assigneeKey === "unassigned") return;
-    const storyPoints = Number(feature?.sum_story_points ?? feature?.story_points ?? 0);
-    const safeStoryPoints = Number.isFinite(storyPoints) ? storyPoints : 0;
-    assignedByPerson.set(assigneeKey, Number(assignedByPerson.get(assigneeKey) || 0) + safeStoryPoints);
-  });
+  const loadMode = getPlanningLoadMode();
+  const assignedByPerson = loadMode === "features"
+    ? planningAssignedByFeatures(rows)
+    : planningAssignedByStories(rows);
 
   const members = await fetchPlanningTeamCapacity(workGroup, fixVersion);
   const cards = [];
@@ -1852,7 +1894,7 @@ async function renderCommittedSummary(committed, containerId) {
     ? cards.map((item) => {
         const pieStyle = `--used:${item.usedPercent};`;
         const fullLabel = formatCapacityValue(item.fullCapacity);
-        const assignedLabel = formatCapacityValue(item.assigned);
+        const assignedLabel = formatEstimationValue(item.assigned);
         const bufferLabel = formatCapacityValue(item.buffer);
         const overloadLabel = formatCapacityValue(item.overload);
         return `
@@ -1862,7 +1904,7 @@ async function renderCommittedSummary(committed, containerId) {
               <div class="pi-capacity-pie" style="${pieStyle}" title="Assigned ${escapeHtml(assignedLabel)} of ${escapeHtml(fullLabel)}"></div>
               <div class="pi-capacity-pie-label">${escapeHtml(item.usedPercent)}%</div>
             </div>
-            <div class="pi-capacity-meta">Assigned: ${escapeHtml(assignedLabel)} / Capacity: ${escapeHtml(fullLabel)}</div>
+            <div class="pi-capacity-meta">Load: ${escapeHtml(assignedLabel)} / Capacity: ${escapeHtml(fullLabel)}</div>
             <div class="pi-capacity-meta">Buffer: ${escapeHtml(bufferLabel)}${item.overload > 0 ? ` | Overload: ${escapeHtml(overloadLabel)}` : ""}</div>
           </div>
         `;
@@ -1874,11 +1916,24 @@ async function renderCommittedSummary(committed, containerId) {
 
   host.innerHTML = `
     <div class="pi-capacity-summary-header">
-      <h3>Capacity by Person</h3>
-      <div class="pi-capacity-summary-totals">Total assigned: ${escapeHtml(formatCapacityValue(totalAssigned))} / Total capacity: ${escapeHtml(formatCapacityValue(totalCapacity))} (${escapeHtml(totalUsageLabel)}%)</div>
+      <h3>Story load</h3>
+      <div class="pi-load-switcher-wrap" role="group" aria-label="Load mode switcher">
+        <span class="pi-load-switcher-label">Mode:</span>
+        <button type="button" class="pi-load-switch-btn ${loadMode === "stories" ? "active" : ""}" data-load-mode="stories" aria-pressed="${loadMode === "stories" ? "true" : "false"}">Stories</button>
+        <button type="button" class="pi-load-switch-btn ${loadMode === "features" ? "active" : ""}" data-load-mode="features" aria-pressed="${loadMode === "features" ? "true" : "false"}">Features</button>
+      </div>
+      <div class="pi-capacity-summary-totals">Total load: ${escapeHtml(formatEstimationValue(totalAssigned))} / Total capacity: ${escapeHtml(formatCapacityValue(totalCapacity))} (${escapeHtml(totalUsageLabel)}%)</div>
     </div>
     <div class="pi-capacity-grid">${cardsHtml}</div>
   `;
+
+  host.querySelectorAll('.pi-load-switch-btn[data-load-mode]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = String(btn.getAttribute('data-load-mode') || '').trim();
+      setPlanningLoadMode(mode);
+      renderCommittedSummary(committed, containerId);
+    });
+  });
 }
 
 /* =====================
@@ -3661,12 +3716,12 @@ function renderFeatureTable(features, containerId, sprints) {
     }
     if (!hidden.has(colIdx++)) {
       let sp = feature.story_points ?? "";
-      if (sp && !isNaN(Number(sp))) sp = parseFloat(sp);
+      if (sp !== "" && !isNaN(Number(sp))) sp = formatEstimationValue(sp);
       tableHtml += `<td class="col-story-points">${sp !== "" ? sp : ""}</td>`;
     }
     if (!hidden.has(colIdx++)) {
       let total = feature.sum_story_points ?? "";
-      if (total && !isNaN(Number(total))) total = parseFloat(total);
+      if (total !== "" && !isNaN(Number(total))) total = formatEstimationValue(total);
       tableHtml += `<td class="col-story-points">${total !== "" ? total : ""}</td>`;
     }
     if (!hidden.has(colIdx++))
@@ -3734,10 +3789,11 @@ function renderFeatureTable(features, containerId, sprints) {
 
       sortedStories.forEach((story) => {
         const storyKey = String(story?.key || '').trim();
-        const storySp = Number(story?.story_points || 0);
-        const storySpText = Number.isFinite(storySp)
-          ? (Number.isInteger(storySp) ? String(storySp) : storySp.toFixed(1))
-          : "";
+        const storySpRaw = story?.story_points;
+        const storySpNum = Number(storySpRaw || 0);
+        const storySpText = (storySpRaw === "" || storySpRaw == null)
+          ? ""
+          : (Number.isFinite(storySpNum) ? formatEstimationValue(storySpNum) : "");
         const storyAssignee = String(story?.assignee || '').trim();
         const storyStatus = String(story?.status || '').trim();
         const storySprints = storySprintMap.get(storyKey) || new Set();
