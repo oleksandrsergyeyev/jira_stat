@@ -2033,8 +2033,12 @@ function collapseAllCommittedStories() {
 }
 
 function planningAssignedByStories(rows) {
-  const assignedByPerson = new Map();
+  const committedByPerson = new Map();
+  const stretchByPerson = new Map();
+  const totalByPerson = new Map();
   rows.forEach(([, feature]) => {
+    const scope = String(feature?.pi_scope || "").trim().toLowerCase();
+    const bucket = scope.includes("stretch") ? "stretch" : (scope.includes("committed") ? "committed" : "committed");
     const details = Array.isArray(feature?.stories_detail) ? feature.stories_detail : [];
     details.forEach((story) => {
       const storyAssignee = String(story?.assignee || "").trim();
@@ -2043,24 +2047,38 @@ function planningAssignedByStories(rows) {
       if (!assigneeKey || assigneeKey === "unassigned") return;
       const storyPoints = Number(story?.story_points ?? 0);
       const safeStoryPoints = Number.isFinite(storyPoints) ? storyPoints : 0;
-      assignedByPerson.set(assigneeKey, Number(assignedByPerson.get(assigneeKey) || 0) + safeStoryPoints);
+      if (bucket === "stretch") {
+        stretchByPerson.set(assigneeKey, Number(stretchByPerson.get(assigneeKey) || 0) + safeStoryPoints);
+      } else {
+        committedByPerson.set(assigneeKey, Number(committedByPerson.get(assigneeKey) || 0) + safeStoryPoints);
+      }
+      totalByPerson.set(assigneeKey, Number(totalByPerson.get(assigneeKey) || 0) + safeStoryPoints);
     });
   });
-  return assignedByPerson;
+  return { committedByPerson, stretchByPerson, totalByPerson };
 }
 
 function planningAssignedByFeatures(rows) {
-  const assignedByPerson = new Map();
+  const committedByPerson = new Map();
+  const stretchByPerson = new Map();
+  const totalByPerson = new Map();
   rows.forEach(([, feature]) => {
+    const scope = String(feature?.pi_scope || "").trim().toLowerCase();
+    const bucket = scope.includes("stretch") ? "stretch" : (scope.includes("committed") ? "committed" : "committed");
     const featureAssignee = String(feature?.assignee || "").trim();
     if (!featureAssignee) return;
     const assigneeKey = planningPersonNameKey(featureAssignee);
     if (!assigneeKey || assigneeKey === "unassigned") return;
     const featureEstimation = Number(feature?.story_points ?? 0);
     const safeFeatureEstimation = Number.isFinite(featureEstimation) ? featureEstimation : 0;
-    assignedByPerson.set(assigneeKey, Number(assignedByPerson.get(assigneeKey) || 0) + safeFeatureEstimation);
+    if (bucket === "stretch") {
+      stretchByPerson.set(assigneeKey, Number(stretchByPerson.get(assigneeKey) || 0) + safeFeatureEstimation);
+    } else {
+      committedByPerson.set(assigneeKey, Number(committedByPerson.get(assigneeKey) || 0) + safeFeatureEstimation);
+    }
+    totalByPerson.set(assigneeKey, Number(totalByPerson.get(assigneeKey) || 0) + safeFeatureEstimation);
   });
-  return assignedByPerson;
+  return { committedByPerson, stretchByPerson, totalByPerson };
 }
 
 function formatEstimationValue(value) {
@@ -2107,9 +2125,12 @@ async function renderCommittedSummary(committed, containerId) {
   const workGroup = getSelectedWorkGroup();
   const fixVersion = getSelectedFixVersion();
   const loadMode = getPlanningLoadMode();
-  const assignedByPerson = loadMode === "features"
+  const assignedMaps = loadMode === "features"
     ? planningAssignedByFeatures(rows)
     : planningAssignedByStories(rows);
+  const committedByPerson = assignedMaps.committedByPerson;
+  const stretchByPerson = assignedMaps.stretchByPerson;
+  const assignedByPerson = assignedMaps.totalByPerson;
 
   const members = await fetchPlanningTeamCapacity(workGroup, fixVersion);
   const cards = [];
@@ -2120,9 +2141,13 @@ async function renderCommittedSummary(committed, containerId) {
     if (!displayName) return;
     const aliases = planningPersonAliasKeys(displayName);
     let assigned = 0;
+    let committedAssigned = 0;
+    let stretchAssigned = 0;
     aliases.forEach((alias) => {
       if (!assignedByPerson.has(alias)) return;
       assigned += Number(assignedByPerson.get(alias) || 0);
+      committedAssigned += Number(committedByPerson.get(alias) || 0);
+      stretchAssigned += Number(stretchByPerson.get(alias) || 0);
       matchedAssignedKeys.add(alias);
     });
 
@@ -2138,6 +2163,8 @@ async function renderCommittedSummary(committed, containerId) {
     cards.push({
       displayName,
       assigned,
+      committedAssigned,
+      stretchAssigned,
       fullCapacity,
       plannedCapacity,
       bufferCapacity,
@@ -2154,6 +2181,8 @@ async function renderCommittedSummary(committed, containerId) {
     cards.push({
       displayName: assigneeKey.split(" ").map((part) => part ? part[0].toUpperCase() + part.slice(1) : "").join(" "),
       assigned,
+      committedAssigned: Number(committedByPerson.get(assigneeKey) || 0),
+      stretchAssigned: Number(stretchByPerson.get(assigneeKey) || 0),
       fullCapacity: 0,
       plannedCapacity: 0,
       bufferCapacity: 0,
@@ -2167,6 +2196,8 @@ async function renderCommittedSummary(committed, containerId) {
   cards.sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || "")));
 
   const totalAssigned = cards.reduce((sum, item) => sum + Number(item.assigned || 0), 0);
+  const totalCommittedAssigned = cards.reduce((sum, item) => sum + Number(item.committedAssigned || 0), 0);
+  const totalStretchAssigned = cards.reduce((sum, item) => sum + Number(item.stretchAssigned || 0), 0);
   const totalCapacity = cards.reduce((sum, item) => sum + Number(item.fullCapacity || 0), 0);
   const totalPlannedCapacity = cards.reduce((sum, item) => sum + Number(item.plannedCapacity || 0), 0);
   const totalBufferCapacity = Math.max(0, totalCapacity - totalPlannedCapacity);
@@ -2178,6 +2209,8 @@ async function renderCommittedSummary(committed, containerId) {
   const teamCard = {
     displayName: "Team",
     assigned: totalAssigned,
+    committedAssigned: totalCommittedAssigned,
+    stretchAssigned: totalStretchAssigned,
     fullCapacity: totalCapacity,
     plannedCapacity: totalPlannedCapacity,
     bufferCapacity: totalBufferCapacity,
@@ -2189,9 +2222,20 @@ async function renderCommittedSummary(committed, containerId) {
   };
 
   const renderCapacityCard = (item) => {
-        const pieStyle = `--planned-base:${item.plannedBasePercent}; --load:${item.loadPercent};`;
+      const loadPct = Math.max(0, Math.min(100, Number(item.loadPercent || 0)));
+      const committedPct = Number(item.fullCapacity || 0) > 0
+        ? Math.max(0, Math.min(100, (Number(item.committedAssigned || 0) / Number(item.fullCapacity || 1)) * 100))
+        : 0;
+      const stretchPct = Number(item.fullCapacity || 0) > 0
+        ? Math.max(0, Math.min(100, (Number(item.stretchAssigned || 0) / Number(item.fullCapacity || 1)) * 100))
+        : 0;
+      const stretchStart = Math.max(0, Math.min(100, committedPct));
+      const stretchEnd = Math.max(stretchStart, Math.min(100, committedPct + stretchPct));
+      const pieStyle = `--seg-load-total:${loadPct.toFixed(1)}; --seg-committed:${committedPct.toFixed(1)}; --seg-stretch-start:${stretchStart.toFixed(1)}; --seg-stretch-end:${stretchEnd.toFixed(1)};`;
         const fullLabel = formatCapacityValue(item.fullCapacity);
         const assignedLabel = formatEstimationValue(item.assigned);
+        const committedLabel = formatEstimationValue(item.committedAssigned);
+        const stretchLabel = formatEstimationValue(item.stretchAssigned);
         const plannedLabel = formatCapacityValue(item.plannedCapacity);
         const bufferLabel = formatCapacityValue(item.bufferCapacity);
         const overloadLabel = formatCapacityValue(item.overload);
@@ -2199,11 +2243,22 @@ async function renderCommittedSummary(committed, containerId) {
           <div class="pi-capacity-card ${item.statusClass}${item.isTeam ? " team" : ""}">
             <div class="pi-capacity-person">${escapeHtml(item.displayName)}</div>
             <div class="pi-capacity-pie-wrap">
-              <div class="pi-capacity-pie" style="${pieStyle}" title="Capacity split: Planned ${escapeHtml(plannedLabel)} | Buffer ${escapeHtml(bufferLabel)} | Load ${escapeHtml(assignedLabel)}"></div>
-              <div class="pi-capacity-pie-label">${escapeHtml(item.loadPercent)}%</div>
+              <div class="pi-capacity-pie-cluster">
+                <div class="pi-capacity-pie" style="${pieStyle}" title="Capacity split: Planned ${escapeHtml(plannedLabel)} | Buffer ${escapeHtml(bufferLabel)} | Load ${escapeHtml(assignedLabel)}">
+                  <div class="pi-capacity-pie-center">
+                    <div class="pi-capacity-pie-label">${escapeHtml(item.loadPercent)}%</div>
+                    <div class="pi-capacity-pie-sub">Load</div>
+                  </div>
+                </div>
+              </div>
+              <div class="pi-capacity-legend" aria-label="Pie chart legend">
+                <span class="pi-capacity-legend-item"><span class="pi-capacity-legend-swatch committed"></span>Committed</span>
+                <span class="pi-capacity-legend-item"><span class="pi-capacity-legend-swatch stretch"></span>Stretch</span>
+                <span class="pi-capacity-legend-item"><span class="pi-capacity-legend-swatch planned"></span>Planned</span>
+                <span class="pi-capacity-legend-item"><span class="pi-capacity-legend-swatch buffer"></span>Buffer</span>
+              </div>
             </div>
-            <div class="pi-capacity-meta">Load: ${escapeHtml(assignedLabel)} / Capacity: ${escapeHtml(fullLabel)}</div>
-            <div class="pi-capacity-meta">Planned: ${escapeHtml(plannedLabel)} | Buffer: ${escapeHtml(bufferLabel)}${item.overload > 0 ? ` | Overload: ${escapeHtml(overloadLabel)}` : ""}</div>
+            <div class="pi-capacity-meta-bottom">Load: ${escapeHtml(assignedLabel)} / Capacity: ${escapeHtml(fullLabel)} Committed: ${escapeHtml(committedLabel)} | Stretch: ${escapeHtml(stretchLabel)} Planned: ${escapeHtml(plannedLabel)} | Buffer: ${escapeHtml(bufferLabel)}${item.overload > 0 ? ` | Overload: ${escapeHtml(overloadLabel)}` : ""}</div>
           </div>
         `;
       };

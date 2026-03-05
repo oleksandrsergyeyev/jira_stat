@@ -309,5 +309,293 @@
       }
     ],
     "updatedAt": "2026-03-02T16:46:49.798280+00:00"
+  },
+  "ART - BCRC - SysSW CI|||QS_26w10": {
+    "workGroup": "ART - BCRC - SysSW CI",
+    "fixVersion": "QS_26w10",
+    "startWeek": "2026-W11",
+    "sprintWeeks": {
+      "Sprint 1": 2,
+      "Sprint 2": 2,
+      "Sprint 3": 2,
+      "Sprint 4": 2,
+      "Sprint 5": 2
+    },
+    "members": [
+      {
+        "accountId": "",
+        "displayName": "Pin, Rostyslav",
+        "emailAddress": "rostyslav.pin@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            4.0,
+            5.0
+          ],
+          "Sprint 3": [
+            4.0,
+            5.0
+          ],
+          "Sprint 4": [
+            5.0,
+            4.0
+          ],
+          "Sprint 5": [
+            5.0,
+            5.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Stefanenko, Kostiantyn",
+        "emailAddress": "kostiantyn.stefanenko@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            4.0,
+            5.0
+          ],
+          "Sprint 3": [
+            5.0,
+            0.0
+          ],
+          "Sprint 4": [
+            5.0,
+            4.0
+          ],
+          "Sprint 5": [
+            4.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Timakov, Borys",
+        "emailAddress": "borys.timakov@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            4.0,
+            5.0
+          ],
+          "Sprint 3": [
+            5.0,
+            0.0
+          ],
+          "Sprint 4": [
+            5.0,
+            4.0
+          ],
+          "Sprint 5": [
+            4.0,
+            5.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Maddage Don, Pasan",
+        "emailAddress": "pasan.maddage.don@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            0.0,
+            4.0
+          ],
+          "Sprint 3": [
+            4.0,
+            5.0
+          ],
+          "Sprint 4": [
+            5.0,
+            4.0
+          ],
+          "Sprint 5": [
+            5.0,
+            4.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Aliyev, Emin",
+        "emailAddress": "emin.aliyev@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            4.0
+          ],
+          "Sprint 2": [
+            0.0,
+            5.0
+          ],
+          "Sprint 3": [
+            4.0,
+            5.0
+          ],
+          "Sprint 4": [
+            5.0,
+            4.0
+          ],
+          "Sprint 5": [
+            5.0,
+            5.0
+          ]
+        }
+      }
+    ],
+    "updatedAt": "2026-03-05T15:07:09.787623+00:00"
+  },
+  "ART - BCRC - FPT|||QS_26w10": {
+    "workGroup": "ART - BCRC - FPT",
+    "fixVersion": "QS_26w10",
+    "startWeek": "2026-W11",
+    "sprintWeeks": {
+      "Sprint 1": 2,
+      "Sprint 2": 2,
+      "Sprint 3": 2,
+      "Sprint 4": 2,
+      "Sprint 5": 2
+    },
+    "members": [
+      {
+        "accountId": "",
+        "displayName": "Hoang, Minh Hiep",
+        "emailAddress": "minh.hiep.hoang@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            4.0,
+            4.0
+          ],
+          "Sprint 3": [
+            4.0,
+            5.0
+          ],
+          "Sprint 4": [
+            5.0,
+            4.0
+          ],
+          "Sprint 5": [
+            0.0,
+            3.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Van Tran, Thieu",
+        "emailAddress": "thieu.vantran@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            4.0,
+            5.0
+          ],
+          "Sprint 3": [
+            5.0,
+            5.0
+          ],
+          "Sprint 4": [
+            5.0,
+            2.0
+          ],
+          "Sprint 5": [
+            5.0,
+            5.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Lesnik, Andrii",
+        "emailAddress": "andrii.lesnik@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            4.0,
+            5.0
+          ],
+          "Sprint 3": [
+            5.0,
+            4.0
+          ],
+          "Sprint 4": [
+            5.0,
+            4.0
+          ],
+          "Sprint 5": [
+            0.0,
+            5.0
+          ]
+        }
+      }
+    ],
+    "updatedAt": "2026-03-05T15:10:07.282770+00:00"
+  },
+  "ART - BCRC - Test and Strategy|||QS_26w10": {
+    "workGroup": "ART - BCRC - Test and Strategy",
+    "fixVersion": "QS_26w10",
+    "startWeek": "2026-W11",
+    "sprintWeeks": {
+      "Sprint 1": 2,
+      "Sprint 2": 2,
+      "Sprint 3": 2,
+      "Sprint 4": 2,
+      "Sprint 5": 2
+    },
+    "members": [
+      {
+        "accountId": "",
+        "displayName": "Taraniuk, Viktoriia",
+        "emailAddress": "viktoriia.taraniuk@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            5.0,
+            4.0
+          ],
+          "Sprint 3": [
+            2.0,
+            5.0
+          ],
+          "Sprint 4": [
+            5.0,
+            3.0
+          ],
+          "Sprint 5": [
+            5.0,
+            4.0
+          ]
+        }
+      }
+    ],
+    "updatedAt": "2026-03-05T15:14:00.685853+00:00"
   }
 }
