@@ -2764,6 +2764,24 @@ table.pi-planning-table {
 .col-pi-scope    { max-width: 74px;  min-width: 40px;  width: 64px; }
 .col-links       { max-width: 120px; min-width: 66px; }
 
+#committed-table .col-pi-scope,
+#committed-table th.col-pi-scope,
+#committed-table td.col-pi-scope {
+  width: 1%;
+  min-width: 0;
+  max-width: none;
+  white-space: nowrap;
+}
+
+#committed-table th.col-pi-scope .backlog-head-filter-inline {
+  gap: 3px;
+}
+
+#committed-table th.col-pi-scope .backlog-col-filter-btn {
+  min-width: 22px;
+  padding: 1px 4px;
+}
+
 /* Sprint columns */
 .pi-planning-table th.story-cell, .pi-planning-table td.story-cell {
   max-width: 54px;
