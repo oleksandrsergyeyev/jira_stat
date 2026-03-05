@@ -1233,6 +1233,11 @@ h1 { margin-bottom: 20px; }
   display: block;
 }
 
+#capabilitySubmenuColumns {
+  max-height: none;
+  overflow: visible;
+}
+
 .backlog-column-filters th {
   background: #f8fbff;
   border-top: 1px solid #e6edf8;

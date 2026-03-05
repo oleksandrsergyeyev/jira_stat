@@ -3741,7 +3741,6 @@ function renderBacklogColumnToggleMenu(sprints) {
 
   const rows = [];
   piPlanningColumns.forEach((col, idx) => {
-    if (idx === 1) return;
     rows.push({ idx, label: col.label });
   });
   rows.push({ idx: fixVersionColIndex, label: 'Fix Version' });
@@ -3755,11 +3754,16 @@ function renderBacklogColumnToggleMenu(sprints) {
     checkbox.type = 'checkbox';
     checkbox.checked = !hidden.has(idx);
     checkbox.setAttribute('data-col-idx', String(idx));
+    if (idx === 0) {
+      checkbox.disabled = true;
+      checkbox.checked = true;
+    }
 
     const text = document.createElement('span');
     text.textContent = label;
 
     checkbox.addEventListener('change', () => {
+      if (idx === 0) return;
       if (checkbox.checked) hiddenColumns[tableKey].delete(idx);
       else hiddenColumns[tableKey].add(idx);
       window._rerenderFeatureTable(tableKey, Array.isArray(sprints) ? sprints : []);
