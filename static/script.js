@@ -1784,10 +1784,12 @@ function sortTable(header) {
           link.href = `https://jira-vira.volvocars.biz/browse/${capabilityKey}`;
           link.target = "_blank";
           link.rel = "noopener noreferrer";
-          link.textContent = capability;
+          link.innerHTML = capabilityLabelToHtml(capability);
           blockCell.appendChild(link);
         } else {
-          blockCell.textContent = capability;
+          const label = document.createElement("span");
+          label.innerHTML = capabilityLabelToHtml(capability);
+          blockCell.appendChild(label);
         }
         blockRow.appendChild(blockCell);
         tbody.appendChild(blockRow);
@@ -1880,8 +1882,24 @@ async function loadPIPlanningData(forceRefresh = false) {
     if (!fixVersion || !workGroup) return;
 
     const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
+    const capabilitiesUrl = `/capabilities_data?workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
     const cacheKey = makeCacheKey("piPlanningData", { fixVersion, workGroup });
-    const data = await fetchJsonWithClientCache(url, cacheKey, forceRefresh);
+    const capabilitiesCacheKey = makeCacheKey("capabilitiesDataV3", { workGroup });
+    const [data, capabilities] = await Promise.all([
+      fetchJsonWithClientCache(url, cacheKey, forceRefresh),
+      fetchJsonWithClientCache(capabilitiesUrl, capabilitiesCacheKey, forceRefresh),
+    ]);
+
+    const capabilityMetaByKey = new Map();
+    (Array.isArray(capabilities) ? capabilities : []).forEach((cap) => {
+      const key = String(cap?.key || '').trim();
+      if (!key) return;
+      capabilityMetaByKey.set(key, {
+        summary: String(cap?.summary || '').trim(),
+        priority: String(cap?.priority || '').trim(),
+        leadingWorkGroup: String(cap?.leading_work_group || '').trim(),
+      });
+    });
 
     // Define sprint columns
     const sprints = ["Sprint 1","Sprint 2","Sprint 3","Sprint 4","Sprint 5","No Sprint"];
@@ -1894,15 +1912,24 @@ async function loadPIPlanningData(forceRefresh = false) {
     const backlog   = [];
 
     for (const [key, feature] of Object.entries(data)) {
-      const scope = (feature.pi_scope || "").toLowerCase();
-      const inPI = Array.isArray(feature.fixVersions)
-        ? feature.fixVersions.includes(fixVersion)
+      const capabilityKey = String(feature?.parent_link || '').trim();
+      const capMeta = capabilityMetaByKey.get(capabilityKey) || null;
+      const enrichedFeature = {
+        ...feature,
+        parent_summary: String(feature?.parent_summary || capMeta?.summary || '').trim(),
+        parent_priority: String(feature?.parent_priority || capMeta?.priority || '').trim(),
+        parent_leading_work_group: String(feature?.parent_leading_work_group || capMeta?.leadingWorkGroup || '').trim(),
+      };
+
+      const scope = (enrichedFeature.pi_scope || "").toLowerCase();
+      const inPI = Array.isArray(enrichedFeature.fixVersions)
+        ? enrichedFeature.fixVersions.includes(fixVersion)
         : false;
 
       if (scope.startsWith("committed") && inPI) {
-        committed.push([key, feature]);
-      } else if (!isDone(feature)) {
-        backlog.push([key, feature]);
+        committed.push([key, enrichedFeature]);
+      } else if (!isDone(enrichedFeature)) {
+        backlog.push([key, enrichedFeature]);
       }
     }
 
