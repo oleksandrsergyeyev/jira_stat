@@ -12,6 +12,7 @@ let appSettingsCache = null;
 let committedCollapsedCapabilities = new Set();
 let committedCollapsedFeatures = new Set();
 const BACKLOG_SELECT_FILTER_KEYS = new Set(["assignee", "reporter", "status", "piscope", "fixversions"]);
+const PI_PLANNING_SELECT_FILTER_KEYS = new Set(["assignee", "reporter", "status", "piscope"]);
 let backlogColumnFilterMenusBound = false;
 
 function backlogFilterTitleByKey(key) {
@@ -35,6 +36,14 @@ function backlogFilterButtonText(key, selectedValues, totalCount) {
 function resetBacklogColumnFilters() {
   setBacklogColumnFilterState({});
   window._rerenderFeatureTable('backlog-table', []);
+  applyFilter();
+}
+
+function resetPiPlanningColumnFilters() {
+  setPiPlanningColumnFilterState({});
+  const container = document.getElementById('committed-table');
+  const sprints = Array.isArray(container?._treeSprints) ? container._treeSprints : [];
+  window._rerenderFeatureTable('committed-table', sprints);
   applyFilter();
 }
 
@@ -149,6 +158,10 @@ function backlogColumnFilterStorageKey() {
   return `backlogColumnFilters::${getSelectedWorkGroup() || ""}`;
 }
 
+function piPlanningColumnFilterStorageKey() {
+  return `piPlanningColumnFilters::${getSelectedWorkGroup() || ""}::${getSelectedFixVersion() || ""}`;
+}
+
 function getBacklogColumnFilterState() {
   try {
     const raw = localStorage.getItem(backlogColumnFilterStorageKey());
@@ -182,6 +195,39 @@ function setBacklogColumnFilterState(state) {
   }
 }
 
+function getPiPlanningColumnFilterState() {
+  try {
+    const raw = localStorage.getItem(piPlanningColumnFilterStorageKey());
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!(parsed && typeof parsed === "object")) return {};
+    const out = {};
+    Object.entries(parsed).forEach(([key, value]) => {
+      const safeKey = String(key || "").trim();
+      if (!PI_PLANNING_SELECT_FILTER_KEYS.has(safeKey)) return;
+      const list = Array.isArray(value)
+        ? value
+        : (String(value || "").trim() ? [String(value || "").trim()] : []);
+      const normalized = Array.from(new Set(
+        list.map((entry) => String(entry || "").trim()).filter(Boolean)
+      ));
+      if (!normalized.length) return;
+      out[safeKey] = normalized;
+    });
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function setPiPlanningColumnFilterState(state) {
+  try {
+    localStorage.setItem(piPlanningColumnFilterStorageKey(), JSON.stringify(state || {}));
+  } catch {
+    // ignore
+  }
+}
+
 function getBacklogVisibleColumnKeys(table) {
   if (!(table instanceof HTMLTableElement)) return [];
   try {
@@ -207,8 +253,11 @@ function getBacklogColumnFiltersForTable(table) {
   return out;
 }
 
-function bindBacklogColumnFilters(table) {
+function bindBacklogColumnFilters(table, cfg = {}) {
   if (!(table instanceof HTMLTableElement)) return;
+  const getState = typeof cfg.getState === 'function' ? cfg.getState : getBacklogColumnFilterState;
+  const setState = typeof cfg.setState === 'function' ? cfg.setState : setBacklogColumnFilterState;
+  const allowedKeys = cfg.allowedKeys instanceof Set ? cfg.allowedKeys : BACKLOG_SELECT_FILTER_KEYS;
 
   const positionBacklogFilterMenu = (dropdown, menu) => {
     const btn = dropdown.querySelector('.backlog-col-filter-btn');
@@ -328,13 +377,13 @@ function bindBacklogColumnFilters(table) {
     }
 
     const handler = () => {
-      const state = getBacklogColumnFilterState();
+      const state = getState();
       const values = Array.from(dropdown.querySelectorAll('.backlog-col-filter-option input[type="checkbox"][value]:checked'))
         .map((cb) => String(cb.value || '').trim())
         .filter(Boolean);
-      if (values.length && BACKLOG_SELECT_FILTER_KEYS.has(key)) state[key] = values;
+      if (values.length && allowedKeys.has(key)) state[key] = values;
       else delete state[key];
-      setBacklogColumnFilterState(state);
+      setState(state);
 
       const total = Number(dropdown.getAttribute('data-options-count') || 0);
       const btn = dropdown.querySelector('.backlog-col-filter-btn');
@@ -1559,8 +1608,12 @@ function applyFilter() {
   const filter = filterInput.value.toLowerCase();
   document.querySelectorAll("table").forEach((table) => {
     const isBacklogTable = !!table.closest('#backlog-table');
-    const backlogColumnFilters = isBacklogTable ? getBacklogColumnFiltersForTable(table) : {};
-    const backlogVisibleKeys = isBacklogTable ? getBacklogVisibleColumnKeys(table) : [];
+    const isPlanningTable = !!table.closest('#committed-table');
+    const columnFilters = (isBacklogTable || isPlanningTable) ? getBacklogColumnFiltersForTable(table) : {};
+    const visibleKeys = (isBacklogTable || isPlanningTable) ? getBacklogVisibleColumnKeys(table) : [];
+    const activeSelectKeys = isBacklogTable
+      ? BACKLOG_SELECT_FILTER_KEYS
+      : (isPlanningTable ? PI_PLANNING_SELECT_FILTER_KEYS : new Set());
 
     const rows = Array.from(table.querySelectorAll("tbody tr"));
     rows.forEach((row) => {
@@ -1575,13 +1628,13 @@ function applyFilter() {
       const matchesText = row.innerText.toLowerCase().includes(filter) || (!!filter && storySearch.includes(filter));
 
       let matchesColumnFilters = true;
-      if (isBacklogTable && backlogVisibleKeys.length) {
-        for (let i = 0; i < backlogVisibleKeys.length; i += 1) {
-          const key = backlogVisibleKeys[i];
-          const wanted = Array.isArray(backlogColumnFilters[key])
-            ? backlogColumnFilters[key].filter(Boolean)
+      if ((isBacklogTable || isPlanningTable) && visibleKeys.length) {
+        for (let i = 0; i < visibleKeys.length; i += 1) {
+          const key = visibleKeys[i];
+          const wanted = Array.isArray(columnFilters[key])
+            ? columnFilters[key].filter(Boolean)
             : [];
-          if (!wanted.length || !BACKLOG_SELECT_FILTER_KEYS.has(key) || key === 'rownum') continue;
+          if (!wanted.length || !activeSelectKeys.has(key) || key === 'rownum') continue;
           const cellText = String(row.cells[i]?.innerText || '').toLowerCase();
           const isMatch = key === 'fixversions'
             ? wanted.some((expected) => cellText.includes(String(expected || '').toLowerCase()))
@@ -1624,10 +1677,10 @@ function recalculateVisibleTotals(table) {
   const totalsRow = table.querySelector("tbody tr.totals-row");
   if (!(totalsRow instanceof HTMLTableRowElement)) return;
 
-  const headers = Array.from(table.querySelectorAll("thead th")).map((th) => (th.textContent || "").trim().toLowerCase());
-  const featureNameIdx = headers.findIndex((h) => h === "feature name");
-  const featureSpIdx = headers.findIndex((h) => h === "feature st.p.");
-  const storySumIdx = headers.findIndex((h) => h === "st.p. sum");
+  const visibleKeys = getBacklogVisibleColumnKeys(table);
+  const featureNameIdx = visibleKeys.indexOf('featurename');
+  const featureSpIdx = visibleKeys.indexOf('storypoints');
+  const storySumIdx = visibleKeys.indexOf('totalpoints');
   if (featureSpIdx < 0 || storySumIdx < 0) return;
 
   let totalFeatureSp = 0;
@@ -3795,6 +3848,7 @@ function renderFeatureTable(features, containerId, sprints) {
 
   const isBacklogTable = containerId === 'backlog-table' && (!Array.isArray(sprints) || sprints.length === 0);
   const isCommittedTable = containerId === 'committed-table';
+  const isPlanningTable = isCommittedTable;
   const isCapabilityGroupedTable = isBacklogTable || isCommittedTable;
   const includeBacklogFixVersionColumn = isBacklogTable;
   const backlogFixVersionColIndex = piPlanningColumns.length + ((Array.isArray(sprints) ? sprints.length : 0));
@@ -3847,7 +3901,12 @@ function renderFeatureTable(features, containerId, sprints) {
 
   const hidden = new Set(hiddenColumns[containerId] || []);
   if (isCommittedTable || isBacklogTable) hidden.add(1);
-  const backlogColumnFilterState = isBacklogTable ? getBacklogColumnFilterState() : {};
+  const tableColumnFilterState = isBacklogTable
+    ? getBacklogColumnFilterState()
+    : (isPlanningTable ? getPiPlanningColumnFilterState() : {});
+  const tableSelectFilterKeys = isBacklogTable
+    ? BACKLOG_SELECT_FILTER_KEYS
+    : (isPlanningTable ? PI_PLANNING_SELECT_FILTER_KEYS : new Set());
   const backlogFilterOptionsByKey = {
     assignee: new Set(),
     reporter: new Set(),
@@ -3856,7 +3915,7 @@ function renderFeatureTable(features, containerId, sprints) {
     fixversions: new Set(),
   };
 
-  if (isBacklogTable) {
+  if (isBacklogTable || isPlanningTable) {
     renderedFeatures.forEach(([, feature]) => {
       const assignee = String(feature?.assignee || '').trim();
       const reporter = String(feature?.reporter || '').trim();
@@ -3906,9 +3965,9 @@ function renderFeatureTable(features, containerId, sprints) {
       const colKey = String(piPlanningColumns[idx]?.key || `col_${idx}`);
       visibleColumnKeys.push(colKey);
       const sortAttr = ' onclick="sortTable(this)"';
-      if (isBacklogTable && BACKLOG_SELECT_FILTER_KEYS.has(colKey)) {
-        const selectedValues = Array.isArray(backlogColumnFilterState[colKey])
-          ? backlogColumnFilterState[colKey].map((x) => String(x || '').trim()).filter(Boolean)
+      if ((isBacklogTable || isPlanningTable) && tableSelectFilterKeys.has(colKey)) {
+        const selectedValues = Array.isArray(tableColumnFilterState[colKey])
+          ? tableColumnFilterState[colKey].map((x) => String(x || '').trim()).filter(Boolean)
           : [];
         const selectedSet = new Set(selectedValues);
         const options = Array.from(backlogFilterOptionsByKey[colKey] || [])
@@ -3934,8 +3993,8 @@ function renderFeatureTable(features, containerId, sprints) {
   if (includeBacklogFixVersionColumn && !hidden.has(backlogFixVersionColIndex)) {
     visibleColumnKeys.push('fixversions');
     if (isBacklogTable && BACKLOG_SELECT_FILTER_KEYS.has('fixversions')) {
-      const selectedValues = Array.isArray(backlogColumnFilterState.fixversions)
-        ? backlogColumnFilterState.fixversions.map((x) => String(x || '').trim()).filter(Boolean)
+      const selectedValues = Array.isArray(tableColumnFilterState.fixversions)
+        ? tableColumnFilterState.fixversions.map((x) => String(x || '').trim()).filter(Boolean)
         : [];
       const selectedSet = new Set(selectedValues);
       const options = Array.from(backlogFilterOptionsByKey.fixversions || [])
@@ -4179,9 +4238,13 @@ function renderFeatureTable(features, containerId, sprints) {
   tableHtml += '</tbody></table>';
   container.innerHTML = tableHtml;
   const renderedTable = container.querySelector("table");
-  if (isBacklogTable && renderedTable instanceof HTMLTableElement) {
+  if ((isBacklogTable || isPlanningTable) && renderedTable instanceof HTMLTableElement) {
     renderedTable.dataset.visibleColumnKeys = JSON.stringify(visibleColumnKeys);
-    bindBacklogColumnFilters(renderedTable);
+    bindBacklogColumnFilters(renderedTable, {
+      getState: isBacklogTable ? getBacklogColumnFilterState : getPiPlanningColumnFilterState,
+      setState: isBacklogTable ? setBacklogColumnFilterState : setPiPlanningColumnFilterState,
+      allowedKeys: tableSelectFilterKeys,
+    });
   }
   if (isCommittedTable) {
     bindCommittedTreeToggles(containerId, sprints);
@@ -5317,6 +5380,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("fixVersionSelect")?.addEventListener("change", () => { savePlanningSettings(); loadPIPlanningData(); });
     document.getElementById("workGroupSelect")?.addEventListener("change", () => { savePlanningSettings(); loadPIPlanningData(); });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
+    document.getElementById("planning-reset-column-filters")?.addEventListener("click", () => {
+      resetPiPlanningColumnFilters();
+    });
     document.getElementById("pi-collapse-all-stories")?.addEventListener("click", collapseAllCommittedStories);
 
     document.getElementById("export-committed-excel")?.addEventListener("click", function () {
