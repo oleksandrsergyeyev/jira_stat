@@ -3045,6 +3045,7 @@ table.pi-planning-table {
   display: grid;
   /* 👇 now controlled by CSS variables */
   grid-template-columns: var(--gantt-label-col, minmax(320px, 2fr))
+                         var(--gantt-prio-col, 64px)
                          repeat(var(--gantt-cols, 5), 1fr);
   align-items: center;
   position: relative;
@@ -3069,6 +3070,16 @@ table.pi-planning-table {
   white-space: nowrap;
   display: flex;
   align-items: center;
+}
+
+.gantt-prio {
+  font-size: 12px;
+  color: #222;
+  padding: 0 6px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 5) Optional sprint cell (ok if present, harmless if not) */

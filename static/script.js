@@ -6049,6 +6049,17 @@ function renderGanttTimeline(committedFeatures, sprints) {
   host.style.setProperty("--gantt-cols", String(sprints.length));
   host.innerHTML = "";
 
+  const ganttRows = Array.isArray(committedFeatures)
+    ? [...committedFeatures].sort((a, b) => {
+        const aFeature = a?.[1] || {};
+        const bFeature = b?.[1] || {};
+        const aPrio = roadmapPriorityNumber(aFeature.priority);
+        const bPrio = roadmapPriorityNumber(bFeature.priority);
+        if (aPrio !== bPrio) return aPrio - bPrio;
+        return String(a?.[0] || "").localeCompare(String(b?.[0] || ""));
+      })
+    : [];
+
   // --- helper: map status -> CSS class (inline, no external dependency)
   const mapStatus = (status) => {
     const s = (status || "").toLowerCase();
@@ -6094,8 +6105,12 @@ function renderGanttTimeline(committedFeatures, sprints) {
   const header = document.createElement("div");
   header.className = "gantt-header";
   const headLabel = document.createElement("div");
-  headLabel.textContent = "";
+  headLabel.textContent = "Feature";
   header.appendChild(headLabel);
+  const headPrio = document.createElement("div");
+  headPrio.className = "gantt-prio-head";
+  headPrio.textContent = "Prio";
+  header.appendChild(headPrio);
   sprints.forEach((name) => {
     const h = document.createElement("div");
     h.textContent = name;
@@ -6104,7 +6119,7 @@ function renderGanttTimeline(committedFeatures, sprints) {
   host.appendChild(header);
 
   // If somehow no committed features – show a message instead of “nothing”
-  if (!Array.isArray(committedFeatures) || committedFeatures.length === 0) {
+  if (!ganttRows.length) {
     const msg = document.createElement("div");
     msg.style.padding = "8px 6px";
     msg.style.fontSize = "12px";
@@ -6115,7 +6130,7 @@ function renderGanttTimeline(committedFeatures, sprints) {
   }
 
   // ---- Rows
-  for (const [featureId, feature] of committedFeatures) {
+  for (const [featureId, feature] of ganttRows) {
     const row = document.createElement("div");
     row.className = "gantt-row";
 
@@ -6126,6 +6141,12 @@ function renderGanttTimeline(committedFeatures, sprints) {
       feature.summary || featureId
     }</a>`;
     row.appendChild(label);
+
+    const prioCell = document.createElement("div");
+    prioCell.className = "gantt-prio";
+    const rawPrio = String(feature?.priority || "").trim();
+    prioCell.textContent = rawPrio || "NS";
+    row.appendChild(prioCell);
 
     const statusByKey = buildStatusMap(feature);
 
@@ -6144,8 +6165,8 @@ function renderGanttTimeline(committedFeatures, sprints) {
       const end = activeIdx[activeIdx.length - 1];
       const bar = document.createElement("div");
       bar.className = "gantt-bar";
-      bar.style.gridColumnStart = 2 + start;
-      bar.style.gridColumnEnd = 2 + end + 1;
+      bar.style.gridColumnStart = 3 + start;
+      bar.style.gridColumnEnd = 3 + end + 1;
       bar.style.setProperty("--span-cols", String(end - start + 1));
 
       for (let i = start; i <= end; i++) {
@@ -6168,8 +6189,8 @@ function renderGanttTimeline(committedFeatures, sprints) {
       if (noIdx >= 0 && raw.length) {
         const bar = document.createElement("div");
         bar.className = "gantt-bar nosprint";
-        bar.style.gridColumnStart = 2 + noIdx;
-        bar.style.gridColumnEnd = 2 + noIdx + 1;
+        bar.style.gridColumnStart = 3 + noIdx;
+        bar.style.gridColumnEnd = 3 + noIdx + 1;
         bar.style.setProperty("--span-cols", "1");
 
         const seg = document.createElement("div");
