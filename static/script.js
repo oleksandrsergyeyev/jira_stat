@@ -4052,12 +4052,21 @@ function renderFeatureTable(features, containerId, sprints) {
       tableHtml += `<td class="col-pi-scope">${feature.pi_scope || ""}</td>`;
     if (!hidden.has(colIdx++)) {
       const linksArr = feature.linked_issues || [];
-      const linksHtml = linksArr
-        .map((link) => {
-          const url = String(link?.url || '').trim();
-          const key = String(link?.key || '').trim();
-          if (!url || !key) return '';
-          return `<a class="compact-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(key)}</a>`;
+      const linksByType = new Map();
+      linksArr.forEach((link) => {
+        const type = String(link?.link_type || 'Other').trim() || 'Other';
+        if (!linksByType.has(type)) linksByType.set(type, []);
+        linksByType.get(type).push(link);
+      });
+
+      const linksHtml = Array.from(linksByType.entries())
+        .map(([type, items]) => {
+          const first = Array.isArray(items) ? items[0] : null;
+          const url = String(first?.url || '').trim();
+          if (!url) return '';
+          const count = Array.isArray(items) ? items.length : 0;
+          const text = count > 1 ? `${type} (${count})` : type;
+          return `<a class="compact-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
         })
         .filter(Boolean)
         .join(', ');
