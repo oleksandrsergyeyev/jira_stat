@@ -1182,6 +1182,9 @@ h1 { margin-bottom: 20px; }
   border-top: 1px solid #e6edf8;
   border-bottom: 1px solid #e6edf8;
   padding: 4px 6px;
+  overflow: visible;
+  position: relative;
+  z-index: 5;
 }
 
 .backlog-col-filter-input {
@@ -1200,6 +1203,115 @@ h1 { margin-bottom: 20px; }
   outline: none;
   border-color: #8fb0df;
   box-shadow: 0 0 0 2px rgba(143, 176, 223, 0.25);
+}
+
+.backlog-col-filter-dropdown {
+  position: relative;
+}
+
+.backlog-col-filter-btn {
+  width: 100%;
+  min-width: 110px;
+  border: 1px solid #cfd8e5;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  background: #ffffff;
+  color: #2f3a48;
+  text-align: left;
+  cursor: pointer;
+}
+
+.backlog-col-filter-btn:focus {
+  outline: none;
+  border-color: #8fb0df;
+  box-shadow: 0 0 0 2px rgba(143, 176, 223, 0.25);
+}
+
+.backlog-col-filter-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 180px;
+  max-width: 280px;
+  max-height: 240px;
+  overflow: auto;
+  z-index: 600;
+  background: #ffffff;
+  border: 1px solid #d5dce7;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+}
+
+.backlog-col-filter-menu.open {
+  display: block;
+}
+
+.backlog-col-filter-actions {
+  display: flex;
+  gap: 6px;
+  padding: 2px 4px 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #e7edf7;
+}
+
+.backlog-col-filter-action-btn {
+  border: 1px solid #cfd8e5;
+  background: #ffffff;
+  color: #2f3a48;
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.backlog-col-filter-action-btn:hover {
+  border-color: #9bb7dc;
+  background: #f3f7ff;
+}
+
+.backlog-col-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.backlog-col-filter-option:hover {
+  background: #f3f7ff;
+}
+
+.backlog-col-filter-empty {
+  padding: 6px;
+  font-size: 11px;
+  color: #6b7789;
+}
+
+.backlog-head-filter-cell {
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+.backlog-head-filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.backlog-head-filter-inline > span {
+  display: inline-block;
+}
+
+.backlog-head-filter-inline .backlog-col-filter-btn {
+  min-width: 34px;
+  padding: 2px 6px;
+  text-align: center;
+  font-weight: 700;
 }
 
 .roadmap-qs-filter-option {
@@ -1628,6 +1740,13 @@ table.pi-planning-table {
   border-collapse: separate;
   border-spacing: 0;
   position: relative;
+  width: 100%;
+  table-layout: fixed;
+}
+
+#backlog-table {
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .pi-planning-table th, .pi-planning-table td {
@@ -1648,6 +1767,43 @@ table.pi-planning-table {
 .col-reporter    { max-width: 140px;  min-width: 90px;  width: 120px;  text-align: left; padding-left: 4px; }
 .col-priority    { max-width: 36px;  min-width: 24px;  width: 32px;  text-align: right; padding-right: 4px; }
 .col-fix-versions{ max-width: 220px; min-width: 120px; width: 170px; }
+
+#backlog-table .col-assignee,
+#backlog-table .col-reporter,
+#backlog-table .col-status,
+#backlog-table .col-pi-scope,
+#backlog-table .col-fix-versions {
+  min-width: 0;
+}
+
+#backlog-table .pi-planning-table th,
+#backlog-table .pi-planning-table td {
+  padding: 4px 6px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+#backlog-table .col-rownum { width: 3%; min-width: 0; max-width: none; }
+#backlog-table .col-feature-id { width: 9%; min-width: 0; max-width: none; }
+#backlog-table .col-feature-name { width: 28%; min-width: 0; max-width: none; }
+#backlog-table .col-story-points { width: 5%; min-width: 0; max-width: none; }
+#backlog-table .col-assignee { width: 11%; max-width: none; }
+#backlog-table .col-reporter { width: 11%; max-width: none; }
+#backlog-table .col-priority { width: 4%; min-width: 0; max-width: none; }
+#backlog-table .col-status { width: 11%; max-width: none; }
+#backlog-table .col-pi-scope { width: 9%; max-width: none; }
+#backlog-table .col-links { width: 6%; min-width: 0; max-width: none; }
+#backlog-table .col-fix-versions { width: 13%; max-width: none; }
+
+#backlog-table .backlog-head-filter-inline {
+  gap: 4px;
+}
+
+#backlog-table .backlog-head-filter-inline .backlog-col-filter-btn {
+  min-width: 26px;
+  padding: 1px 5px;
+  font-size: 10px;
+}
 
 /* =========================
    Team Capacity page
@@ -2311,11 +2467,18 @@ table.pi-planning-table {
 }
 
 #backlog-table .pi-planning-table thead th {
-  position: sticky;
-  top: calc(var(--sticky-menu-h) + var(--sticky-filters-h) + var(--sticky-toggles-h));
-  z-index: 220;
+  position: static;
+  top: auto;
+  z-index: auto;
   background: #f3f7fc;
-  box-shadow: inset 0 -1px 0 #dfe8f3;
+  box-shadow: none;
+}
+
+#backlog-table .pi-planning-table thead tr.backlog-column-filters th {
+  overflow: visible;
+  text-overflow: clip;
+  position: sticky;
+  z-index: 260;
 }
 .col-toggle-btn {
   font-size: 12px;

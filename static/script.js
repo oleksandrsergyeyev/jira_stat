@@ -3,7 +3,6 @@
    ========================= */
 
 let currentSortOrder = 'asc';
-let backlogSelectedStatuses = new Set();
 const CLIENT_CACHE_PREFIX = "jiraStatCache::v2::";
 let roadmapCollapsedCapabilities = new Set();
 let roadmapCollapsedYears = new Set();
@@ -12,6 +11,32 @@ let roadmapTeammatesByScope = new Map();
 let appSettingsCache = null;
 let committedCollapsedCapabilities = new Set();
 let committedCollapsedFeatures = new Set();
+const BACKLOG_SELECT_FILTER_KEYS = new Set(["assignee", "reporter", "status", "piscope", "fixversions"]);
+let backlogColumnFilterMenusBound = false;
+
+function backlogFilterTitleByKey(key) {
+  const titles = {
+    assignee: "Assignee",
+    reporter: "Reporter",
+    status: "Status",
+    piscope: "PI Scope",
+    fixversions: "Fix Version",
+  };
+  return titles[String(key || "").trim()] || "Filter";
+}
+
+function backlogFilterButtonText(key, selectedValues, totalCount) {
+  const selected = Array.isArray(selectedValues) ? selectedValues.filter(Boolean) : [];
+  const safeTotal = Number.isFinite(Number(totalCount)) ? Number(totalCount) : 0;
+  const count = selected.length;
+  return String(Math.max(0, Math.min(count, Math.max(safeTotal, count))));
+}
+
+function resetBacklogColumnFilters() {
+  setBacklogColumnFilterState({});
+  window._rerenderFeatureTable('backlog-table', []);
+  applyFilter();
+}
 
 function committedCapabilityCollapseStorageKey() {
   return `committedCollapsedCapabilities::${getSelectedWorkGroup() || ""}::${getSelectedFixVersion() || ""}`;
@@ -129,7 +154,21 @@ function getBacklogColumnFilterState() {
     const raw = localStorage.getItem(backlogColumnFilterStorageKey());
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    return (parsed && typeof parsed === "object") ? parsed : {};
+    if (!(parsed && typeof parsed === "object")) return {};
+    const out = {};
+    Object.entries(parsed).forEach(([key, value]) => {
+      const safeKey = String(key || "").trim();
+      if (!BACKLOG_SELECT_FILTER_KEYS.has(safeKey)) return;
+      const list = Array.isArray(value)
+        ? value
+        : (String(value || "").trim() ? [String(value || "").trim()] : []);
+      const normalized = Array.from(new Set(
+        list.map((entry) => String(entry || "").trim()).filter(Boolean)
+      ));
+      if (!normalized.length) return;
+      out[safeKey] = normalized;
+    });
+    return out;
   } catch {
     return {};
   }
@@ -157,34 +196,82 @@ function getBacklogVisibleColumnKeys(table) {
 function getBacklogColumnFiltersForTable(table) {
   const out = {};
   if (!(table instanceof HTMLTableElement)) return out;
-  table.querySelectorAll('thead tr.backlog-column-filters [data-filter-key]').forEach((el) => {
-    const key = String(el.getAttribute('data-filter-key') || '').trim();
+  table.querySelectorAll('thead .backlog-col-filter-dropdown[data-filter-key]').forEach((dropdown) => {
+    const key = String(dropdown.getAttribute('data-filter-key') || '').trim();
     if (!key) return;
-    const val = (el instanceof HTMLInputElement || el instanceof HTMLSelectElement)
-      ? String(el.value || '').trim().toLowerCase()
-      : '';
-    if (val) out[key] = val;
+    const values = Array.from(dropdown.querySelectorAll('.backlog-col-filter-option input[type="checkbox"][value]:checked'))
+      .map((cb) => String(cb.value || '').trim().toLowerCase())
+      .filter(Boolean);
+    if (values.length) out[key] = values;
   });
   return out;
 }
 
 function bindBacklogColumnFilters(table) {
   if (!(table instanceof HTMLTableElement)) return;
-  table.querySelectorAll('thead tr.backlog-column-filters [data-filter-key]').forEach((el) => {
+  if (!backlogColumnFilterMenusBound) {
+    backlogColumnFilterMenusBound = true;
+    document.addEventListener('click', (ev) => {
+      const target = ev.target;
+      if (target instanceof Element && target.closest('.backlog-col-filter-dropdown')) return;
+      document.querySelectorAll('.backlog-col-filter-menu.open').forEach((menu) => menu.classList.remove('open'));
+    });
+  }
+
+  table.querySelectorAll('thead .backlog-col-filter-dropdown[data-filter-key]').forEach((dropdown) => {
+    const key = String(dropdown.getAttribute('data-filter-key') || '').trim();
+    if (!key) return;
+
+    dropdown.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+    });
+
+    const toggleBtn = dropdown.querySelector('.backlog-col-filter-btn');
+    const menu = dropdown.querySelector('.backlog-col-filter-menu');
+    if (toggleBtn instanceof HTMLButtonElement && menu instanceof HTMLElement) {
+      toggleBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const willOpen = !menu.classList.contains('open');
+        document.querySelectorAll('.backlog-col-filter-menu.open').forEach((openMenu) => openMenu.classList.remove('open'));
+        if (willOpen) menu.classList.add('open');
+      });
+    }
+
     const handler = () => {
       const state = getBacklogColumnFilterState();
-      const key = String(el.getAttribute('data-filter-key') || '').trim();
-      if (!key) return;
-      const value = (el instanceof HTMLInputElement || el instanceof HTMLSelectElement)
-        ? String(el.value || '').trim()
-        : '';
-      if (value) state[key] = value;
+      const values = Array.from(dropdown.querySelectorAll('.backlog-col-filter-option input[type="checkbox"][value]:checked'))
+        .map((cb) => String(cb.value || '').trim())
+        .filter(Boolean);
+      if (values.length && BACKLOG_SELECT_FILTER_KEYS.has(key)) state[key] = values;
       else delete state[key];
       setBacklogColumnFilterState(state);
+
+      const total = Number(dropdown.getAttribute('data-options-count') || 0);
+      const btn = dropdown.querySelector('.backlog-col-filter-btn');
+      if (btn instanceof HTMLButtonElement) {
+        btn.textContent = backlogFilterButtonText(key, values, total);
+      }
+
       applyFilter();
     };
-    el.addEventListener('input', handler);
-    el.addEventListener('change', handler);
+
+    dropdown.querySelectorAll('.backlog-col-filter-option input[type="checkbox"][value]').forEach((cb) => {
+      cb.addEventListener('change', handler);
+    });
+
+    dropdown.querySelectorAll('.backlog-col-filter-action-btn[data-action]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const action = String(btn.getAttribute('data-action') || '').trim().toLowerCase();
+        const checkboxes = Array.from(dropdown.querySelectorAll('.backlog-col-filter-option input[type="checkbox"][value]'));
+        if (action === 'reset') {
+          checkboxes.forEach((cb) => { cb.checked = false; });
+          handler();
+        }
+      });
+    });
   });
 }
 
@@ -1381,8 +1468,6 @@ function applyFilter() {
   const filterInput = document.getElementById("globalFilter");
   if (!filterInput) return;
   const filter = filterInput.value.toLowerCase();
-  const selectedStatuses = new Set(Array.from(backlogSelectedStatuses).map(s => s.toLowerCase()));
-  const hasBacklogStatusFilter = !!document.getElementById("statusFilterMenu");
   document.querySelectorAll("table").forEach((table) => {
     const isBacklogTable = !!table.closest('#backlog-table');
     const backlogColumnFilters = isBacklogTable ? getBacklogColumnFiltersForTable(table) : {};
@@ -1399,24 +1484,27 @@ function applyFilter() {
       }
       const storySearch = String(row.getAttribute("data-story-search") || "").toLowerCase();
       const matchesText = row.innerText.toLowerCase().includes(filter) || (!!filter && storySearch.includes(filter));
-      const rowStatus = (row.getAttribute("data-status") || "").toLowerCase();
-      const matchesStatus = !hasBacklogStatusFilter || selectedStatuses.has(rowStatus);
 
       let matchesColumnFilters = true;
       if (isBacklogTable && backlogVisibleKeys.length) {
         for (let i = 0; i < backlogVisibleKeys.length; i += 1) {
           const key = backlogVisibleKeys[i];
-          const wanted = String(backlogColumnFilters[key] || '').trim();
-          if (!wanted || key === 'rownum') continue;
+          const wanted = Array.isArray(backlogColumnFilters[key])
+            ? backlogColumnFilters[key].filter(Boolean)
+            : [];
+          if (!wanted.length || !BACKLOG_SELECT_FILTER_KEYS.has(key) || key === 'rownum') continue;
           const cellText = String(row.cells[i]?.innerText || '').toLowerCase();
-          if (!cellText.includes(wanted)) {
+          const isMatch = key === 'fixversions'
+            ? wanted.some((expected) => cellText.includes(String(expected || '').toLowerCase()))
+            : wanted.some((expected) => cellText === String(expected || '').toLowerCase());
+          if (!isMatch) {
             matchesColumnFilters = false;
             break;
           }
         }
       }
 
-      row.style.display = (matchesText && matchesStatus && matchesColumnFilters) ? "" : "none";
+      row.style.display = (matchesText && matchesColumnFilters) ? "" : "none";
     });
 
     if (rows.some((row) => row.classList.contains("capability-block-row"))) {
@@ -3479,7 +3567,6 @@ async function loadBacklogData(forceRefresh = false) {
     if (backlogTableHost) backlogTableHost._rawBacklogData = data;
 
     renderBacklogRoadmap(data, capabilities, roadmapCapacityByFixVersion);
-    populateBacklogStatusFilter(data);
 
     renderFeatureTable(Object.entries(data), "backlog-table", []);
     applyFilter();
@@ -3605,6 +3692,28 @@ function renderFeatureTable(features, containerId, sprints) {
   const hidden = new Set(hiddenColumns[containerId] || []);
   if (isCommittedTable || isBacklogTable) hidden.add(1);
   const backlogColumnFilterState = isBacklogTable ? getBacklogColumnFilterState() : {};
+  const backlogFilterOptionsByKey = {
+    assignee: new Set(),
+    reporter: new Set(),
+    status: new Set(),
+    piscope: new Set(),
+    fixversions: new Set(),
+  };
+
+  if (isBacklogTable) {
+    renderedFeatures.forEach(([, feature]) => {
+      const assignee = String(feature?.assignee || '').trim();
+      const reporter = String(feature?.reporter || '').trim();
+      const status = String(feature?.status || '').trim();
+      const piScope = String(feature?.pi_scope || '').trim();
+      const fixVersionsText = Array.isArray(feature?.fixVersions) ? feature.fixVersions.join(', ').trim() : '';
+      if (assignee) backlogFilterOptionsByKey.assignee.add(assignee);
+      if (reporter) backlogFilterOptionsByKey.reporter.add(reporter);
+      if (status) backlogFilterOptionsByKey.status.add(status);
+      if (piScope) backlogFilterOptionsByKey.piscope.add(piScope);
+      if (fixVersionsText) backlogFilterOptionsByKey.fixversions.add(fixVersionsText);
+    });
+  }
 
   const columnClasses = [
     'col-rownum',
@@ -3626,9 +3735,28 @@ function renderFeatureTable(features, containerId, sprints) {
   const visibleColumnKeys = [];
   headerLabels.forEach((label, idx) => {
     if (!hidden.has(idx)) {
-      visibleColumnKeys.push(String(piPlanningColumns[idx]?.key || `col_${idx}`));
+      const colKey = String(piPlanningColumns[idx]?.key || `col_${idx}`);
+      visibleColumnKeys.push(colKey);
       const sortAttr = ' onclick="sortTable(this)"';
-      tableHtml += `<th class="${columnClasses[idx]}"${sortAttr}>${label}</th>`;
+      if (isBacklogTable && BACKLOG_SELECT_FILTER_KEYS.has(colKey)) {
+        const selectedValues = Array.isArray(backlogColumnFilterState[colKey])
+          ? backlogColumnFilterState[colKey].map((x) => String(x || '').trim()).filter(Boolean)
+          : [];
+        const selectedSet = new Set(selectedValues);
+        const options = Array.from(backlogFilterOptionsByKey[colKey] || [])
+          .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        if (colKey === 'fixversions') options.reverse();
+        const optionsHtml = options.map((opt) => {
+          const checked = selectedSet.has(opt) ? ' checked' : '';
+          return `<label class="backlog-col-filter-option"><input type="checkbox" value="${escapeHtml(opt)}"${checked} /><span>${escapeHtml(opt)}</span></label>`;
+        }).join('');
+        const btnText = backlogFilterButtonText(colKey, selectedValues, options.length);
+        const actionsHtml = `<div class="backlog-col-filter-actions"><button type="button" class="backlog-col-filter-action-btn" data-action="reset">Reset</button></div>`;
+        const dropdownHtml = `<div class="backlog-col-filter-dropdown" data-filter-key="${escapeHtml(colKey)}" data-options-count="${options.length}"><button type="button" class="backlog-col-filter-btn" title="${escapeHtml(backlogFilterTitleByKey(colKey))} selected count">${escapeHtml(btnText)}</button><div class="backlog-col-filter-menu">${actionsHtml}${optionsHtml || '<div class="backlog-col-filter-empty">No values</div>'}</div></div>`;
+        tableHtml += `<th class="${columnClasses[idx]} backlog-head-filter-cell"${sortAttr}><div class="backlog-head-filter-inline"><span>${label}</span>${dropdownHtml}</div></th>`;
+      } else {
+        tableHtml += `<th class="${columnClasses[idx]}"${sortAttr}>${label}</th>`;
+      }
     }
   });
   sprints.forEach((sprint, i) => {
@@ -3637,22 +3765,27 @@ function renderFeatureTable(features, containerId, sprints) {
   });
   if (includeBacklogFixVersionColumn) {
     visibleColumnKeys.push('fixversions');
-    tableHtml += `<th class="col-fix-versions" onclick="sortTable(this)">Fix Version</th>`;
+    if (isBacklogTable && BACKLOG_SELECT_FILTER_KEYS.has('fixversions')) {
+      const selectedValues = Array.isArray(backlogColumnFilterState.fixversions)
+        ? backlogColumnFilterState.fixversions.map((x) => String(x || '').trim()).filter(Boolean)
+        : [];
+      const selectedSet = new Set(selectedValues);
+      const options = Array.from(backlogFilterOptionsByKey.fixversions || [])
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      options.reverse();
+      const optionsHtml = options.map((opt) => {
+        const checked = selectedSet.has(opt) ? ' checked' : '';
+        return `<label class="backlog-col-filter-option"><input type="checkbox" value="${escapeHtml(opt)}"${checked} /><span>${escapeHtml(opt)}</span></label>`;
+      }).join('');
+      const btnText = backlogFilterButtonText('fixversions', selectedValues, options.length);
+      const actionsHtml = `<div class="backlog-col-filter-actions"><button type="button" class="backlog-col-filter-action-btn" data-action="reset">Reset</button></div>`;
+      const dropdownHtml = `<div class="backlog-col-filter-dropdown" data-filter-key="fixversions" data-options-count="${options.length}"><button type="button" class="backlog-col-filter-btn" title="Fix Version selected count">${escapeHtml(btnText)}</button><div class="backlog-col-filter-menu">${actionsHtml}${optionsHtml || '<div class="backlog-col-filter-empty">No values</div>'}</div></div>`;
+      tableHtml += `<th class="col-fix-versions backlog-head-filter-cell" onclick="sortTable(this)"><div class="backlog-head-filter-inline"><span>Fix Version</span>${dropdownHtml}</div></th>`;
+    } else {
+      tableHtml += `<th class="col-fix-versions" onclick="sortTable(this)">Fix Version</th>`;
+    }
   }
   tableHtml += '</tr>';
-
-  if (isBacklogTable) {
-    tableHtml += '<tr class="backlog-column-filters">';
-    visibleColumnKeys.forEach((key) => {
-      if (key === 'rownum') {
-        tableHtml += '<th class="col-rownum"></th>';
-        return;
-      }
-      const val = escapeHtml(String(backlogColumnFilterState[key] || ''));
-      tableHtml += `<th><input type="text" class="backlog-col-filter-input" data-filter-key="${escapeHtml(key)}" value="${val}" placeholder="Filter..." /></th>`;
-    });
-    tableHtml += '</tr>';
-  }
 
   tableHtml += '</thead><tbody>';
 
@@ -4287,65 +4420,6 @@ async function bindSettingsPage() {
   });
 }
 
-function saveBacklogStatusSetting() {
-  localStorage.setItem("backlogStatus", JSON.stringify(Array.from(backlogSelectedStatuses)));
-}
-
-function getSavedBacklogStatuses() {
-  const raw = localStorage.getItem("backlogStatus");
-  if (!raw) return [];
-  try {
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr.filter(Boolean) : [];
-  } catch {
-    return raw ? [raw] : [];
-  }
-}
-
-function updateBacklogStatusDropdownLabel(totalStatuses) {
-  const toggle = document.getElementById("statusFilterToggle");
-  if (!toggle) return;
-  const selectedCount = backlogSelectedStatuses.size;
-
-  if (totalStatuses === 0) {
-    toggle.textContent = "Statuses";
-    return;
-  }
-
-  if (selectedCount >= totalStatuses) {
-    toggle.textContent = `Statuses: All (${totalStatuses})`;
-    return;
-  }
-
-  toggle.textContent = `Statuses: ${selectedCount}/${totalStatuses}`;
-}
-
-function getBacklogStatusMenuValues() {
-  const menu = document.getElementById("statusFilterMenu");
-  if (!menu) return [];
-  return Array.from(menu.querySelectorAll('.backlog-status-option input[type="checkbox"][value]'))
-    .map(cb => (cb.value || "").trim())
-    .filter(Boolean);
-}
-
-function setupBacklogStatusDropdown() {
-  const toggle = document.getElementById("statusFilterToggle");
-  const menu = document.getElementById("statusFilterMenu");
-  if (!toggle || !menu || toggle.dataset.bound === "1") return;
-
-  toggle.dataset.bound = "1";
-  toggle.addEventListener("click", (e) => {
-    e.stopPropagation();
-    menu.classList.toggle("open");
-  });
-
-  document.addEventListener("click", (e) => {
-    if (!menu.classList.contains("open")) return;
-    if (menu.contains(e.target) || toggle.contains(e.target)) return;
-    menu.classList.remove("open");
-  });
-}
-
 function setupCapabilityFilterDropdown() {
   const toggle = document.getElementById("capabilityFilterToggle");
   const menu = document.getElementById("capabilityFilterMenu");
@@ -4362,89 +4436,6 @@ function setupCapabilityFilterDropdown() {
     if (menu.contains(e.target) || toggle.contains(e.target)) return;
     menu.classList.remove("open");
   });
-}
-
-function populateBacklogStatusFilter(data) {
-  const menu = document.getElementById("statusFilterMenu");
-  if (!menu) return;
-
-  const statuses = Array.from(new Set(
-    Object.values(data || {})
-      .map(feature => (feature?.status || "").trim())
-      .filter(Boolean)
-  )).sort((a, b) => a.localeCompare(b));
-
-  menu.innerHTML = '';
-
-  const saved = getSavedBacklogStatuses();
-  const previousSelection = backlogSelectedStatuses.size ? Array.from(backlogSelectedStatuses) : [];
-  const baseSelection = previousSelection.length ? previousSelection : saved;
-  const wantedSet = new Set(baseSelection.filter(s => statuses.includes(s)));
-
-  if (!baseSelection.length) {
-    statuses.forEach(s => wantedSet.add(s));
-  }
-
-  if (baseSelection.length && wantedSet.size === 0 && statuses.length) {
-    statuses.forEach(s => wantedSet.add(s));
-  }
-
-  backlogSelectedStatuses = wantedSet;
-
-  const allRow = document.createElement("label");
-  allRow.className = "backlog-status-option all";
-  const allCheckbox = document.createElement("input");
-  allCheckbox.type = "checkbox";
-  allCheckbox.checked = statuses.length > 0 && backlogSelectedStatuses.size === statuses.length;
-  const allText = document.createElement("span");
-  allText.textContent = "Select all";
-  allRow.appendChild(allCheckbox);
-  allRow.appendChild(allText);
-  menu.appendChild(allRow);
-
-  statuses.forEach(status => {
-    const row = document.createElement("label");
-    row.className = "backlog-status-option";
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.value = status;
-    checkbox.checked = wantedSet.has(status);
-
-    const text = document.createElement("span");
-    text.textContent = status;
-
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) backlogSelectedStatuses.add(status);
-      else backlogSelectedStatuses.delete(status);
-
-      allCheckbox.checked = backlogSelectedStatuses.size === statuses.length;
-      saveBacklogStatusSetting();
-      updateBacklogStatusDropdownLabel(statuses.length);
-      applyFilter();
-    });
-
-    row.appendChild(checkbox);
-    row.appendChild(text);
-    menu.appendChild(row);
-  });
-
-  allCheckbox.addEventListener("change", () => {
-    backlogSelectedStatuses = allCheckbox.checked ? new Set(statuses) : new Set();
-    menu.querySelectorAll('.backlog-status-option input[type="checkbox"]').forEach((cb) => {
-      if (cb !== allCheckbox) cb.checked = allCheckbox.checked;
-    });
-    saveBacklogStatusSetting();
-    updateBacklogStatusDropdownLabel(statuses.length);
-    applyFilter();
-  });
-
-  updateBacklogStatusDropdownLabel(statuses.length);
-  saveBacklogStatusSetting();
-
-  if (!wantedSet.size && saved.length) {
-    localStorage.setItem("backlogStatus", JSON.stringify(statuses));
-  }
 }
 
 /* ========================
@@ -5148,9 +5139,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (isBacklog) {
     restoreBacklogSettings();
     restoreCapabilityOrderMode();
-    setupBacklogStatusDropdown();
     setupCapabilityFilterDropdown();
     loadBacklogData();
+    document.getElementById("backlog-reset-column-filters")?.addEventListener("click", () => {
+      resetBacklogColumnFilters();
+    });
     document.getElementById("workGroupSelect")?.addEventListener("change", () => {
       saveBacklogSettings();
       restoreCapabilityOrderMode();
@@ -5162,9 +5155,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       const textFilter = (document.getElementById("globalFilter")?.value || "").trim();
       const backlogTable = document.querySelector("#backlog-table table");
 
-      const allStatuses = getBacklogStatusMenuValues();
-      const selectedStatuses = Array.from(backlogSelectedStatuses).filter(Boolean);
-      const allSelected = allStatuses.length > 0 && selectedStatuses.length === allStatuses.length;
+      const columnFilterState = getBacklogColumnFilterState();
+      const selectedStatuses = Array.isArray(columnFilterState.status)
+        ? columnFilterState.status.filter(Boolean)
+        : [];
 
       const visibleFeatureIds = Array.from(document.querySelectorAll("#backlog-table tbody tr"))
         .filter((row) => {
@@ -5192,7 +5186,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const payload = {
         workGroup: wg || "",
         q: textFilter,
-        statuses: allSelected ? [] : selectedStatuses,
+        statuses: selectedStatuses,
         featureIds: visibleFeatureIds,
         visibleTable: {
           headers: visibleHeaders,
