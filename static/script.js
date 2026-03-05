@@ -1670,6 +1670,26 @@ function applyFilter() {
     renumberVisibleRows(table);
     recalculateVisibleTotals(table);
   });
+
+  refreshCommittedSummaryFromVisibleRows();
+}
+
+function refreshCommittedSummaryFromVisibleRows() {
+  const summaryHost = document.getElementById("committed-summary");
+  const tableHost = document.getElementById("committed-table");
+  const table = tableHost?.querySelector("table");
+  if (!summaryHost || !tableHost || !(table instanceof HTMLTableElement)) return;
+
+  const visibleFeatureIds = new Set(
+    Array.from(table.querySelectorAll('tbody tr[data-row-kind="feature"][data-feature-id]'))
+      .filter((row) => row instanceof HTMLTableRowElement && row.style.display !== "none")
+      .map((row) => String(row.getAttribute("data-feature-id") || "").trim())
+      .filter(Boolean)
+  );
+
+  const allRows = Array.isArray(tableHost._features) ? tableHost._features : [];
+  const visibleRows = allRows.filter(([featureId]) => visibleFeatureIds.has(String(featureId || "").trim()));
+  renderCommittedSummary(visibleRows, "committed-summary");
 }
 
 function recalculateVisibleTotals(table) {
