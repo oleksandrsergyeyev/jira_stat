@@ -1892,6 +1892,118 @@ th.desc::after { content: " ▼"; }
   font-size: 13px;
 }
 
+.pi-capacity-card {
+  cursor: zoom-in;
+}
+
+.pi-capacity-zoom-open {
+  overflow: hidden;
+}
+
+.pi-capacity-zoom-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100130;
+  display: none;
+}
+
+.pi-capacity-zoom-overlay.open {
+  display: block;
+}
+
+.pi-capacity-zoom-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(19, 33, 54, 0.45);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.pi-capacity-zoom-overlay.open .pi-capacity-zoom-backdrop {
+  opacity: 1;
+}
+
+.pi-capacity-zoom-shell {
+  position: fixed;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 36px rgba(12, 28, 50, 0.28);
+  overflow: auto;
+}
+
+.pi-capacity-zoom-close {
+  position: sticky;
+  top: 8px;
+  float: right;
+  margin: 8px 8px 0 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #c4d3ea;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #2d476d;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pi-capacity-zoom-content {
+  padding: 8px 12px 14px;
+}
+
+.pi-capacity-zoom-content .pi-capacity-card.zoomed {
+  width: 100%;
+  max-width: none;
+  min-height: 100%;
+  margin: 0;
+  cursor: default;
+  box-sizing: border-box;
+  padding: 18px;
+}
+
+.pi-capacity-zoom-content .pi-capacity-card.zoomed .pi-capacity-person {
+  font-size: 20px;
+  margin-bottom: 14px;
+}
+
+.pi-capacity-zoom-content .pi-capacity-card.zoomed .pi-capacity-pie-wrap {
+  min-height: 132px;
+  gap: 22px;
+}
+
+.pi-capacity-zoom-content .pi-capacity-card.zoomed .pi-capacity-pie {
+  width: 124px;
+  height: 124px;
+}
+
+.pi-capacity-zoom-content .pi-capacity-card.zoomed .pi-capacity-pie::after {
+  inset: 25px;
+}
+
+.pi-capacity-zoom-content .pi-capacity-card.zoomed .pi-capacity-pie-label {
+  font-size: 22px;
+}
+
+.pi-capacity-zoom-content .pi-capacity-card.zoomed .pi-capacity-pie-sub {
+  font-size: 13px;
+}
+
+.pi-capacity-zoom-content .pi-capacity-card.zoomed .pi-capacity-legend-item {
+  font-size: 14px;
+  gap: 8px;
+}
+
+.pi-capacity-zoom-content .pi-capacity-card.zoomed .pi-capacity-legend-swatch {
+  width: 14px;
+  height: 14px;
+}
+
+.pi-capacity-zoom-content .pi-capacity-card.zoomed .pi-capacity-meta-bottom {
+  margin-top: 14px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
 /* =========================
    Custom floating tooltip
    ========================= */

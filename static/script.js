@@ -2117,6 +2117,97 @@ function planningCapacityStatusClass(assigned, fullCapacity) {
   return "ok";
 }
 
+function ensurePiCapacityZoomOverlay() {
+  let overlay = document.getElementById('pi-capacity-zoom-overlay');
+  if (overlay) return overlay;
+
+  overlay = document.createElement('div');
+  overlay.id = 'pi-capacity-zoom-overlay';
+  overlay.className = 'pi-capacity-zoom-overlay';
+  overlay.innerHTML = `
+    <div class="pi-capacity-zoom-backdrop"></div>
+    <div class="pi-capacity-zoom-shell" role="dialog" aria-modal="true" aria-label="Capacity chart zoom view">
+      <button type="button" class="pi-capacity-zoom-close" aria-label="Close zoom view">×</button>
+      <div class="pi-capacity-zoom-content"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('.pi-capacity-zoom-backdrop')?.addEventListener('click', () => closePiCapacityZoomOverlay());
+  overlay.querySelector('.pi-capacity-zoom-close')?.addEventListener('click', () => closePiCapacityZoomOverlay());
+  overlay.querySelector('.pi-capacity-zoom-shell')?.addEventListener('click', (ev) => ev.stopPropagation());
+  overlay.addEventListener('click', () => closePiCapacityZoomOverlay());
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') closePiCapacityZoomOverlay();
+  });
+
+  return overlay;
+}
+
+function openPiCapacityZoomOverlay(cardEl) {
+  if (!(cardEl instanceof HTMLElement)) return;
+  const overlay = ensurePiCapacityZoomOverlay();
+  const shell = overlay.querySelector('.pi-capacity-zoom-shell');
+  const content = overlay.querySelector('.pi-capacity-zoom-content');
+  if (!(shell instanceof HTMLElement) || !(content instanceof HTMLElement)) return;
+
+  const rect = cardEl.getBoundingClientRect();
+  overlay._originRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+
+  const clone = cardEl.cloneNode(true);
+  if (clone instanceof HTMLElement) {
+    clone.classList.add('zoomed');
+    content.innerHTML = '';
+    content.appendChild(clone);
+  }
+
+  shell.style.transition = 'none';
+  shell.style.left = `${rect.left}px`;
+  shell.style.top = `${rect.top}px`;
+  shell.style.width = `${rect.width}px`;
+  shell.style.height = `${rect.height}px`;
+
+  overlay.classList.add('open');
+  document.body.classList.add('pi-capacity-zoom-open');
+
+  const targetWidth = Math.min(window.innerWidth * 0.9, Math.max(rect.width * 2, 420));
+  const targetHeight = Math.min(window.innerHeight * 0.9, Math.max(rect.height * 2, 300));
+  const targetLeft = Math.max(16, (window.innerWidth - targetWidth) / 2);
+  const targetTop = Math.max(16, (window.innerHeight - targetHeight) / 2);
+
+  requestAnimationFrame(() => {
+    shell.style.transition = 'left 220ms ease, top 220ms ease, width 220ms ease, height 220ms ease';
+    shell.style.left = `${targetLeft}px`;
+    shell.style.top = `${targetTop}px`;
+    shell.style.width = `${targetWidth}px`;
+    shell.style.height = `${targetHeight}px`;
+  });
+}
+
+function closePiCapacityZoomOverlay() {
+  const overlay = document.getElementById('pi-capacity-zoom-overlay');
+  if (!(overlay instanceof HTMLElement) || !overlay.classList.contains('open')) return;
+  const shell = overlay.querySelector('.pi-capacity-zoom-shell');
+  if (!(shell instanceof HTMLElement)) {
+    overlay.classList.remove('open');
+    document.body.classList.remove('pi-capacity-zoom-open');
+    return;
+  }
+
+  const origin = overlay._originRect;
+  if (origin && Number.isFinite(origin.left) && Number.isFinite(origin.top)) {
+    shell.style.left = `${origin.left}px`;
+    shell.style.top = `${origin.top}px`;
+    shell.style.width = `${origin.width}px`;
+    shell.style.height = `${origin.height}px`;
+  }
+
+  setTimeout(() => {
+    overlay.classList.remove('open');
+    document.body.classList.remove('pi-capacity-zoom-open');
+  }, 230);
+}
+
 async function renderCommittedSummary(committed, containerId) {
   const host = document.getElementById(containerId);
   if (!host) return;
@@ -2289,6 +2380,10 @@ async function renderCommittedSummary(committed, containerId) {
       setPlanningLoadMode(mode);
       renderCommittedSummary(committed, containerId);
     });
+  });
+
+  host.querySelectorAll('.pi-capacity-card').forEach((card) => {
+    card.addEventListener('click', () => openPiCapacityZoomOverlay(card));
   });
 }
 
