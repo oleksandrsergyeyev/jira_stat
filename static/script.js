@@ -2347,6 +2347,10 @@ function capabilityOrderStorageKey() {
   return `capabilityOrderMode::${getSelectedWorkGroup() || ""}`;
 }
 
+function planningCapabilityOrderStorageKey() {
+  return `planningCapabilityOrderMode::${getSelectedWorkGroup() || ""}::${getSelectedFixVersion() || ""}`;
+}
+
 function getCapabilityOrderMode() {
   const el = document.getElementById("capability-order-priority");
   if (el instanceof HTMLInputElement) {
@@ -2365,6 +2369,26 @@ function restoreCapabilityOrderMode() {
 
 function persistCapabilityOrderMode() {
   localStorage.setItem(capabilityOrderStorageKey(), getCapabilityOrderMode());
+}
+
+function getPlanningCapabilityOrderMode() {
+  const el = document.getElementById("planning-order-priority");
+  if (el instanceof HTMLInputElement) {
+    return el.checked ? "priority" : "default";
+  }
+  const raw = String(localStorage.getItem(planningCapabilityOrderStorageKey()) || "default").trim().toLowerCase();
+  return raw === "priority" ? "priority" : "default";
+}
+
+function restorePlanningCapabilityOrderMode() {
+  const el = document.getElementById("planning-order-priority");
+  if (!(el instanceof HTMLInputElement)) return;
+  const raw = String(localStorage.getItem(planningCapabilityOrderStorageKey()) || "default").trim().toLowerCase();
+  el.checked = raw === "priority";
+}
+
+function persistPlanningCapabilityOrderMode() {
+  localStorage.setItem(planningCapabilityOrderStorageKey(), getPlanningCapabilityOrderMode());
 }
 
 function getRoadmapShowEmptyCapabilities() {
@@ -3757,6 +3781,13 @@ function renderColumnToggles(containerId, sprints) {
     return;
   }
 
+  if (containerId === 'committed-table') {
+    togglesDiv.innerHTML = '';
+    togglesDiv.style.display = 'none';
+    renderPlanningColumnToggleMenu(sprints);
+    return;
+  }
+
   togglesDiv.style.display = '';
 
   const columns = [...piPlanningColumns.map(col => col.label), ...sprints];
@@ -3780,6 +3811,62 @@ function renderColumnToggles(containerId, sprints) {
       renderColumnToggles(containerId, sprints);
     });
     togglesDiv.appendChild(btn);
+  });
+}
+
+function renderPlanningColumnToggleMenu(sprints) {
+  const section = document.getElementById('planningColumnsSection');
+  if (!section) return;
+
+  section.querySelectorAll('.backlog-status-option[data-col-toggle="1"]').forEach((el) => el.remove());
+
+  const title = section.querySelector('.backlog-column-toggle-title');
+  if (title) title.textContent = 'Columns hide/show';
+
+  const tableKey = 'committed-table';
+  const hidden = hiddenColumns[tableKey] || new Set();
+  const rows = [];
+
+  piPlanningColumns.forEach((col, idx) => {
+    rows.push({ idx, label: col.label });
+  });
+  (Array.isArray(sprints) ? sprints : []).forEach((sprint, offset) => {
+    rows.push({ idx: piPlanningColumns.length + offset, label: sprint });
+  });
+
+  rows.forEach(({ idx, label }) => {
+    const row = document.createElement('label');
+    row.className = 'backlog-status-option';
+    row.setAttribute('data-col-toggle', '1');
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = !hidden.has(idx);
+    checkbox.setAttribute('data-col-idx', String(idx));
+
+    const isAlwaysShown = idx === 0;
+    const isAlwaysHidden = idx === 1;
+    if (isAlwaysShown || isAlwaysHidden) {
+      checkbox.disabled = true;
+      checkbox.checked = isAlwaysShown;
+    }
+
+    const text = document.createElement('span');
+    text.textContent = label;
+
+    checkbox.addEventListener('change', () => {
+      if (isAlwaysShown || isAlwaysHidden) return;
+      if (checkbox.checked) hiddenColumns[tableKey].delete(idx);
+      else hiddenColumns[tableKey].add(idx);
+      const nextSprints = Array.isArray(sprints) ? sprints : [];
+      window._rerenderFeatureTable(tableKey, nextSprints);
+      renderPlanningColumnToggleMenu(nextSprints);
+      applyFilter();
+    });
+
+    row.appendChild(checkbox);
+    row.appendChild(text);
+    section.appendChild(row);
   });
 }
 
@@ -3852,7 +3939,9 @@ function renderFeatureTable(features, containerId, sprints) {
   const isCapabilityGroupedTable = isBacklogTable || isCommittedTable;
   const includeBacklogFixVersionColumn = isBacklogTable;
   const backlogFixVersionColIndex = piPlanningColumns.length + ((Array.isArray(sprints) ? sprints.length : 0));
-  const capabilityOrderMode = getCapabilityOrderMode();
+  const capabilityOrderMode = isBacklogTable
+    ? getCapabilityOrderMode()
+    : (isPlanningTable ? getPlanningCapabilityOrderMode() : 'default');
   if (isCommittedTable) restoreCommittedTreeCollapseState();
 
   const renderedFeatures = isCapabilityGroupedTable
@@ -3866,7 +3955,7 @@ function renderFeatureTable(features, containerId, sprints) {
         if (aHasCapability !== bHasCapability) return aHasCapability ? -1 : 1;
 
         let byCapability = 0;
-        if (isBacklogTable && capabilityOrderMode === "priority") {
+        if ((isBacklogTable || isPlanningTable) && capabilityOrderMode === "priority") {
           const capPrioA = String(featureA.parent_priority || "").trim();
           const capPrioB = String(featureB.parent_priority || "").trim();
           const capPrioNumA = capPrioA ? roadmapPriorityNumber(capPrioA) : Number.POSITIVE_INFINITY;
@@ -4699,6 +4788,48 @@ function setupCapabilityFilterDropdown() {
   });
 }
 
+function setupPlanningFilterDropdown() {
+  const toggle = document.getElementById("planningFilterToggle");
+  const menu = document.getElementById("planningFilterMenu");
+  if (!toggle || !menu || toggle.dataset.bound === "1") return;
+
+  const setSubmenu = (name) => {
+    const orderPanel = document.getElementById('planningSubmenuOrder');
+    const columnsPanel = document.getElementById('planningSubmenuColumns');
+    const buttons = menu.querySelectorAll('.backlog-menu-level1-item[data-submenu-target]');
+    buttons.forEach((btn) => {
+      const target = String(btn.getAttribute('data-submenu-target') || '').trim();
+      btn.classList.toggle('active', target === name);
+    });
+    if (orderPanel) orderPanel.classList.toggle('open', name === 'order');
+    if (columnsPanel) columnsPanel.classList.toggle('open', name === 'columns');
+  };
+
+  toggle.dataset.bound = "1";
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !menu.classList.contains("open");
+    menu.classList.toggle("open", willOpen);
+    if (willOpen) setSubmenu('order');
+  });
+
+  menu.querySelectorAll('.backlog-menu-level1-item[data-submenu-target]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const target = String(btn.getAttribute('data-submenu-target') || '').trim();
+      if (!target) return;
+      setSubmenu(target);
+    });
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!menu.classList.contains("open")) return;
+    if (menu.contains(e.target) || toggle.contains(e.target)) return;
+    menu.classList.remove("open");
+  });
+}
+
 /* ========================
    Team Capacity
    ======================== */
@@ -5375,13 +5506,30 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (isPlanning) {
     restorePlanningSettings();
+    restorePlanningCapabilityOrderMode();
+    setupPlanningFilterDropdown();
     loadPIPlanningData();
 
-    document.getElementById("fixVersionSelect")?.addEventListener("change", () => { savePlanningSettings(); loadPIPlanningData(); });
-    document.getElementById("workGroupSelect")?.addEventListener("change", () => { savePlanningSettings(); loadPIPlanningData(); });
+    document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
+      savePlanningSettings();
+      restorePlanningCapabilityOrderMode();
+      loadPIPlanningData();
+    });
+    document.getElementById("workGroupSelect")?.addEventListener("change", () => {
+      savePlanningSettings();
+      restorePlanningCapabilityOrderMode();
+      loadPIPlanningData();
+    });
     document.getElementById("globalFilter")?.addEventListener("input", applyFilter);
     document.getElementById("planning-reset-column-filters")?.addEventListener("click", () => {
       resetPiPlanningColumnFilters();
+    });
+    document.getElementById("planning-order-priority")?.addEventListener("change", () => {
+      persistPlanningCapabilityOrderMode();
+      const tableHost = document.getElementById("committed-table");
+      const sprints = Array.isArray(tableHost?._treeSprints) ? tableHost._treeSprints : [];
+      window._rerenderFeatureTable("committed-table", sprints);
+      applyFilter();
     });
     document.getElementById("pi-collapse-all-stories")?.addEventListener("click", collapseAllCommittedStories);
 

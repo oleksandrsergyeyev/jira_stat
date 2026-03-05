@@ -59,6 +59,29 @@
     <input type="text" id="globalFilter" placeholder="Search table..." />
     <button id="planning-reset-column-filters" type="button" class="page-refresh-btn">Reset column filters</button>
 
+    <div class="backlog-status-dropdown">
+      <button id="planningFilterToggle" type="button" class="backlog-status-toggle">Filters / order</button>
+      <div id="planningFilterMenu" class="backlog-status-menu" aria-label="PI planning filters and ordering">
+        <div class="backlog-menu-level1">
+          <button type="button" class="backlog-menu-level1-item" data-submenu-target="order">Order ▸</button>
+          <button type="button" class="backlog-menu-level1-item" data-submenu-target="columns">Columns hide/show ▸</button>
+        </div>
+
+        <div id="planningSubmenuOrder" class="backlog-submenu-panel">
+          <label class="backlog-status-option">
+            <input type="checkbox" id="planning-order-priority" />
+            <span>Order capabilities by priority</span>
+          </label>
+        </div>
+
+        <div id="planningSubmenuColumns" class="backlog-submenu-panel">
+          <div id="planningColumnsSection" class="backlog-column-toggle-section">
+            <div class="backlog-column-toggle-title">Columns hide/show</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="page-action-group">
       <button id="export-committed-excel" class="page-export-btn">📥 Export Committed to Excel</button>
       <button id="planning-refresh" class="page-refresh-btn">🔄 Update from Jira</button>
