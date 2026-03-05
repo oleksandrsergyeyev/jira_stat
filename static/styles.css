@@ -1830,6 +1830,33 @@ table.pi-planning-table {
 .col-feature-id  { max-width: 110px; min-width: 70px;  width: 85px; }
 .col-feature-name{ max-width: 440px; min-width: 200px; width: 300px; }
 .col-story-points{ max-width: 36px;  min-width: 24px;  width: 32px;  text-align: right; padding-right: 4px; }
+.col-feature-merged-head {
+  text-align: left;
+}
+
+.feature-merged-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 6px;
+}
+
+.feature-merged-left {
+  text-align: left;
+  min-width: 0;
+}
+
+.feature-merged-right-group {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.feature-merged-sep {
+  color: #6e7f97;
+}
 .col-assignee    { max-width: 140px;  min-width: 90px;  width: 120px;  text-align: left; padding-left: 4px; }
 .col-reporter    { max-width: 140px;  min-width: 90px;  width: 120px;  text-align: left; padding-left: 4px; }
 .col-priority    { max-width: 36px;  min-width: 24px;  width: 32px;  text-align: right; padding-right: 4px; }
@@ -1850,17 +1877,32 @@ table.pi-planning-table {
   line-height: 1.2;
 }
 
-#backlog-table .col-rownum { width: 3%; min-width: 0; max-width: none; }
-#backlog-table .col-feature-id { width: 9%; min-width: 0; max-width: none; }
-#backlog-table .col-feature-name { width: 28%; min-width: 0; max-width: none; }
-#backlog-table .col-story-points { width: 5%; min-width: 0; max-width: none; }
-#backlog-table .col-assignee { width: 11%; max-width: none; }
-#backlog-table .col-reporter { width: 11%; max-width: none; }
-#backlog-table .col-priority { width: 4%; min-width: 0; max-width: none; }
-#backlog-table .col-status { width: 11%; max-width: none; }
-#backlog-table .col-pi-scope { width: 9%; max-width: none; }
-#backlog-table .col-links { width: 6%; min-width: 0; max-width: none; }
-#backlog-table .col-fix-versions { width: 13%; max-width: none; }
+#backlog-table .pi-planning-table {
+  table-layout: auto;
+}
+
+#backlog-table .col-rownum,
+#backlog-table .col-capability,
+#backlog-table .col-feature-id,
+#backlog-table .col-feature-name,
+#backlog-table .col-story-points,
+#backlog-table .col-assignee,
+#backlog-table .col-reporter,
+#backlog-table .col-priority,
+#backlog-table .col-status,
+#backlog-table .col-pi-scope,
+#backlog-table .col-fix-versions,
+#backlog-table .col-feature-merged-head {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+}
+
+#backlog-table .col-links {
+  width: 220px;
+  min-width: 160px;
+  max-width: 260px;
+}
 
 #backlog-table .backlog-head-filter-inline {
   gap: 4px;
@@ -2641,6 +2683,15 @@ table.pi-planning-table {
   cursor: pointer;
   position: relative;
   transition: background 0.18s;
+}
+.compact-link {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.compact-link:hover,
+.compact-link:focus {
+  text-decoration: underline;
 }
 .links-type-badge:hover, .links-type-badge:focus {
   background: #007bff;

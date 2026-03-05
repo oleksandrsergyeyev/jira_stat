@@ -1671,7 +1671,10 @@ function renumberVisibleRows(table) {
 function sortTable(header) {
   const table = header.closest("table");
   const tbody = table.querySelector("tbody");
-  const index = Array.from(header.parentNode.children).indexOf(header);
+  const requestedSortCol = Number(header.getAttribute("data-sort-col"));
+  const index = Number.isInteger(requestedSortCol) && requestedSortCol >= 0
+    ? requestedSortCol
+    : Array.from(header.parentNode.children).indexOf(header);
   const rows = Array.from(tbody.querySelectorAll("tr"));
   const storyRowsByFeature = new Map();
   rows.forEach((row) => {
@@ -1710,7 +1713,9 @@ function sortTable(header) {
         blockRow.setAttribute("data-row-kind", "capability");
         blockRow.setAttribute("data-capability-id", capabilityId);
         const blockCell = document.createElement("td");
-        blockCell.colSpan = Math.max(1, header.parentNode.children.length);
+        const headerCells = Array.from(header.parentNode.children || []);
+        const totalColumns = headerCells.reduce((sum, cell) => sum + Math.max(1, Number(cell.colSpan) || 1), 0);
+        blockCell.colSpan = Math.max(1, totalColumns);
         const isCommittedTable = !!table.closest("#committed-table");
         if (isCommittedTable) {
           const arrow = document.createElement("button");
@@ -3882,10 +3887,22 @@ function renderFeatureTable(features, containerId, sprints) {
   ];
 
   let tableHtml = `<table class="pi-planning-table${isCapabilityGroupedTable ? ' capability-grouped-table' : ''}"><thead><tr>`;
-  const headerLabels = ['#','Capability','Feature ID','Feature Name','Feature St.P.','St.P. sum','Assignee','Reporter','Prio','Status','PI Scope','Links'];
+  const headerLabels = ['#','Capability','Feature ID','Feature name','Feature Est.','Stories est. sum','Assignee','Reporter','Prio','Status','PI Scope','Links'];
   const visibleColumnKeys = [];
-  headerLabels.forEach((label, idx) => {
+  for (let idx = 0; idx < headerLabels.length; idx += 1) {
+    const label = headerLabels[idx];
     if (!hidden.has(idx)) {
+      if (idx === 3 && !hidden.has(4) && !hidden.has(5)) {
+        visibleColumnKeys.push(
+          String(piPlanningColumns[3]?.key || 'col_3'),
+          String(piPlanningColumns[4]?.key || 'col_4'),
+          String(piPlanningColumns[5]?.key || 'col_5')
+        );
+        const mergedHead = '<div class="feature-merged-header"><span class="feature-merged-left">Feature name</span><span class="feature-merged-right-group"><span class="feature-merged-sep">|</span><span>Feature Est.</span><span class="feature-merged-sep">|</span><span>Stories est. sum</span></span></div>';
+        tableHtml += `<th class="col-feature-merged-head" colspan="3" data-sort-col="3" onclick="sortTable(this)">${mergedHead}</th>`;
+        idx = 5;
+        continue;
+      }
       const colKey = String(piPlanningColumns[idx]?.key || `col_${idx}`);
       visibleColumnKeys.push(colKey);
       const sortAttr = ' onclick="sortTable(this)"';
@@ -3909,7 +3926,7 @@ function renderFeatureTable(features, containerId, sprints) {
         tableHtml += `<th class="${columnClasses[idx]}"${sortAttr}>${label}</th>`;
       }
     }
-  });
+  }
   sprints.forEach((sprint, i) => {
     if (!hidden.has(piPlanningColumns.length + i))
       tableHtml += `<th class="story-cell">${sprint}</th>`;
@@ -4024,30 +4041,27 @@ function renderFeatureTable(features, containerId, sprints) {
       tableHtml += `<td class="col-assignee">${feature.assignee || ""}</td>`;
     if (!hidden.has(colIdx++))
       tableHtml += `<td class="col-reporter">${feature.reporter || ""}</td>`;
-    if (!hidden.has(colIdx++))
-      tableHtml += `<td class="col-priority">${feature.priority || ""}</td>`;
+    if (!hidden.has(colIdx++)) {
+      const rawPriority = String(feature.priority || '').trim();
+      const priorityText = rawPriority.toLowerCase() === 'not set' ? 'NS' : rawPriority;
+      tableHtml += `<td class="col-priority">${escapeHtml(priorityText)}</td>`;
+    }
     if (!hidden.has(colIdx++))
       tableHtml += `<td class="col-status">${feature.status || ""}</td>`;
     if (!hidden.has(colIdx++))
       tableHtml += `<td class="col-pi-scope">${feature.pi_scope || ""}</td>`;
     if (!hidden.has(colIdx++)) {
       const linksArr = feature.linked_issues || [];
-      const linksByType = {};
-      for (const link of linksArr) {
-        const type = link.link_type || "Other";
-        (linksByType[type] ||= []).push(link);
-      }
-      let badgesHtml = "";
-      Object.entries(linksByType).forEach(([type, links]) => {
-        badgesHtml += `
-          <span class="links-type-badge" tabindex="0"
-                data-links='${JSON.stringify(links)}'
-                data-type="${type}">
-            ${type} <span class="badge-count">(${links.length})</span>
-          </span>
-        `;
-      });
-      tableHtml += `<td class="col-links">${badgesHtml}</td>`;
+      const linksHtml = linksArr
+        .map((link) => {
+          const url = String(link?.url || '').trim();
+          const key = String(link?.key || '').trim();
+          if (!url || !key) return '';
+          return `<a class="compact-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(key)}</a>`;
+        })
+        .filter(Boolean)
+        .join(', ');
+      tableHtml += `<td class="col-links">${linksHtml}</td>`;
     }
 
     sprints.forEach((sprint, i) => {
