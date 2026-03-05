@@ -1083,7 +1083,7 @@ def _fetch_issue_full(key: str):
         return resp.json()
     return None
 
-def _seed_feature_from_issue_json(issue_json: dict, summary_cache: dict):
+def _seed_feature_from_issue_json(issue_json: dict, summary_cache: dict, cap_meta_cache: dict[str, dict]):
     """Turn a fetched Feature issue into a row for 'features' dict."""
     if not issue_json:
         return None
@@ -1100,6 +1100,12 @@ def _seed_feature_from_issue_json(issue_json: dict, summary_cache: dict):
 
     parent_link_value = _extract_capability_key(fields)
     parent_summary = _get_issue_summary(parent_link_value, summary_cache) if parent_link_value else ""
+    parent_meta = _get_issue_meta(parent_link_value, cap_meta_cache) if parent_link_value else {
+        "summary": "",
+        "leading_work_group": "",
+        "created": "",
+        "priority": "",
+    }
 
     fix_versions = _fix_versions(fields)
     feature_sp = _story_points(fields)
@@ -1112,7 +1118,10 @@ def _seed_feature_from_issue_json(issue_json: dict, summary_cache: dict):
         "pi_scope": pi_scope_value,
         "priority": priority_value,
         "parent_link": parent_link_value,
-        "parent_summary": parent_summary,
+        "parent_summary": parent_summary or parent_meta.get("summary", ""),
+        "parent_leading_work_group": parent_meta.get("leading_work_group", ""),
+        "parent_created": parent_meta.get("created", ""),
+        "parent_priority": parent_meta.get("priority", ""),
         "fixVersions": fix_versions,
         "linked_issues": _extract_linked_issue_links(fields.get("issuelinks", []) or []),
         "sprints": {},                 # canonical sprint -> [issue keys]
@@ -1210,6 +1219,7 @@ def get_pi_planning(fix_version: str, work_group: str, force_refresh: bool = Fal
 
     features: dict[str, dict] = {}
     summary_cache: dict[str, str] = {}
+    cap_meta_cache: dict[str, dict] = {}
 
     # 1) Seed Features that explicitly carry this fixVersion
     for it in issues:
@@ -1219,7 +1229,7 @@ def get_pi_planning(fix_version: str, work_group: str, force_refresh: bool = Fal
         if fix_version not in _fix_versions(fields):
             continue  # seed only the ones clearly in this PI
         key = it.get("key", "")
-        seeded = _seed_feature_from_issue_json(it, summary_cache)
+        seeded = _seed_feature_from_issue_json(it, summary_cache, cap_meta_cache)
         if seeded:
             fk, row = seeded
             features[fk] = row
@@ -1251,7 +1261,7 @@ def get_pi_planning(fix_version: str, work_group: str, force_refresh: bool = Fal
         if parent_key and parent_key not in features:
             # side-load parent Feature and seed
             parent_issue = _fetch_issue_full(parent_key)
-            seeded = _seed_feature_from_issue_json(parent_issue, summary_cache)
+            seeded = _seed_feature_from_issue_json(parent_issue, summary_cache, cap_meta_cache)
             if seeded:
                 pk, prow = seeded
                 features[pk] = prow

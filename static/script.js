@@ -1883,7 +1883,7 @@ async function loadPIPlanningData(forceRefresh = false) {
 
     const url = `/pi_planning_data?fixVersion=${encodeURIComponent(fixVersion)}&workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
     const capabilitiesUrl = `/capabilities_data?workGroup=${encodeURIComponent(workGroup)}${forceRefresh ? "&forceRefresh=1" : ""}`;
-    const cacheKey = makeCacheKey("piPlanningData", { fixVersion, workGroup });
+    const cacheKey = makeCacheKey("piPlanningDataV2", { fixVersion, workGroup });
     const capabilitiesCacheKey = makeCacheKey("capabilitiesDataV3", { workGroup });
     const [data, capabilities] = await Promise.all([
       fetchJsonWithClientCache(url, cacheKey, forceRefresh),
@@ -2646,8 +2646,13 @@ function capabilityLabelToHtml(label) {
 
   const before = raw.slice(0, match.index || 0).trimEnd();
   const after = raw.slice((match.index || 0) + match[0].length).trimStart();
-  const prio = roadmapPriorityStyle(match[1]);
-  const badge = `<span class="roadmap-capability-prio-chip" style="--cap-prio-bg: ${prio.background}; --cap-prio-fg: ${prio.textColor};" title="Capability priority">P${escapeHtml(String(prio.priority))}</span>`;
+  const rawPriority = String(match[1] || "").trim();
+  const normalized = rawPriority.toLowerCase();
+  const isNotSet = !rawPriority || normalized === "not set" || normalized === "none" || normalized === "n/a";
+  const prio = roadmapPriorityStyle(rawPriority);
+  const badgeText = isNotSet ? "NS" : `P${escapeHtml(String(prio.priority))}`;
+  const badgeTitle = isNotSet ? "Capability priority: Not Set" : "Capability priority";
+  const badge = `<span class="roadmap-capability-prio-chip" style="--cap-prio-bg: ${prio.background}; --cap-prio-fg: ${prio.textColor};" title="${badgeTitle}">${badgeText}</span>`;
 
   let html = `${escapeHtml(before)} ${badge}`;
   if (after) html += ` ${escapeHtml(after)}`;
@@ -4144,7 +4149,10 @@ function renderFeatureTable(features, containerId, sprints) {
       const capabilityKey = (feature.parent_link || '').trim();
       const capabilitySummary = (feature.parent_summary || '').trim();
       const capabilityLeadingGroup = (feature.parent_leading_work_group || '').trim();
-      const capabilityPriority = (feature.parent_priority || '').trim();
+      const capabilityPriorityRaw = (feature.parent_priority || '').trim();
+      const capabilityPriority = isPlanningTable
+        ? (capabilityPriorityRaw || 'Not Set')
+        : capabilityPriorityRaw;
       const capabilityBlockKey = `${capabilityKey}||${capabilitySummary}||${capabilityLeadingGroup}||${capabilityPriority}`;
       if (capabilityBlockKey !== previousCapabilityBlock) {
         const label = capabilityLabelWithLeadingGroup(
@@ -4173,7 +4181,10 @@ function renderFeatureTable(features, containerId, sprints) {
 
     const rowStatus = (feature.status || "").replace(/"/g, '&quot;');
     const capabilityLeadingGroup = (feature.parent_leading_work_group || '').trim();
-    const capabilityPriority = (feature.parent_priority || '').trim();
+    const capabilityPriorityRaw = (feature.parent_priority || '').trim();
+    const capabilityPriority = isPlanningTable
+      ? (capabilityPriorityRaw || 'Not Set')
+      : capabilityPriorityRaw;
     const capabilityLabel = capabilityLabelWithLeadingGroup(
       (feature.parent_link || '').trim(),
       ((feature.parent_summary || '').trim() || (feature.parent_link || '').trim() || 'No Capability'),
