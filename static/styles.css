@@ -1747,6 +1747,8 @@ table.pi-planning-table {
 #backlog-table {
   width: 100%;
   overflow-x: hidden;
+  overflow-y: auto;
+  max-height: calc(100vh - var(--sticky-menu-h) - var(--sticky-filters-h) - var(--sticky-toggles-h) - 48px);
 }
 
 .pi-planning-table th, .pi-planning-table td {
@@ -2467,18 +2469,24 @@ table.pi-planning-table {
 }
 
 #backlog-table .pi-planning-table thead th {
-  position: static;
-  top: auto;
-  z-index: auto;
+  position: sticky;
+  top: 0;
+  z-index: 230;
   background: #f3f7fc;
-  box-shadow: none;
+  box-shadow: inset 0 -1px 0 #dfe8f3;
 }
 
-#backlog-table .pi-planning-table thead tr.backlog-column-filters th {
+#backlog-table .pi-planning-table thead th.backlog-head-filter-cell {
   overflow: visible;
   text-overflow: clip;
   position: sticky;
-  z-index: 260;
+  z-index: 240;
+}
+
+#backlog-column-toggles.column-toggles {
+  position: static;
+  top: auto;
+  z-index: auto;
 }
 .col-toggle-btn {
   font-size: 12px;
