@@ -61,10 +61,23 @@
     <div class="backlog-status-dropdown">
       <button id="capabilityFilterToggle" type="button" class="backlog-status-toggle">Filters / order</button>
       <div id="capabilityFilterMenu" class="backlog-status-menu" aria-label="Capability filters and ordering">
-        <label class="backlog-status-option">
-          <input type="checkbox" id="capability-order-priority" />
-          <span>Order capabilities by priority</span>
-        </label>
+        <div class="backlog-menu-level1">
+          <button type="button" class="backlog-menu-level1-item" data-submenu-target="order">Order ▸</button>
+          <button type="button" class="backlog-menu-level1-item" data-submenu-target="columns">Columns hide/show ▸</button>
+        </div>
+
+        <div id="capabilitySubmenuOrder" class="backlog-submenu-panel">
+          <label class="backlog-status-option">
+            <input type="checkbox" id="capability-order-priority" />
+            <span>Order capabilities by priority</span>
+          </label>
+        </div>
+
+        <div id="capabilitySubmenuColumns" class="backlog-submenu-panel">
+          <div id="capabilityColumnsSection" class="backlog-column-toggle-section">
+            <div class="backlog-column-toggle-title">Columns hide/show</div>
+          </div>
+        </div>
       </div>
     </div>
 

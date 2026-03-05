@@ -209,12 +209,95 @@ function getBacklogColumnFiltersForTable(table) {
 
 function bindBacklogColumnFilters(table) {
   if (!(table instanceof HTMLTableElement)) return;
+
+  const positionBacklogFilterMenu = (dropdown, menu) => {
+    const btn = dropdown.querySelector('.backlog-col-filter-btn');
+    if (!(btn instanceof HTMLElement)) return;
+    const rect = btn.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const menuWidth = Math.max(menuRect.width || 220, 180);
+    const menuHeight = Math.max(menuRect.height || 120, 80);
+
+    const left = Math.min(
+      Math.max(8, rect.left),
+      Math.max(8, window.innerWidth - menuWidth - 8)
+    );
+
+    const belowTop = rect.bottom + 4;
+    const aboveTop = rect.top - menuHeight - 4;
+    const top = (belowTop + menuHeight <= window.innerHeight - 8)
+      ? belowTop
+      : Math.max(8, aboveTop);
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.style.zIndex = '100000';
+  };
+
+  const closeAllBacklogFilterMenus = () => {
+    table.querySelectorAll('.backlog-col-filter-dropdown').forEach((dropdown) => {
+      dropdown.classList.remove('open');
+      const th = dropdown.closest('th');
+      if (th) th.classList.remove('backlog-filter-open');
+    });
+    document.querySelectorAll('.backlog-col-filter-menu.open').forEach((menu) => {
+      menu.classList.remove('open');
+      if (menu instanceof HTMLElement) {
+        menu.style.left = '';
+        menu.style.top = '';
+        menu.style.zIndex = '';
+      }
+    });
+  };
+
   if (!backlogColumnFilterMenusBound) {
     backlogColumnFilterMenusBound = true;
     document.addEventListener('click', (ev) => {
       const target = ev.target;
       if (target instanceof Element && target.closest('.backlog-col-filter-dropdown')) return;
-      document.querySelectorAll('.backlog-col-filter-menu.open').forEach((menu) => menu.classList.remove('open'));
+      document.querySelectorAll('.backlog-col-filter-dropdown.open').forEach((dropdown) => {
+        dropdown.classList.remove('open');
+        const th = dropdown.closest('th');
+        if (th) th.classList.remove('backlog-filter-open');
+      });
+      document.querySelectorAll('.backlog-col-filter-menu.open').forEach((menu) => {
+        menu.classList.remove('open');
+        if (menu instanceof HTMLElement) {
+          menu.style.left = '';
+          menu.style.top = '';
+          menu.style.zIndex = '';
+        }
+      });
+    });
+    document.addEventListener('scroll', () => {
+      document.querySelectorAll('.backlog-col-filter-dropdown.open').forEach((dropdown) => {
+        dropdown.classList.remove('open');
+        const th = dropdown.closest('th');
+        if (th) th.classList.remove('backlog-filter-open');
+      });
+      document.querySelectorAll('.backlog-col-filter-menu.open').forEach((menu) => {
+        menu.classList.remove('open');
+        if (menu instanceof HTMLElement) {
+          menu.style.left = '';
+          menu.style.top = '';
+          menu.style.zIndex = '';
+        }
+      });
+    }, true);
+    window.addEventListener('resize', () => {
+      document.querySelectorAll('.backlog-col-filter-dropdown.open').forEach((dropdown) => {
+        dropdown.classList.remove('open');
+        const th = dropdown.closest('th');
+        if (th) th.classList.remove('backlog-filter-open');
+      });
+      document.querySelectorAll('.backlog-col-filter-menu.open').forEach((menu) => {
+        menu.classList.remove('open');
+        if (menu instanceof HTMLElement) {
+          menu.style.left = '';
+          menu.style.top = '';
+          menu.style.zIndex = '';
+        }
+      });
     });
   }
 
@@ -233,8 +316,14 @@ function bindBacklogColumnFilters(table) {
         ev.preventDefault();
         ev.stopPropagation();
         const willOpen = !menu.classList.contains('open');
-        document.querySelectorAll('.backlog-col-filter-menu.open').forEach((openMenu) => openMenu.classList.remove('open'));
-        if (willOpen) menu.classList.add('open');
+        closeAllBacklogFilterMenus();
+        if (willOpen) {
+          menu.classList.add('open');
+          dropdown.classList.add('open');
+          const th = dropdown.closest('th');
+          if (th) th.classList.add('backlog-filter-open');
+          positionBacklogFilterMenu(dropdown, menu);
+        }
       });
     }
 
@@ -3603,6 +3692,15 @@ function renderColumnToggles(containerId, sprints) {
   const togglesDiv = document.getElementById(containerId.replace('-table', '-column-toggles'));
   if (!togglesDiv) return;
 
+  if (containerId === 'backlog-table') {
+    togglesDiv.innerHTML = '';
+    togglesDiv.style.display = 'none';
+    renderBacklogColumnToggleMenu(sprints);
+    return;
+  }
+
+  togglesDiv.style.display = '';
+
   const columns = [...piPlanningColumns.map(col => col.label), ...sprints];
   const forceHiddenColumns = (containerId === 'committed-table' || containerId === 'backlog-table') ? new Set([1]) : new Set();
   togglesDiv.innerHTML = '';
@@ -3627,6 +3725,54 @@ function renderColumnToggles(containerId, sprints) {
   });
 }
 
+function renderBacklogColumnToggleMenu(sprints) {
+  const section = document.getElementById('capabilityColumnsSection');
+  if (!section) return;
+
+  section.querySelectorAll('.backlog-status-option[data-col-toggle="1"]').forEach((el) => el.remove());
+
+  const title = section.querySelector('.backlog-column-toggle-title');
+  if (title) title.textContent = 'Columns hide/show';
+
+  const tableKey = 'backlog-table';
+  const hidden = hiddenColumns[tableKey] || new Set();
+  const sprintCount = Array.isArray(sprints) ? sprints.length : 0;
+  const fixVersionColIndex = piPlanningColumns.length + sprintCount;
+
+  const rows = [];
+  piPlanningColumns.forEach((col, idx) => {
+    if (idx === 1) return;
+    rows.push({ idx, label: col.label });
+  });
+  rows.push({ idx: fixVersionColIndex, label: 'Fix Version' });
+
+  rows.forEach(({ idx, label }) => {
+    const row = document.createElement('label');
+    row.className = 'backlog-status-option';
+    row.setAttribute('data-col-toggle', '1');
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = !hidden.has(idx);
+    checkbox.setAttribute('data-col-idx', String(idx));
+
+    const text = document.createElement('span');
+    text.textContent = label;
+
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) hiddenColumns[tableKey].delete(idx);
+      else hiddenColumns[tableKey].add(idx);
+      window._rerenderFeatureTable(tableKey, Array.isArray(sprints) ? sprints : []);
+      renderBacklogColumnToggleMenu(Array.isArray(sprints) ? sprints : []);
+      applyFilter();
+    });
+
+    row.appendChild(checkbox);
+    row.appendChild(text);
+    section.appendChild(row);
+  });
+}
+
 window._rerenderFeatureTable = function(containerId, sprints) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -3642,6 +3788,7 @@ function renderFeatureTable(features, containerId, sprints) {
   const isCommittedTable = containerId === 'committed-table';
   const isCapabilityGroupedTable = isBacklogTable || isCommittedTable;
   const includeBacklogFixVersionColumn = isBacklogTable;
+  const backlogFixVersionColIndex = piPlanningColumns.length + ((Array.isArray(sprints) ? sprints.length : 0));
   const capabilityOrderMode = getCapabilityOrderMode();
   if (isCommittedTable) restoreCommittedTreeCollapseState();
 
@@ -3763,7 +3910,7 @@ function renderFeatureTable(features, containerId, sprints) {
     if (!hidden.has(piPlanningColumns.length + i))
       tableHtml += `<th class="story-cell">${sprint}</th>`;
   });
-  if (includeBacklogFixVersionColumn) {
+  if (includeBacklogFixVersionColumn && !hidden.has(backlogFixVersionColIndex)) {
     visibleColumnKeys.push('fixversions');
     if (isBacklogTable && BACKLOG_SELECT_FILTER_KEYS.has('fixversions')) {
       const selectedValues = Array.isArray(backlogColumnFilterState.fixversions)
@@ -3792,7 +3939,7 @@ function renderFeatureTable(features, containerId, sprints) {
   let rowIndex = 1;
   const visibleBaseColumnCount = headerLabels.reduce((count, _, idx) => count + (hidden.has(idx) ? 0 : 1), 0);
   const visibleSprintCount = (Array.isArray(sprints) ? sprints : []).reduce((count, _, i) => count + (hidden.has(piPlanningColumns.length + i) ? 0 : 1), 0);
-  const visibleExtraColumns = includeBacklogFixVersionColumn ? 1 : 0;
+  const visibleExtraColumns = (includeBacklogFixVersionColumn && !hidden.has(backlogFixVersionColIndex)) ? 1 : 0;
   const visibleColumnCount = visibleBaseColumnCount + visibleSprintCount + visibleExtraColumns;
   let previousCapabilityBlock = null;
 
@@ -3909,7 +4056,7 @@ function renderFeatureTable(features, containerId, sprints) {
       }
     });
 
-    if (includeBacklogFixVersionColumn) {
+    if (includeBacklogFixVersionColumn && !hidden.has(backlogFixVersionColIndex)) {
       const fixVersionsText = Array.isArray(feature.fixVersions) ? feature.fixVersions.join(", ") : "";
       tableHtml += `<td class="col-fix-versions">${fixVersionsText}</td>`;
     }
@@ -3996,7 +4143,7 @@ function renderFeatureTable(features, containerId, sprints) {
     sprints.forEach((_, i) => {
       if (!hidden.has(piPlanningColumns.length + i)) tableHtml += `<td class="story-cell"></td>`;
     });
-    if (includeBacklogFixVersionColumn) {
+    if (includeBacklogFixVersionColumn && !hidden.has(backlogFixVersionColIndex)) {
       tableHtml += `<td class="col-fix-versions"></td>`;
     }
     tableHtml += '</tr>';
@@ -4425,10 +4572,34 @@ function setupCapabilityFilterDropdown() {
   const menu = document.getElementById("capabilityFilterMenu");
   if (!toggle || !menu || toggle.dataset.bound === "1") return;
 
+  const setSubmenu = (name) => {
+    const orderPanel = document.getElementById('capabilitySubmenuOrder');
+    const columnsPanel = document.getElementById('capabilitySubmenuColumns');
+    const buttons = menu.querySelectorAll('.backlog-menu-level1-item[data-submenu-target]');
+    buttons.forEach((btn) => {
+      const target = String(btn.getAttribute('data-submenu-target') || '').trim();
+      btn.classList.toggle('active', target === name);
+    });
+    if (orderPanel) orderPanel.classList.toggle('open', name === 'order');
+    if (columnsPanel) columnsPanel.classList.toggle('open', name === 'columns');
+  };
+
   toggle.dataset.bound = "1";
   toggle.addEventListener("click", (e) => {
     e.stopPropagation();
-    menu.classList.toggle("open");
+    const willOpen = !menu.classList.contains("open");
+    menu.classList.toggle("open", willOpen);
+    if (willOpen) setSubmenu('order');
+  });
+
+  menu.querySelectorAll('.backlog-menu-level1-item[data-submenu-target]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const target = String(btn.getAttribute('data-submenu-target') || '').trim();
+      if (!target) return;
+      setSubmenu(target);
+    });
   });
 
   document.addEventListener("click", (e) => {

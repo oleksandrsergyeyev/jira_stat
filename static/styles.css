@@ -1088,7 +1088,7 @@ h1 { margin-bottom: 20px; }
   flex-wrap: wrap;
   position: sticky;
   top: var(--sticky-menu-h);
-  z-index: 19;
+  z-index: 1300;
   background: #f9f9f9;
   padding: 8px 10px;
 }
@@ -1119,6 +1119,7 @@ h1 { margin-bottom: 20px; }
 .backlog-status-dropdown {
   position: relative;
   display: inline-block;
+  z-index: 1301;
 }
 
 .backlog-status-toggle {
@@ -1140,11 +1141,10 @@ h1 { margin-bottom: 20px; }
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  width: 260px;
-  max-height: 300px;
-  overflow: auto;
+  width: 220px;
+  overflow: visible;
   display: none;
-  z-index: 50;
+  z-index: 100050;
   background: #ffffff;
   border: 1px solid #d5dce7;
   border-radius: 8px;
@@ -1175,6 +1175,62 @@ h1 { margin-bottom: 20px; }
   margin-bottom: 4px;
   padding-bottom: 8px;
   font-weight: 600;
+}
+
+.backlog-column-toggle-section {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.backlog-column-toggle-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3b4f6b;
+  padding: 2px 8px 6px;
+}
+
+.backlog-menu-level1 {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.backlog-menu-level1-item {
+  border: 1px solid transparent;
+  background: #ffffff;
+  color: #2f3a48;
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.backlog-menu-level1-item:hover,
+.backlog-menu-level1-item.active {
+  background: #f3f7ff;
+  border-color: #d7e3f5;
+}
+
+.backlog-submenu-panel {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: calc(100% - 6px);
+  width: 270px;
+  max-height: 320px;
+  overflow: auto;
+  z-index: 100051;
+  background: #ffffff;
+  border: 1px solid #d5dce7;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 8px;
+}
+
+.backlog-submenu-panel.open {
+  display: block;
 }
 
 .backlog-column-filters th {
@@ -1209,6 +1265,10 @@ h1 { margin-bottom: 20px; }
   position: relative;
 }
 
+.backlog-col-filter-dropdown.open {
+  z-index: 1100;
+}
+
 .backlog-col-filter-btn {
   width: 100%;
   min-width: 110px;
@@ -1230,14 +1290,14 @@ h1 { margin-bottom: 20px; }
 
 .backlog-col-filter-menu {
   display: none;
-  position: absolute;
-  top: calc(100% + 4px);
+  position: fixed;
+  top: 0;
   left: 0;
   min-width: 180px;
   max-width: 280px;
   max-height: 240px;
   overflow: auto;
-  z-index: 600;
+  z-index: 100000;
   background: #ffffff;
   border: 1px solid #d5dce7;
   border-radius: 8px;
@@ -2481,6 +2541,10 @@ table.pi-planning-table {
   text-overflow: clip;
   position: sticky;
   z-index: 240;
+}
+
+#backlog-table .pi-planning-table thead th.backlog-filter-open {
+  z-index: 1200;
 }
 
 #backlog-column-toggles.column-toggles {
