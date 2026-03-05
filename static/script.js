@@ -2128,19 +2128,22 @@ async function renderCommittedSummary(committed, containerId) {
 
     const capacity = planningComputeMemberCapacity(member);
     const fullCapacity = Number(capacity.full || 0);
-    const usedPercent = planningCapacityPercent(assigned, fullCapacity);
-    const buffer = Math.max(0, fullCapacity - assigned);
+    const plannedCapacity = Math.max(0, Math.min(fullCapacity, Number(capacity.planned || 0)));
+    const bufferCapacity = Math.max(0, fullCapacity - plannedCapacity);
     const overload = Math.max(0, assigned - fullCapacity);
     const statusClass = planningCapacityStatusClass(assigned, fullCapacity);
-    const safePercent = usedPercent.toFixed(1);
+    const plannedBasePercent = fullCapacity > 0 ? Math.max(0, Math.min(100, (plannedCapacity / fullCapacity) * 100)) : 0;
+    const loadPercent = fullCapacity > 0 ? Math.max(0, Math.min(100, (Number(assigned || 0) / fullCapacity) * 100)) : 0;
 
     cards.push({
       displayName,
       assigned,
       fullCapacity,
-      buffer,
+      plannedCapacity,
+      bufferCapacity,
       overload,
-      usedPercent: safePercent,
+      plannedBasePercent: plannedBasePercent.toFixed(1),
+      loadPercent: loadPercent.toFixed(1),
       statusClass,
     });
   });
@@ -2152,9 +2155,11 @@ async function renderCommittedSummary(committed, containerId) {
       displayName: assigneeKey.split(" ").map((part) => part ? part[0].toUpperCase() + part.slice(1) : "").join(" "),
       assigned,
       fullCapacity: 0,
-      buffer: 0,
+      plannedCapacity: 0,
+      bufferCapacity: 0,
       overload: assigned,
-      usedPercent: "0.0",
+      plannedBasePercent: "0.0",
+      loadPercent: "0.0",
       statusClass: "no-capacity",
     });
   });
@@ -2163,26 +2168,48 @@ async function renderCommittedSummary(committed, containerId) {
 
   const totalAssigned = cards.reduce((sum, item) => sum + Number(item.assigned || 0), 0);
   const totalCapacity = cards.reduce((sum, item) => sum + Number(item.fullCapacity || 0), 0);
+  const totalPlannedCapacity = cards.reduce((sum, item) => sum + Number(item.plannedCapacity || 0), 0);
+  const totalBufferCapacity = Math.max(0, totalCapacity - totalPlannedCapacity);
+  const totalOverload = Math.max(0, totalAssigned - totalCapacity);
+  const totalPlannedBasePercent = totalCapacity > 0 ? Math.max(0, Math.min(100, (totalPlannedCapacity / totalCapacity) * 100)) : 0;
+  const totalLoadPercent = totalCapacity > 0 ? Math.max(0, Math.min(100, (totalAssigned / totalCapacity) * 100)) : 0;
+  const teamStatusClass = planningCapacityStatusClass(totalAssigned, totalCapacity);
 
-  const cardsHtml = cards.length
-    ? cards.map((item) => {
-        const pieStyle = `--used:${item.usedPercent};`;
+  const teamCard = {
+    displayName: "Team",
+    assigned: totalAssigned,
+    fullCapacity: totalCapacity,
+    plannedCapacity: totalPlannedCapacity,
+    bufferCapacity: totalBufferCapacity,
+    overload: totalOverload,
+    plannedBasePercent: totalPlannedBasePercent.toFixed(1),
+    loadPercent: totalLoadPercent.toFixed(1),
+    statusClass: teamStatusClass,
+    isTeam: true,
+  };
+
+  const renderCapacityCard = (item) => {
+        const pieStyle = `--planned-base:${item.plannedBasePercent}; --load:${item.loadPercent};`;
         const fullLabel = formatCapacityValue(item.fullCapacity);
         const assignedLabel = formatEstimationValue(item.assigned);
-        const bufferLabel = formatCapacityValue(item.buffer);
+        const plannedLabel = formatCapacityValue(item.plannedCapacity);
+        const bufferLabel = formatCapacityValue(item.bufferCapacity);
         const overloadLabel = formatCapacityValue(item.overload);
         return `
-          <div class="pi-capacity-card ${item.statusClass}">
+          <div class="pi-capacity-card ${item.statusClass}${item.isTeam ? " team" : ""}">
             <div class="pi-capacity-person">${escapeHtml(item.displayName)}</div>
             <div class="pi-capacity-pie-wrap">
-              <div class="pi-capacity-pie" style="${pieStyle}" title="Assigned ${escapeHtml(assignedLabel)} of ${escapeHtml(fullLabel)}"></div>
-              <div class="pi-capacity-pie-label">${escapeHtml(item.usedPercent)}%</div>
+              <div class="pi-capacity-pie" style="${pieStyle}" title="Capacity split: Planned ${escapeHtml(plannedLabel)} | Buffer ${escapeHtml(bufferLabel)} | Load ${escapeHtml(assignedLabel)}"></div>
+              <div class="pi-capacity-pie-label">${escapeHtml(item.loadPercent)}%</div>
             </div>
             <div class="pi-capacity-meta">Load: ${escapeHtml(assignedLabel)} / Capacity: ${escapeHtml(fullLabel)}</div>
-            <div class="pi-capacity-meta">Buffer: ${escapeHtml(bufferLabel)}${item.overload > 0 ? ` | Overload: ${escapeHtml(overloadLabel)}` : ""}</div>
+            <div class="pi-capacity-meta">Planned: ${escapeHtml(plannedLabel)} | Buffer: ${escapeHtml(bufferLabel)}${item.overload > 0 ? ` | Overload: ${escapeHtml(overloadLabel)}` : ""}</div>
           </div>
         `;
-      }).join("")
+      };
+
+  const cardsHtml = cards.length
+    ? [...cards, teamCard].map((item) => renderCapacityCard(item)).join("")
     : '<div class="pi-capacity-empty">No Team Capacity members found for selected Team + PI.</div>';
 
   const totalUsagePercent = totalCapacity > 0 ? Math.max(0, (totalAssigned / totalCapacity) * 100) : 0;

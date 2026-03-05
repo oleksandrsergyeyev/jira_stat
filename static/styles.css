@@ -1587,6 +1587,22 @@ th.desc::after { content: " ▼"; }
   text-align: left;
 }
 
+.pi-capacity-top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.pi-capacity-team-side {
+  margin-left: auto;
+  min-width: 280px;
+  max-width: 320px;
+  flex: 0 0 300px;
+}
+
 .pi-capacity-summary-header {
   display: flex;
   flex-wrap: wrap;
@@ -1594,6 +1610,8 @@ th.desc::after { content: " ▼"; }
   justify-content: space-between;
   gap: 10px;
   margin: 0 0 10px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .pi-capacity-summary-header h3 {
@@ -1680,12 +1698,16 @@ th.desc::after { content: " ▼"; }
   font-size: 13px;
   color: #3a4c67;
   font-weight: 600;
+  min-width: 0;
 }
 
 .pi-capacity-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
 }
 
 .pi-capacity-card {
@@ -1694,6 +1716,7 @@ th.desc::after { content: " ▼"; }
   background: #ffffff;
   padding: 10px;
   box-shadow: 0 2px 8px rgba(18, 43, 84, 0.08);
+  flex: 0 0 240px;
 }
 
 .pi-capacity-card.ok {
@@ -1724,27 +1747,47 @@ th.desc::after { content: " ▼"; }
 }
 
 .pi-capacity-pie {
-  --used: 0;
-  --used-color: #2ea44f;
+  --planned-base: 0;
+  --load: 0;
+  --planned-color: #48b46a;
+  --buffer-color: #f2c84b;
+  --load-overlay: rgba(133, 180, 255, 0.46);
   width: 54px;
   height: 54px;
   border-radius: 50%;
-  background: conic-gradient(var(--used-color) calc(var(--used) * 1%), #dce8fb 0);
+  background:
+    conic-gradient(
+      var(--load-overlay) 0 calc(var(--load) * 1%),
+      rgba(133, 180, 255, 0) calc(var(--load) * 1%) 100%
+    ),
+    conic-gradient(
+      var(--planned-color) 0 calc(var(--planned-base) * 1%),
+      var(--buffer-color) calc(var(--planned-base) * 1%) 100%
+    );
   border: 1px solid #c7d8f0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
 .pi-capacity-card.ok .pi-capacity-pie {
-  --used-color: #2ea44f;
+  --load-overlay: rgba(122, 173, 255, 0.42);
 }
 
 .pi-capacity-card.near-full .pi-capacity-pie {
-  --used-color: #d29a1e;
+  --load-overlay: rgba(111, 162, 243, 0.48);
 }
 
 .pi-capacity-card.overloaded .pi-capacity-pie,
 .pi-capacity-card.no-capacity .pi-capacity-pie {
-  --used-color: #cf3f3f;
+  --load-overlay: rgba(95, 145, 230, 0.52);
 }
+
+.pi-capacity-card.team {
+  border-width: 2px;
+  box-shadow: 0 4px 12px rgba(18, 43, 84, 0.14);
+  margin-left: auto;
+}
+
+/* Keep Team chart on the same line as requested. */
 
 .pi-capacity-pie-label {
   font-size: 15px;
