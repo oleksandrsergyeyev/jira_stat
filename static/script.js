@@ -1926,7 +1926,7 @@ async function loadPIPlanningData(forceRefresh = false) {
         ? enrichedFeature.fixVersions.includes(fixVersion)
         : false;
 
-      if (scope.startsWith("committed") && inPI) {
+      if ((scope.startsWith("committed") || scope.startsWith("stretch")) && inPI) {
         committed.push([key, enrichedFeature]);
       } else if (!isDone(enrichedFeature)) {
         backlog.push([key, enrichedFeature]);
