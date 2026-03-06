@@ -6294,14 +6294,14 @@ async function renderPiStoryPlanningTable(committedFeatures, sprints) {
   };
 
   let html = '<div class="pi-story-board">';
-  html += '<div class="pi-story-header-grid">';
+  html += '<div class="pi-story-header-shell"><div class="pi-story-header-scroll"><div class="pi-story-header-grid">';
   html += '<div class="roadmap-header roadmap-feature-head pi-story-feature-head">Feature / Stories</div>';
   sprintOrder.forEach((sprintName) => {
     html += makeSprintHeaderCell(sprintName);
   });
-  html += '</div>';
+  html += '</div></div></div>';
 
-  html += '<div class="pi-story-body">';
+  html += '<div class="pi-story-body-scroll"><div class="pi-story-body">';
   let storyIndex = 1;
   featureGroups.forEach((group) => {
     const featureKey = String(group.featureId || group.featureSummary || '').trim() || 'Feature';
@@ -6350,7 +6350,7 @@ async function renderPiStoryPlanningTable(committedFeatures, sprints) {
         storyIndex += 1;
       });
   });
-  html += '</div></div>';
+  html += '</div></div></div>';
   host.innerHTML = html;
 
   host.querySelectorAll('.pi-story-drop-cell[data-story-key][data-target-sprint]').forEach((cell) => {
@@ -6389,8 +6389,31 @@ async function renderPiStoryPlanningTable(committedFeatures, sprints) {
   });
 
   bindPiStoryDragAndDrop(host);
+  bindPiStoryHeaderScrollSync(host);
   bindRoadmapQsMetaHover(host);
   updatePiStoryPendingUi();
+}
+
+function bindPiStoryHeaderScrollSync(host) {
+  if (!(host instanceof HTMLElement)) return;
+  const headerScroll = host.querySelector('.pi-story-header-scroll');
+  const bodyScroll = host.querySelector('.pi-story-body-scroll');
+  if (!(headerScroll instanceof HTMLElement) || !(bodyScroll instanceof HTMLElement)) return;
+  if (bodyScroll.dataset.headerSyncBound === '1') {
+    headerScroll.scrollLeft = bodyScroll.scrollLeft;
+    return;
+  }
+
+  bodyScroll.dataset.headerSyncBound = '1';
+  headerScroll.scrollLeft = bodyScroll.scrollLeft;
+
+  let syncing = false;
+  bodyScroll.addEventListener('scroll', () => {
+    if (syncing) return;
+    syncing = true;
+    headerScroll.scrollLeft = bodyScroll.scrollLeft;
+    syncing = false;
+  });
 }
 
 function bindPiStoryDragAndDrop(host) {

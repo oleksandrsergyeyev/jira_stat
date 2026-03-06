@@ -3166,8 +3166,24 @@ table.pi-planning-table {
   border: 1px solid #d8e0ea;
   border-radius: 8px;
   background: #fff;
+  overflow: visible;
+}
+
+.pi-story-header-shell {
+  position: relative;
+  z-index: 4;
+  background: #fff;
+  box-shadow: 0 2px 0 rgba(209, 221, 239, 0.9);
+}
+
+.pi-story-header-scroll {
+  overflow: hidden;
+}
+
+.pi-story-body-scroll {
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: auto;
+  max-height: min(62vh, 720px);
 }
 
 .pi-story-header-grid,
@@ -3184,9 +3200,8 @@ table.pi-planning-table {
 }
 
 .pi-story-header-grid .roadmap-header {
-  position: sticky;
-  top: calc(var(--sticky-menu-h) + var(--sticky-filters-h));
-  z-index: 26;
+  position: relative;
+  z-index: 1;
   min-height: 62px;
   box-sizing: border-box;
   display: flex;
