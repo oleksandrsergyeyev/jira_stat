@@ -3158,6 +3158,8 @@ table.pi-planning-table {
 
 #pi-story-table {
   --pi-story-sprint-cols: 6;
+  --pi-story-feature-col: 380px;
+  --pi-story-sprint-col: 170px;
 }
 
 .pi-story-board {
@@ -3165,43 +3167,64 @@ table.pi-planning-table {
   border-radius: 8px;
   background: #fff;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
 }
 
 .pi-story-header-grid,
 .pi-story-row-grid {
   display: grid;
-  grid-template-columns: minmax(360px, 2fr) repeat(var(--pi-story-sprint-cols, 6), minmax(118px, 1fr));
-  min-width: max-content;
+  grid-template-columns: var(--pi-story-feature-col) repeat(var(--pi-story-sprint-cols, 6), var(--pi-story-sprint-col));
+  width: max-content;
+  min-width: 100%;
+}
+
+.pi-story-header-grid {
+  position: relative;
+  z-index: 1;
 }
 
 .pi-story-header-grid .roadmap-header {
-  min-height: 44px;
+  position: sticky;
+  top: calc(var(--sticky-menu-h) + var(--sticky-filters-h));
+  z-index: 26;
+  min-height: 62px;
   box-sizing: border-box;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 6px;
+  text-align: left;
+  box-shadow: inset 0 -1px 0 #d6e2f1;
 }
 
 .pi-story-header-grid .roadmap-feature-head {
   grid-row: auto;
   justify-content: flex-start;
   text-align: left;
-  padding: 0 8px;
+  align-items: flex-start;
+  padding: 6px 8px;
+  min-height: 62px;
 }
 
 .pi-story-feature-head {
-  min-height: 44px;
+  min-height: 62px;
   font-size: 12px;
 }
 
 .pi-story-sprint-head {
-  min-height: 44px;
+  min-height: 62px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   gap: 2px;
+}
+
+.pi-story-sprint-title {
+  font-weight: 800;
+  color: #425e88;
 }
 
 .pi-story-body {
@@ -3235,6 +3258,23 @@ table.pi-planning-table {
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-story-sprint-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.pi-story-person-chip {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+  border: 1px solid rgba(16, 32, 56, 0.18);
   white-space: nowrap;
 }
 
@@ -3320,7 +3360,7 @@ table.pi-planning-table {
 @media (max-width: 900px) {
   .pi-story-header-grid,
   .pi-story-row-grid {
-    grid-template-columns: minmax(260px, 1.5fr) repeat(var(--pi-story-sprint-cols, 6), minmax(92px, 1fr));
+    grid-template-columns: var(--pi-story-feature-col) repeat(var(--pi-story-sprint-cols, 6), var(--pi-story-sprint-col));
   }
 
   .pi-story-planning-table .pi-story-feature {

@@ -1252,7 +1252,7 @@ def _seed_feature_from_issue_json(issue_json: dict, summary_cache: dict, cap_met
         "sum_story_points": 0.0,       # sum of child story points
         "assignee": assignee_display,
         "reporter": reporter_display,
-        "stories_detail": [],          # [{key, story_points, assignee, status}]
+        "stories_detail": [],          # [{key, summary, story_points, assignee, status}]
     }
 
 def _find_parent_feature_from_links(issuelinks, known_feature_keys: set):
@@ -1402,6 +1402,7 @@ def get_pi_planning(fix_version: str, work_group: str, force_refresh: bool = Fal
         features[parent_key]["sum_story_points"] += sp_val
         features[parent_key]["stories_detail"].append({
             "key": key,
+            "summary": str(fields.get("summary") or "").strip(),
             "story_points": sp_val,
             "assignee": child_assignee,
             "status": child_status,
@@ -1541,6 +1542,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
     # Use a separate child query to avoid scan-all on backlog seed set.
     if features:
         child_fields = [
+            "summary",
             "issuetype",
             "customfield_10708",  # Story Points
             "customfield_10702",  # Epic Link
@@ -1572,6 +1574,7 @@ def backlog_data_service(work_group: str, force_refresh: bool = False) -> dict:
             features[parent_key]["sum_story_points"] += sp_val
             features[parent_key]["stories_detail"].append({
                 "key": child_key,
+                "summary": str(f.get("summary") or "").strip(),
                 "story_points": sp_val,
                 "assignee": _assignee_name(f) or "Unassigned",
                 "status": ((f.get("status") or {}).get("name") or ""),

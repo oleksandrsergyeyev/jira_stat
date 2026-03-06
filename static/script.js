@@ -5785,6 +5785,7 @@ function buildPiStoryRows(committedFeatures, sprintOrder) {
 
       rows.push({
         storyKey,
+        storySummary: String(story?.summary || '').trim(),
         featureId: String(featureId || '').trim(),
         featureSummary: String(feature?.summary || '').trim(),
         featurePriority: String(feature?.priority || '').trim(),
@@ -6125,6 +6126,20 @@ async function renderPiStoryPlanningTable(committedFeatures, sprints) {
   host._sprints = [...sprintOrder];
   host.style.setProperty('--pi-story-sprint-cols', String(sprintOrder.length));
 
+  const compact = window.innerWidth <= 900;
+  const featureCol = compact ? 300 : 380;
+  const minSprintCol = compact ? 130 : 140;
+  const viewportWidth = Math.max(
+    0,
+    Number(host.clientWidth || 0),
+    Number(host.parentElement?.clientWidth || 0),
+    Number(window.innerWidth || 0)
+  );
+  const computedSprint = Math.floor((viewportWidth - featureCol) / Math.max(1, sprintOrder.length));
+  const sprintCol = Math.max(minSprintCol, computedSprint);
+  host.style.setProperty('--pi-story-feature-col', `${featureCol}px`);
+  host.style.setProperty('--pi-story-sprint-col', `${sprintCol}px`);
+
   const sourceRows = buildPiStoryRows(committedFeatures, sprintOrder);
   const pending = piStoryPendingMap();
   const effectiveRows = sourceRows.map((row) => {
@@ -6160,10 +6175,20 @@ async function renderPiStoryPlanningTable(committedFeatures, sprints) {
   });
 
   const sprintLoad = {};
+  const sprintLoadByPerson = {};
+  const displayNameByPersonKey = new Map();
   sprintOrder.forEach((s) => { sprintLoad[s] = 0; });
+  sprintOrder.forEach((s) => { sprintLoadByPerson[s] = new Map(); });
   effectiveRows.forEach((row) => {
     const key = sprintOrder.includes(row.sprint) ? row.sprint : 'No Sprint';
     sprintLoad[key] = Number(sprintLoad[key] || 0) + Number(row.storyPoints || 0);
+    const personKey = planningPersonNameKey(row.assignee);
+    if (personKey) {
+      const perSprintMap = sprintLoadByPerson[key] || new Map();
+      perSprintMap.set(personKey, Number(perSprintMap.get(personKey) || 0) + Number(row.storyPoints || 0));
+      sprintLoadByPerson[key] = perSprintMap;
+      if (!displayNameByPersonKey.has(personKey)) displayNameByPersonKey.set(personKey, String(row.assignee || '').trim() || 'Unknown');
+    }
   });
 
   const metaHost = document.getElementById('pi-story-planning-meta');
@@ -6201,10 +6226,71 @@ async function renderPiStoryPlanningTable(committedFeatures, sprints) {
     const className = (sprintName !== 'No Sprint' && load > Number(cap.full || 0))
       ? 'pi-story-sprint-head overloaded'
       : ((sprintName !== 'No Sprint' && load > Number(cap.planned || 0)) ? 'pi-story-sprint-head near-full' : 'pi-story-sprint-head');
-    const capacityLabel = sprintName === 'No Sprint'
-      ? `Load ${formatEstimationValue(load)}`
-      : `Load ${formatEstimationValue(load)} / Cap ${formatCapacityValue(cap.planned)}(${formatCapacityValue(cap.full)})`;
-    return `<div class="roadmap-header roadmap-qs-header roadmap-qs-band ${className}" data-sprint-target="${escapeHtml(sprintName)}"><span>${escapeHtml(sprintName)}</span><span class="pi-story-sprint-head-meta">${escapeHtml(capacityLabel)}</span></div>`;
+
+    const sprintMap = sprintLoadByPerson[sprintName] || new Map();
+    const teammateRows = [];
+    const matchedKeys = new Set();
+
+    (Array.isArray(members) ? members : []).forEach((member) => {
+      const name = String(member?.displayName || '').trim();
+      if (!name) return;
+      const aliases = planningPersonAliasKeys(name);
+      let personLoad = 0;
+      aliases.forEach((alias) => {
+        if (!sprintMap.has(alias)) return;
+        personLoad += Number(sprintMap.get(alias) || 0);
+        matchedKeys.add(alias);
+      });
+
+      const sprintTotal = Number(teamCapacitySprintTotal(member, sprintName) || 0);
+      const plannedCap = teamCapacityRoundInteger(sprintTotal * 0.6);
+      const fullCap = teamCapacityRoundInteger(sprintTotal * 0.8);
+      if (personLoad <= 0 && plannedCap <= 0 && fullCap <= 0) return;
+
+      let levelClass = 'roadmap-qs-meta--green';
+      if (personLoad > fullCap) levelClass = 'roadmap-qs-meta--red';
+      else if (personLoad > plannedCap) levelClass = 'roadmap-qs-meta--yellow';
+
+      teammateRows.push({
+        name,
+        levelClass,
+        text: `Load: ${formatEstimationValue(personLoad)} / Cap: ${formatCapacityValue(plannedCap)}(${formatCapacityValue(fullCap)})`,
+      });
+    });
+
+    sprintMap.forEach((personLoad, personKey) => {
+      if (matchedKeys.has(personKey)) return;
+      const n = Number(personLoad || 0);
+      if (!Number.isFinite(n) || n <= 0) return;
+      teammateRows.push({
+        name: displayNameByPersonKey.get(personKey) || personKey,
+        levelClass: 'roadmap-qs-meta--red',
+        text: `Load: ${formatEstimationValue(n)} / Cap: 0(0)`,
+      });
+    });
+
+    teammateRows.sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
+
+    let levelClass = 'roadmap-qs-meta--green';
+    if (load > Number(cap.full || 0)) levelClass = 'roadmap-qs-meta--red';
+    else if (load > Number(cap.planned || 0)) levelClass = 'roadmap-qs-meta--yellow';
+    const breakdownJson = teammateRows.length ? encodeURIComponent(JSON.stringify(teammateRows)) : '';
+    const breakdownAttr = breakdownJson ? ` data-team-breakdown-json="${escapeHtml(breakdownJson)}"` : '';
+    const hasBreakdownClass = breakdownJson ? ' has-breakdown' : '';
+    const peopleListHtml = teammateRows.length
+      ? teammateRows
+          .map((row) => {
+            const compact = String(row?.text || '')
+              .replace(/^Load:\s*/i, 'L')
+              .replace(/\s*\/\s*Cap:\s*/i, '/C');
+            const cls = String(row?.levelClass || 'roadmap-qs-meta--green');
+            return `<span class="pi-story-person-chip ${cls}">${escapeHtml(String(row?.name || ''))}: ${escapeHtml(compact)}</span>`;
+          })
+          .join('')
+      : '<span class="pi-story-person-chip roadmap-qs-meta--green">No load</span>';
+    const summaryBadge = `<span class="roadmap-qs-meta ${levelClass}${hasBreakdownClass}"${breakdownAttr}>Total: ${escapeHtml(formatEstimationValue(load))} / ${escapeHtml(formatCapacityValue(cap.planned))}(${escapeHtml(formatCapacityValue(cap.full))})</span>`;
+
+    return `<div class="roadmap-header roadmap-qs-header roadmap-qs-band ${className}" data-sprint-target="${escapeHtml(sprintName)}"><span class="pi-story-sprint-title">${escapeHtml(sprintName)}</span><span class="pi-story-sprint-head-meta">${summaryBadge}</span><span class="pi-story-sprint-people">${peopleListHtml}</span></div>`;
   };
 
   let html = '<div class="pi-story-board">';
@@ -6242,7 +6328,8 @@ async function renderPiStoryPlanningTable(committedFeatures, sprints) {
       .forEach((row) => {
         const pendingClass = row._isPending ? ' pi-story-row-pending' : '';
         const prio = roadmapPriorityStyle(row.priority);
-        const storyLabel = `<span class="roadmap-feature-index">${storyIndex}.</span> <a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(row.storyKey)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.storyKey)}</a> <span class="pi-story-inline-meta">${escapeHtml(row.assignee || 'Unassigned')}</span>`;
+        const storyName = String(row.storySummary || '').trim();
+        const storyLabel = `<span class="roadmap-feature-index">${storyIndex}.</span> <a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(row.storyKey)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.storyKey)}</a> <span class="pi-story-inline-meta">${escapeHtml(storyName || 'No summary')}</span>`;
         html += `<div class="pi-story-row-grid${pendingClass}" data-story-key="${escapeHtml(row.storyKey)}">`;
         html += `<div class="roadmap-feature-col pi-story-row-label">${storyLabel}</div>`;
 
@@ -6302,6 +6389,7 @@ async function renderPiStoryPlanningTable(committedFeatures, sprints) {
   });
 
   bindPiStoryDragAndDrop(host);
+  bindRoadmapQsMetaHover(host);
   updatePiStoryPendingUi();
 }
 
