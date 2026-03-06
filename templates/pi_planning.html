@@ -64,7 +64,6 @@
       <div id="planningFilterMenu" class="backlog-status-menu" aria-label="PI planning filters and ordering">
         <div class="backlog-menu-level1">
           <button type="button" class="backlog-menu-level1-item" data-submenu-target="order">Order ▸</button>
-          <button type="button" class="backlog-menu-level1-item" data-submenu-target="columns">Columns hide/show ▸</button>
         </div>
 
         <div id="planningSubmenuOrder" class="backlog-submenu-panel">
@@ -72,12 +71,6 @@
             <input type="checkbox" id="planning-order-priority" />
             <span>Order features by priority</span>
           </label>
-        </div>
-
-        <div id="planningSubmenuColumns" class="backlog-submenu-panel">
-          <div id="planningColumnsSection" class="backlog-column-toggle-section">
-            <div class="backlog-column-toggle-title">Columns hide/show</div>
-          </div>
         </div>
       </div>
     </div>
@@ -92,11 +85,7 @@
   <div id="committed-summary"></div>
 
   <div class="section-header">
-    <h2 class="pi-section-title">Committed Features</h2>
-    <div>
-      <button type="button" class="pi-load-tree-btn" id="pi-collapse-all-stories">Collapse all stories</button>
-      <button class="collapse-btn" onclick="toggleTable('committed-table', this)">⬆ Collapse</button>
-    </div>
+    <h2 class="pi-section-title">Committed Features <button class="collapse-btn pi-inline-collapse-btn" onclick="toggleTable('committed-table', this)">⬆ Collapse</button><span class="backlog-status-dropdown pi-inline-columns-dropdown"><button id="planningColumnsToggle" type="button" class="collapse-btn pi-inline-collapse-btn pi-inline-columns-btn">Columns hide/show</button><div id="planningColumnsMenu" class="backlog-status-menu pi-inline-columns-menu"><div id="planningColumnsSection" class="backlog-column-toggle-section"><div class="backlog-column-toggle-title">Columns hide/show</div></div></div></span><button type="button" class="pi-load-tree-btn" id="pi-collapse-all-stories">Collapse all stories</button></h2>
   </div>
   <!-- Column toggler bar for committed table -->
   <div id="committed-column-toggles" class="column-toggles"></div>
@@ -104,10 +93,7 @@
 
   <!-- ===== Feature Sprint Timeline (Gantt) ===== -->
   <div class="section-header">
-    <h2 class="pi-section-title">Feature Sprint Timeline (Gantt)</h2>
-    <div>
-      <button class="collapse-btn" onclick="toggleTable('gantt-wrapper', this)">⬆ Collapse</button>
-    </div>
+    <h2 class="pi-section-title">Feature Sprint Timeline (Gantt) <button class="collapse-btn pi-inline-collapse-btn" onclick="toggleTable('gantt-wrapper', this)">⬆ Collapse</button></h2>
   </div>
 
   <div id="gantt-wrapper" class="gantt-wrapper">
@@ -115,10 +101,7 @@
   </div>
 
   <div class="section-header">
-    <h2 class="pi-section-title">Story Sprint Planning</h2>
-    <div>
-      <button class="collapse-btn" onclick="toggleTable('pi-story-planning-wrapper', this)">⬆ Collapse</button>
-    </div>
+    <h2 class="pi-section-title">Story Sprint Planning <button class="collapse-btn pi-inline-collapse-btn" onclick="toggleTable('pi-story-planning-wrapper', this)">⬆ Collapse</button></h2>
   </div>
   <div id="pi-story-planning-wrapper" class="gantt-wrapper">
     <div id="pi-story-planning-meta" class="pi-story-planning-meta"></div>

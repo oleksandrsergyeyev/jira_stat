@@ -1839,9 +1839,58 @@ function sortTable(header) {
 
 function toggleTable(id, btn) {
   const section = document.getElementById(id);
+  if (!section) return;
   const isHidden = section.style.display === "none";
   section.style.display = isHidden ? "block" : "none";
   btn.textContent = isHidden ? "⬆ Collapse" : "⬇ Expand";
+  saveSectionCollapseState(id, !isHidden);
+}
+
+function sectionCollapseStorageKey(sectionId) {
+  const userId = getOrCreateUserId();
+  const path = String(window.location.pathname || "").trim() || "/";
+  return `collapseState::${userId}::${path}::${String(sectionId || "").trim()}`;
+}
+
+function saveSectionCollapseState(sectionId, collapsed) {
+  const id = String(sectionId || "").trim();
+  if (!id) return;
+  try {
+    localStorage.setItem(sectionCollapseStorageKey(id), collapsed ? "1" : "0");
+  } catch {
+    // ignore storage issues
+  }
+}
+
+function readSectionCollapseState(sectionId) {
+  const id = String(sectionId || "").trim();
+  if (!id) return null;
+  try {
+    const raw = localStorage.getItem(sectionCollapseStorageKey(id));
+    if (raw === "1") return true;
+    if (raw === "0") return false;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function restoreSectionCollapseStates() {
+  const buttons = Array.from(document.querySelectorAll('button[onclick*="toggleTable("]'));
+  buttons.forEach((btn) => {
+    const onclickText = String(btn.getAttribute('onclick') || '');
+    const m = onclickText.match(/toggleTable\(\s*['\"]([^'\"]+)['\"]/);
+    if (!m) return;
+    const sectionId = String(m[1] || '').trim();
+    if (!sectionId) return;
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+
+    const collapsed = readSectionCollapseState(sectionId);
+    if (collapsed == null) return;
+    section.style.display = collapsed ? 'none' : 'block';
+    btn.textContent = collapsed ? '⬇ Expand' : '⬆ Collapse';
+  });
 }
 
 // --- remember page selections ---
@@ -5069,6 +5118,24 @@ function setupPlanningFilterDropdown() {
   });
 }
 
+function setupPlanningColumnsDropdown() {
+  const toggle = document.getElementById('planningColumnsToggle');
+  const menu = document.getElementById('planningColumnsMenu');
+  if (!toggle || !menu || toggle.dataset.bound === '1') return;
+
+  toggle.dataset.bound = '1';
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.classList.toggle('open');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!menu.classList.contains('open')) return;
+    if (menu.contains(e.target) || toggle.contains(e.target)) return;
+    menu.classList.remove('open');
+  });
+}
+
 /* ========================
    Team Capacity
    ======================== */
@@ -5789,6 +5856,7 @@ function buildPiStoryRows(committedFeatures, sprintOrder) {
         featureId: String(featureId || '').trim(),
         featureSummary: String(feature?.summary || '').trim(),
         featurePriority: String(feature?.priority || '').trim(),
+        featurePiScope: String(feature?.pi_scope || '').trim(),
         assignee: String(story?.assignee || '').trim() || 'Unassigned',
         status: String(story?.status || '').trim(),
         priority: String(story?.priority || '').trim() || 'Not Set',
@@ -6203,6 +6271,7 @@ async function renderPiStoryPlanningTable(committedFeatures, sprints) {
         featureId: key,
         featureSummary: String(row.featureSummary || '').trim(),
         featurePriority: String(row.featurePriority || '').trim(),
+        featurePiScope: String(row.featurePiScope || '').trim(),
         stories: [],
       });
     }
@@ -6308,10 +6377,16 @@ async function renderPiStoryPlanningTable(committedFeatures, sprints) {
     const isCollapsed = collapsedFeatures.has(featureKey);
     const prioStyle = roadmapPriorityStyle(group.featurePriority || 'Not Set');
     const prioLabel = roadmapPriorityNumber(group.featurePriority || 'Not Set');
+    const scopeRaw = String(group.featurePiScope || '').trim();
+    const scopeNorm = scopeRaw.toLowerCase();
+    const scopeClass = scopeNorm.includes('stretch')
+      ? 'pi-scope-chip-stretch'
+      : (scopeNorm.includes('committed') ? 'pi-scope-chip-committed' : 'pi-scope-chip-none');
+    const scopeLabel = scopeRaw || 'None';
     const featureLabel = group.featureId
       ? `<a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(group.featureId)}" target="_blank" rel="noopener noreferrer">${escapeHtml(group.featureId)}</a> ${escapeHtml(group.featureSummary || '')}`
       : escapeHtml(group.featureSummary || 'Feature');
-    html += `<div class="roadmap-capability roadmap-capability-toggle pi-story-feature-group" data-feature-group-key="${escapeHtml(featureKey)}"><span class="roadmap-capability-arrow">${isCollapsed ? '▶' : '▼'}</span><span>${featureLabel}</span><span class="roadmap-capability-prio-chip" style="--cap-prio-bg:${prioStyle.background}; --cap-prio-fg:${prioStyle.textColor};">P${prioLabel}</span><span class="roadmap-capability-count">(${group.stories.length})</span></div>`;
+    html += `<div class="roadmap-capability roadmap-capability-toggle pi-story-feature-group" data-feature-group-key="${escapeHtml(featureKey)}"><span class="roadmap-capability-arrow">${isCollapsed ? '▶' : '▼'}</span><span>${featureLabel}</span><span class="roadmap-capability-prio-chip" style="--cap-prio-bg:${prioStyle.background}; --cap-prio-fg:${prioStyle.textColor};">P${prioLabel}</span><span class="pi-scope-chip ${scopeClass}">${escapeHtml(scopeLabel)}</span><span class="roadmap-capability-count">(${group.stories.length})</span></div>`;
 
     if (isCollapsed) {
       return;
@@ -6637,6 +6712,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   setupStickyLayoutOffsets();
+  restoreSectionCollapseStates();
 
   document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
     savePlanningSettings();
@@ -6657,6 +6733,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     restorePlanningSettings();
     restorePlanningCapabilityOrderMode();
     setupPlanningFilterDropdown();
+    setupPlanningColumnsDropdown();
     loadPIPlanningData();
 
     document.getElementById("fixVersionSelect")?.addEventListener("change", () => {
