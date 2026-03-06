@@ -597,5 +597,136 @@
       }
     ],
     "updatedAt": "2026-03-05T15:14:00.685853+00:00"
+  },
+  "ART - BCRC - BSW TFW|||QS_26w22": {
+    "workGroup": "ART - BCRC - BSW TFW",
+    "fixVersion": "QS_26w22",
+    "startWeek": "2026-W23",
+    "sprintWeeks": {
+      "Sprint 1": 2,
+      "Sprint 2": 2,
+      "Sprint 3": 4,
+      "Sprint 4": 2,
+      "Sprint 5": 2
+    },
+    "members": [
+      {
+        "accountId": "",
+        "displayName": "Sergyeyev, Oleksandr",
+        "emailAddress": "oleksandr.sergyeyev@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            5.0,
+            5.0
+          ],
+          "Sprint 3": [
+            0.0,
+            0.0,
+            5.0,
+            5.0
+          ],
+          "Sprint 4": [
+            5.0,
+            5.0
+          ],
+          "Sprint 5": [
+            5.0,
+            5.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Lekkala, Venkateswarlu",
+        "emailAddress": "venkateswarlu.lekkala@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            5.0,
+            5.0
+          ],
+          "Sprint 3": [
+            5.0,
+            5.0,
+            0.0,
+            0.0
+          ],
+          "Sprint 4": [
+            5.0,
+            5.0
+          ],
+          "Sprint 5": [
+            5.0,
+            5.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Lytvyn, Yevhen",
+        "emailAddress": "yevhen.lytvyn@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            5.0,
+            5.0
+          ],
+          "Sprint 3": [
+            5.0,
+            0.0,
+            5.0,
+            0.0
+          ],
+          "Sprint 4": [
+            5.0,
+            5.0
+          ],
+          "Sprint 5": [
+            5.0,
+            5.0
+          ]
+        }
+      },
+      {
+        "accountId": "",
+        "displayName": "Karpusevych, Igor",
+        "emailAddress": "igor.karpusevych@volvocars.com",
+        "weekValues": {
+          "Sprint 1": [
+            5.0,
+            5.0
+          ],
+          "Sprint 2": [
+            5.0,
+            5.0
+          ],
+          "Sprint 3": [
+            0.0,
+            5.0,
+            0.0,
+            5.0
+          ],
+          "Sprint 4": [
+            5.0,
+            5.0
+          ],
+          "Sprint 5": [
+            5.0,
+            5.0
+          ]
+        }
+      }
+    ],
+    "updatedAt": "2026-03-06T08:13:16.917503+00:00"
   }
 }

@@ -21,6 +21,8 @@ JIRA_ISSUE = f"{JIRA_BASE_URL}/issue"
 JIRA_PRIORITY = f"{JIRA_BASE_URL}/priority"
 JIRA_PROJECT = f"{JIRA_BASE_URL}/project"
 JIRA_USER_SEARCH = f"{JIRA_BASE_URL}/user/search"
+JIRA_AGILE_BASE_URL = "https://jira-vira.volvocars.biz/rest/agile/1.0"
+JIRA_AGILE_SPRINT_ISSUES = f"{JIRA_AGILE_BASE_URL}/sprint"
 
 JIRA_TOKEN = os.getenv("JIRA_TOKEN")
 
@@ -144,6 +146,65 @@ def _canonicalize_sprint_name(raw) -> str | None:
     if m2:
         return f"Sprint {int(m2.group(1))}"
     return None
+
+
+def _extract_sprint_refs(raw) -> list[dict]:
+    """
+    Parse Jira sprint field entries (dict or Java-style string) into normalized refs.
+    Returns: [{"id": int|None, "name": str, "canonical": str, "state": str}]
+    """
+    refs: list[dict] = []
+    entries = raw if isinstance(raw, list) else ([raw] if raw not in (None, "") else [])
+
+    for entry in entries:
+        sprint_id = None
+        sprint_name = ""
+        sprint_state = ""
+
+        if isinstance(entry, dict):
+            try:
+                sid = entry.get("id")
+                sprint_id = int(sid) if sid not in (None, "") else None
+            except Exception:
+                sprint_id = None
+            sprint_name = str(entry.get("name") or "").strip()
+            sprint_state = str(entry.get("state") or "").strip().lower()
+        else:
+            text = str(entry)
+            m_id = re.search(r"(?:^|[,\s])id=(\d+)(?:[,\s]|$)", text, flags=re.IGNORECASE)
+            if m_id:
+                try:
+                    sprint_id = int(m_id.group(1))
+                except Exception:
+                    sprint_id = None
+            m_name = re.search(r"(?:^|[,\s])name=([^,]+)", text, flags=re.IGNORECASE)
+            if m_name:
+                sprint_name = str(m_name.group(1) or "").strip()
+            m_state = re.search(r"(?:^|[,\s])state=([^,]+)", text, flags=re.IGNORECASE)
+            if m_state:
+                sprint_state = str(m_state.group(1) or "").strip().lower()
+
+        canonical = _canonicalize_sprint_name(sprint_name)
+        if not canonical:
+            continue
+
+        refs.append({
+            "id": sprint_id,
+            "name": sprint_name,
+            "canonical": canonical,
+            "state": sprint_state,
+        })
+
+    # Deduplicate by id when possible, otherwise by canonical name.
+    dedup = []
+    seen = set()
+    for ref in refs:
+        key = f"id:{ref['id']}" if ref.get("id") is not None else f"name:{ref.get('canonical', '')}"
+        if key in seen:
+            continue
+        seen.add(key)
+        dedup.append(ref)
+    return dedup
 
 def _extract_capability_key(fields: dict) -> str:
     cap = (fields or {}).get("customfield_13801", "")
@@ -638,6 +699,68 @@ def _jira_update_issue_fix_versions(issue_key: str, add_versions: list[str], rem
     resp = requests.put(url, headers=HEADERS, json=payload)
     if resp.status_code not in (200, 204):
         raise RuntimeError(f"Failed to update issue {issue_key}: {resp.status_code} {resp.text}")
+    return payload
+
+
+def _jira_get_issue_sprint_refs(issue_key: str) -> list[dict]:
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    resp = requests.get(url, headers=HEADERS, params={"fields": "customfield_10701"})
+    if resp.status_code != 200:
+        raise RuntimeError(f"Failed to read issue {issue_key}: {resp.status_code} {resp.text}")
+    fields = (resp.json().get("fields") or {})
+    return _extract_sprint_refs(fields.get("customfield_10701"))
+
+
+def _jira_find_sprint_id_by_name(sprint_name: str, work_group: str = "", fix_version: str = "") -> int | None:
+    canonical_target = _canonicalize_sprint_name(sprint_name)
+    if not canonical_target:
+        return None
+
+    # First try direct JQL by sprint name.
+    jql_direct = f'sprint = "{sprint_name}" ORDER BY updated DESC'
+    direct = _jira_search_all(jql_direct, ["customfield_10701"], page_size=50, hard_cap=200)
+    for issue in direct:
+        fields = issue.get("fields", {}) or {}
+        refs = _extract_sprint_refs(fields.get("customfield_10701"))
+        for ref in refs:
+            if ref.get("canonical") == canonical_target and ref.get("id") is not None:
+                return int(ref["id"])
+
+    # Fallback: scan recent issues in current PI/workgroup scope.
+    clauses = []
+    if work_group:
+        clauses.append(f'"Leading Work Group" = "{work_group}"')
+    if fix_version:
+        clauses.append(f'fixVersion = "{fix_version}"')
+    clauses.append("updated >= -120d")
+    jql_fallback = " AND ".join(clauses) + " ORDER BY updated DESC"
+    recent = _jira_search_all(jql_fallback, ["customfield_10701"], page_size=200, hard_cap=800)
+    for issue in recent:
+        fields = issue.get("fields", {}) or {}
+        refs = _extract_sprint_refs(fields.get("customfield_10701"))
+        for ref in refs:
+            if ref.get("canonical") == canonical_target and ref.get("id") is not None:
+                return int(ref["id"])
+
+    return None
+
+
+def _jira_move_issue_to_sprint(issue_key: str, sprint_id: int) -> dict:
+    url = f"{JIRA_AGILE_SPRINT_ISSUES}/{int(sprint_id)}/issue"
+    payload = {"issues": [issue_key]}
+    resp = requests.post(url, headers=HEADERS, json=payload)
+    if resp.status_code not in (200, 201, 204):
+        raise RuntimeError(f"Failed to move issue {issue_key} to sprint {sprint_id}: {resp.status_code} {resp.text}")
+    return payload
+
+
+def _jira_clear_issue_sprints(issue_key: str) -> dict:
+    # Jira stores Sprint in customfield_10701 in this environment.
+    payload = {"fields": {"customfield_10701": []}}
+    url = f"{JIRA_ISSUE}/{issue_key}"
+    resp = requests.put(url, headers=HEADERS, json=payload)
+    if resp.status_code not in (200, 204):
+        raise RuntimeError(f"Failed to clear sprints for issue {issue_key}: {resp.status_code} {resp.text}")
     return payload
 
 
@@ -1282,6 +1405,7 @@ def get_pi_planning(fix_version: str, work_group: str, force_refresh: bool = Fal
             "story_points": sp_val,
             "assignee": child_assignee,
             "status": child_status,
+            "priority": _priority_name(fields),
         })
 
         # Sprint placement (PI-matching sprints only)
@@ -2326,6 +2450,68 @@ def update_pi_scope():
             "before": before_scope,
             "after": after_scope,
             "requested": requested_scope,
+            "payload": payload,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "issueKey": issue_key}), 502
+
+
+@app.route("/update_story_sprint", methods=["POST"])
+def update_story_sprint():
+    data = request.get_json(silent=True) or {}
+
+    issue_key = str(data.get("issueKey") or "").strip().upper()
+    dry_run = bool(data.get("dryRun", True))
+    target_sprint = str(data.get("targetSprint") or "").strip()
+    work_group = str(data.get("workGroup") or "").strip()
+    fix_version = str(data.get("fixVersion") or "").strip()
+
+    if not re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", issue_key):
+        return jsonify({"ok": False, "error": "Invalid issueKey format"}), 400
+
+    canonical_target = _canonicalize_sprint_name(target_sprint)
+    is_no_sprint = target_sprint.lower() in {"no sprint", "none", "unscheduled"}
+    if not canonical_target and not is_no_sprint:
+        return jsonify({"ok": False, "error": "targetSprint must be Sprint 1..N or No Sprint"}), 400
+
+    try:
+        before_refs = _jira_get_issue_sprint_refs(issue_key)
+        before_canonical = sorted({str(ref.get("canonical") or "") for ref in before_refs if ref.get("canonical")})
+
+        if dry_run:
+            return jsonify({
+                "ok": True,
+                "dryRun": True,
+                "issueKey": issue_key,
+                "before": before_canonical,
+                "requested": "No Sprint" if is_no_sprint else canonical_target,
+            })
+
+        payload = None
+        if is_no_sprint:
+            payload = _jira_clear_issue_sprints(issue_key)
+        else:
+            target_id = None
+            for ref in before_refs:
+                if ref.get("canonical") == canonical_target and ref.get("id") is not None:
+                    target_id = int(ref.get("id"))
+                    break
+            if target_id is None:
+                target_id = _jira_find_sprint_id_by_name(canonical_target, work_group=work_group, fix_version=fix_version)
+            if target_id is None:
+                raise RuntimeError(f"Sprint id not found for '{canonical_target}'")
+            payload = _jira_move_issue_to_sprint(issue_key, target_id)
+
+        after_refs = _jira_get_issue_sprint_refs(issue_key)
+        after_canonical = sorted({str(ref.get("canonical") or "") for ref in after_refs if ref.get("canonical")})
+
+        return jsonify({
+            "ok": True,
+            "dryRun": False,
+            "issueKey": issue_key,
+            "before": before_canonical,
+            "after": after_canonical,
+            "requested": "No Sprint" if is_no_sprint else canonical_target,
             "payload": payload,
         })
     except Exception as e:

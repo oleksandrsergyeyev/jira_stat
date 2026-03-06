@@ -3144,6 +3144,192 @@ table.pi-planning-table {
 
 /* We no longer print numbers inside bars */
 .gantt-count { display: none !important; }
+
+.pi-story-planning-meta {
+  margin: 4px 0 10px;
+  font-size: 12px;
+  color: #3f4b67;
+  font-weight: 600;
+}
+
+#pi-story-planning-meta:empty {
+  display: none;
+}
+
+#pi-story-table {
+  --pi-story-sprint-cols: 6;
+}
+
+.pi-story-board {
+  border: 1px solid #d8e0ea;
+  border-radius: 8px;
+  background: #fff;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.pi-story-header-grid,
+.pi-story-row-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 2fr) repeat(var(--pi-story-sprint-cols, 6), minmax(118px, 1fr));
+  min-width: max-content;
+}
+
+.pi-story-header-grid .roadmap-header {
+  min-height: 44px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pi-story-header-grid .roadmap-feature-head {
+  grid-row: auto;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 0 8px;
+}
+
+.pi-story-feature-head {
+  min-height: 44px;
+  font-size: 12px;
+}
+
+.pi-story-sprint-head {
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.pi-story-body {
+  overflow: visible;
+  padding: 6px;
+}
+
+.pi-story-feature-group {
+  margin-top: 8px;
+  margin-bottom: 2px;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.pi-story-row-grid {
+  align-items: stretch;
+}
+
+.pi-story-row-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-start;
+}
+
+.pi-story-inline-meta {
+  color: #5f7293;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 4px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pi-story-drop-cell {
+  position: relative;
+  min-height: 26px;
+  cursor: pointer;
+}
+
+.pi-story-drop-cell.assigned {
+  background: #f8fbff;
+}
+
+.pi-story-story-bar {
+  width: calc(100% - 6px);
+  margin: 3px;
+  justify-content: flex-start;
+}
+
+.pi-story-row-pending .pi-story-row-label {
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.pi-story-row-pending .pi-story-story-bar {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72), 0 0 0 1px rgba(222, 167, 58, 0.9);
+}
+
+.pi-story-planning-table .pi-story-key,
+.pi-story-planning-table .pi-story-feature {
+  white-space: nowrap;
+}
+
+.pi-story-planning-table .pi-story-feature {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pi-story-planning-table .pi-story-sprint-head {
+  min-width: 118px;
+  text-align: center;
+}
+
+.pi-story-planning-table .pi-story-sprint-head-meta {
+  font-size: 10px;
+  font-weight: 500;
+  color: #5c6785;
+  margin-top: 2px;
+}
+
+.pi-story-planning-table .pi-story-sprint-head.near-full {
+  background: #fff5d4;
+}
+
+.pi-story-planning-table .pi-story-sprint-head.overloaded {
+  background: #ffe0e0;
+}
+
+.pi-story-planning-table .pi-story-sprint-cell {
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.pi-story-planning-table .pi-story-sprint-cell:hover {
+  background: #eef5ff;
+}
+
+.pi-story-planning-table .pi-story-sprint-cell.assigned {
+  background: #dbe9ff;
+  font-weight: 700;
+}
+
+.pi-story-planning-table .pi-story-sprint-dot {
+  color: #1f5eea;
+  font-size: 13px;
+}
+
+.pi-story-planning-table .pi-story-row-pending {
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+@media (max-width: 900px) {
+  .pi-story-header-grid,
+  .pi-story-row-grid {
+    grid-template-columns: minmax(260px, 1.5fr) repeat(var(--pi-story-sprint-cols, 6), minmax(92px, 1fr));
+  }
+
+  .pi-story-planning-table .pi-story-feature {
+    max-width: 220px;
+  }
+  .pi-story-planning-table .pi-story-sprint-head {
+    min-width: 88px;
+  }
+}
 .gantt-dot   { display: none !important; }
 
 /* === Gantt Legend === */

@@ -8,6 +8,7 @@ let roadmapCollapsedCapabilities = new Set();
 let roadmapCollapsedYears = new Set();
 let roadmapPendingMovesByWorkGroup = new Map();
 let roadmapTeammatesByScope = new Map();
+let piStoryPendingByScope = new Map();
 let appSettingsCache = null;
 let committedCollapsedCapabilities = new Set();
 let committedCollapsedFeatures = new Set();
@@ -1923,6 +1924,7 @@ async function loadPIPlanningData(forceRefresh = false) {
 
     // Define sprint columns
     const sprints = ["Sprint 1","Sprint 2","Sprint 3","Sprint 4","Sprint 5","No Sprint"];
+    window._piPlanningSprints = [...sprints];
 
     const featureInSelectedPI = (feature, fv) =>
       Array.isArray(feature.fixVersions) && feature.fixVersions.includes(fv);
@@ -1954,6 +1956,7 @@ async function loadPIPlanningData(forceRefresh = false) {
     }
 
     console.log("Committed count for table/Gantt:", committed.length);
+    window._piCommittedFeatures = committed;
 
 
     renderFeatureTable(committed, "committed-table", sprints);
@@ -1968,6 +1971,7 @@ async function loadPIPlanningData(forceRefresh = false) {
     }
 
     renderGanttTimeline(committed, sprints);
+    await renderPiStoryPlanningTable(committed, sprints);
 
 
     applyFilter();
@@ -5705,6 +5709,805 @@ function bindTeamCapacityPage() {
 
 }
 
+function piStoryScopeKey() {
+  return `${getSelectedWorkGroup() || ""}::${getSelectedFixVersion() || ""}`;
+}
+
+function piStoryPendingMap() {
+  const scopeKey = piStoryScopeKey();
+  if (!piStoryPendingByScope.has(scopeKey)) {
+    piStoryPendingByScope.set(scopeKey, new Map());
+  }
+  return piStoryPendingByScope.get(scopeKey);
+}
+
+function piStoryHasDirty(change) {
+  if (!(change && typeof change === 'object')) return false;
+  return (
+    change.sprintDirty === true ||
+    change.priorityDirty === true ||
+    change.estimationDirty === true ||
+    change.assigneeDirty === true
+  );
+}
+
+function updatePiStoryPendingUi() {
+  const map = piStoryPendingMap();
+  const count = map.size;
+  const countEl = document.getElementById('pi-story-pending-count');
+  if (countEl) countEl.textContent = `Pending story changes: ${count}`;
+  const pushBtn = document.getElementById('pi-story-push-jira');
+  if (pushBtn) pushBtn.disabled = count === 0;
+  const floating = document.getElementById('pi-story-floating-actions');
+  if (floating) {
+    if (count > 0) floating.classList.remove('hidden');
+    else floating.classList.add('hidden');
+  }
+}
+
+function canonicalStorySprintName(rawSprint, sprintOrder) {
+  const text = String(rawSprint || '').trim();
+  if (!text) return 'No Sprint';
+  const normalized = text.toLowerCase();
+  if (normalized === 'no sprint') return 'No Sprint';
+  const match = text.match(/(?:^|\D)(\d+)(?!\d)/);
+  if (match) {
+    const name = `Sprint ${Number(match[1])}`;
+    if (Array.isArray(sprintOrder) && sprintOrder.includes(name)) return name;
+    return name;
+  }
+  return (Array.isArray(sprintOrder) && sprintOrder.includes(text)) ? text : 'No Sprint';
+}
+
+function buildPiStoryRows(committedFeatures, sprintOrder) {
+  const rows = [];
+  const sprints = Array.isArray(sprintOrder) ? sprintOrder : [];
+
+  (Array.isArray(committedFeatures) ? committedFeatures : []).forEach(([featureId, feature]) => {
+    const details = Array.isArray(feature?.stories_detail) ? feature.stories_detail : [];
+    const storySprintMap = new Map();
+    (Array.isArray(sprints) ? sprints : []).forEach((sprintName) => {
+      const list = Array.isArray(feature?.sprints?.[sprintName]) ? feature.sprints[sprintName] : [];
+      list.forEach((storyKey) => {
+        const key = String(storyKey || '').trim();
+        if (!key) return;
+        if (!storySprintMap.has(key)) storySprintMap.set(key, new Set());
+        storySprintMap.get(key).add(sprintName);
+      });
+    });
+
+    details.forEach((story) => {
+      const storyKey = String(story?.key || '').trim();
+      if (!storyKey) return;
+      const sprintSet = storySprintMap.get(storyKey) || new Set();
+      const matchedSprint = sprints.find((s) => sprintSet.has(s));
+      const effectiveSprint = canonicalStorySprintName(matchedSprint || (sprintSet.values().next().value || 'No Sprint'), sprints);
+
+      rows.push({
+        storyKey,
+        featureId: String(featureId || '').trim(),
+        featureSummary: String(feature?.summary || '').trim(),
+        featurePriority: String(feature?.priority || '').trim(),
+        assignee: String(story?.assignee || '').trim() || 'Unassigned',
+        status: String(story?.status || '').trim(),
+        priority: String(story?.priority || '').trim() || 'Not Set',
+        storyPoints: Number.isFinite(Number(story?.story_points)) ? Number(story.story_points) : 0,
+        sprint: effectiveSprint,
+      });
+    });
+  });
+
+  rows.sort((a, b) => {
+    const bySprint = (Array.isArray(sprints) ? sprints.indexOf(a.sprint) : 0) - (Array.isArray(sprints) ? sprints.indexOf(b.sprint) : 0);
+    if (bySprint !== 0) return bySprint;
+    const byPrio = roadmapPriorityNumber(a.priority) - roadmapPriorityNumber(b.priority);
+    if (byPrio !== 0) return byPrio;
+    return String(a.storyKey || '').localeCompare(String(b.storyKey || ''));
+  });
+
+  return rows;
+}
+
+function formatStoryPriorityLabel(priorityRaw) {
+  const raw = String(priorityRaw || '').trim();
+  if (!raw) return 'NS';
+  return raw.toLowerCase() === 'not set' ? 'NS' : raw;
+}
+
+function piStoryCollapsedFeaturesStorageKey() {
+  return `piStoryCollapsedFeatures::${piStoryScopeKey()}`;
+}
+
+function getPiStoryCollapsedFeatures() {
+  try {
+    const raw = localStorage.getItem(piStoryCollapsedFeaturesStorageKey());
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.map((x) => String(x || '').trim()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+function setPiStoryCollapsedFeatures(setLike) {
+  try {
+    const arr = Array.from(setLike || []).map((x) => String(x || '').trim()).filter(Boolean);
+    localStorage.setItem(piStoryCollapsedFeaturesStorageKey(), JSON.stringify(arr));
+  } catch {
+    // ignore localStorage failures
+  }
+}
+
+function queuePiStorySprint(storyKey, targetSprint) {
+  const host = document.getElementById('pi-story-table');
+  const row = host?._rowsByKey?.get(String(storyKey || '').trim());
+  if (!row) return;
+  const pending = piStoryPendingMap();
+  const current = { ...(pending.get(row.storyKey) || {}) };
+  const normalizedTarget = canonicalStorySprintName(targetSprint, host?._sprints || []);
+
+  if (normalizedTarget === row.sprint) {
+    delete current.targetSprint;
+    current.sprintDirty = false;
+  } else {
+    current.targetSprint = normalizedTarget;
+    current.sprintDirty = true;
+  }
+
+  if (piStoryHasDirty(current)) pending.set(row.storyKey, current);
+  else pending.delete(row.storyKey);
+
+  renderPiStoryPlanningTable(window._piCommittedFeatures || [], window._piPlanningSprints || []);
+}
+
+function queuePiStoryPriority(storyKey, targetPriority) {
+  const host = document.getElementById('pi-story-table');
+  const row = host?._rowsByKey?.get(String(storyKey || '').trim());
+  if (!row) return;
+  const pending = piStoryPendingMap();
+  const current = { ...(pending.get(row.storyKey) || {}) };
+  const requested = Number(targetPriority);
+  const before = roadmapPriorityNumber(row.priority);
+
+  if (!Number.isInteger(requested) || requested < 1 || requested > 10) return;
+  if (requested === before) {
+    delete current.targetPriority;
+    current.priorityDirty = false;
+  } else {
+    current.targetPriority = requested;
+    current.priorityDirty = true;
+  }
+
+  if (piStoryHasDirty(current)) pending.set(row.storyKey, current);
+  else pending.delete(row.storyKey);
+
+  renderPiStoryPlanningTable(window._piCommittedFeatures || [], window._piPlanningSprints || []);
+}
+
+function queuePiStoryEstimation(storyKey, targetEstimation) {
+  const host = document.getElementById('pi-story-table');
+  const row = host?._rowsByKey?.get(String(storyKey || '').trim());
+  if (!row) return;
+  const pending = piStoryPendingMap();
+  const current = { ...(pending.get(row.storyKey) || {}) };
+  const requested = Number.parseInt(String(targetEstimation || '').trim(), 10);
+
+  if (!Number.isInteger(requested)) return;
+  if (requested === Number.parseInt(String(row.storyPoints || 0), 10)) {
+    delete current.targetEstimation;
+    current.estimationDirty = false;
+  } else {
+    current.targetEstimation = requested;
+    current.estimationDirty = true;
+  }
+
+  if (piStoryHasDirty(current)) pending.set(row.storyKey, current);
+  else pending.delete(row.storyKey);
+
+  renderPiStoryPlanningTable(window._piCommittedFeatures || [], window._piPlanningSprints || []);
+}
+
+function queuePiStoryAssignee(storyKey, teammate) {
+  const host = document.getElementById('pi-story-table');
+  const row = host?._rowsByKey?.get(String(storyKey || '').trim());
+  if (!row) return;
+  const targetAccountId = String(teammate?.accountId || '').trim();
+  const targetDisplayName = String(teammate?.displayName || '').trim();
+  const targetEmailAddress = String(teammate?.emailAddress || '').trim();
+  if (!targetDisplayName) return;
+
+  const pending = piStoryPendingMap();
+  const current = { ...(pending.get(row.storyKey) || {}) };
+
+  if (targetDisplayName.toLowerCase() === String(row.assignee || '').trim().toLowerCase()) {
+    delete current.targetAssigneeAccountId;
+    delete current.targetAssigneeName;
+    delete current.targetAssigneeEmail;
+    current.assigneeDirty = false;
+  } else {
+    current.targetAssigneeAccountId = targetAccountId;
+    current.targetAssigneeName = targetDisplayName;
+    current.targetAssigneeEmail = targetEmailAddress;
+    current.assigneeDirty = true;
+  }
+
+  if (piStoryHasDirty(current)) pending.set(row.storyKey, current);
+  else pending.delete(row.storyKey);
+
+  renderPiStoryPlanningTable(window._piCommittedFeatures || [], window._piPlanningSprints || []);
+}
+
+function hidePiStoryContextMenu() {
+  const menu = document.getElementById('pi-story-context-menu');
+  if (!menu) return;
+  menu.classList.add('hidden');
+  menu.innerHTML = '';
+}
+
+function adjustPiStoryContextMenuSubmenus(menu) {
+  if (!(menu instanceof HTMLElement)) return;
+  menu.querySelectorAll('.roadmap-context-submenu-wrap').forEach((submenuWrap) => {
+    const submenu = submenuWrap.querySelector('.roadmap-context-submenu');
+    if (!(submenu instanceof HTMLElement)) return;
+
+    submenuWrap.classList.remove('open-left');
+    submenuWrap.classList.remove('open-up');
+
+    const prevDisplay = submenu.style.display;
+    const prevVisibility = submenu.style.visibility;
+    submenu.style.display = 'block';
+    submenu.style.visibility = 'hidden';
+    const submenuWidth = submenu.offsetWidth || 80;
+    const submenuHeight = submenu.offsetHeight || 160;
+    submenu.style.display = prevDisplay;
+    submenu.style.visibility = prevVisibility;
+
+    const menuRect = menu.getBoundingClientRect();
+    const overflowRight = (menuRect.right + 6 + submenuWidth) > (window.innerWidth - 6);
+    if (overflowRight) submenuWrap.classList.add('open-left');
+
+    const overflowBottom = (menuRect.top + submenuHeight) > (window.innerHeight - 6);
+    if (overflowBottom) submenuWrap.classList.add('open-up');
+  });
+}
+
+async function showPiStoryContextMenu(storyRow, x, y) {
+  const storyKey = String(storyRow?.storyKey || '').trim();
+  if (!storyKey) return;
+  const menu = document.getElementById('pi-story-context-menu');
+  if (!menu) return;
+  menu.innerHTML = '';
+
+  const openBtn = document.createElement('button');
+  openBtn.type = 'button';
+  openBtn.className = 'roadmap-context-item';
+  openBtn.textContent = 'Open in Jira';
+  openBtn.addEventListener('click', () => {
+    window.open(`https://jira-vira.volvocars.biz/browse/${encodeURIComponent(storyKey)}`, '_blank');
+    hidePiStoryContextMenu();
+  });
+  menu.appendChild(openBtn);
+
+  const addSep = () => {
+    const sep = document.createElement('div');
+    sep.className = 'roadmap-context-sep';
+    menu.appendChild(sep);
+  };
+
+  addSep();
+
+  const moveWrap = document.createElement('div');
+  moveWrap.className = 'roadmap-context-submenu-wrap';
+  const moveBtn = document.createElement('button');
+  moveBtn.type = 'button';
+  moveBtn.className = 'roadmap-context-item';
+  moveBtn.textContent = 'Move to sprint ▸';
+  moveWrap.appendChild(moveBtn);
+  const moveMenu = document.createElement('div');
+  moveMenu.className = 'roadmap-context-submenu';
+  (window._piPlanningSprints || ['Sprint 1', 'Sprint 2', 'Sprint 3', 'Sprint 4', 'Sprint 5', 'No Sprint']).forEach((sprintName) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'roadmap-context-subitem';
+    item.textContent = sprintName;
+    item.addEventListener('click', () => {
+      queuePiStorySprint(storyKey, sprintName);
+      hidePiStoryContextMenu();
+    });
+    moveMenu.appendChild(item);
+  });
+  moveWrap.appendChild(moveMenu);
+  moveWrap.addEventListener('mouseenter', () => moveWrap.classList.add('open'));
+  moveWrap.addEventListener('mouseleave', () => moveWrap.classList.remove('open'));
+  menu.appendChild(moveWrap);
+
+  addSep();
+
+  const prioWrap = document.createElement('div');
+  prioWrap.className = 'roadmap-context-submenu-wrap';
+  const prioBtn = document.createElement('button');
+  prioBtn.type = 'button';
+  prioBtn.className = 'roadmap-context-item';
+  prioBtn.textContent = 'Set priority ▸';
+  prioWrap.appendChild(prioBtn);
+  const prioMenu = document.createElement('div');
+  prioMenu.className = 'roadmap-context-submenu';
+  for (let p = 1; p <= 10; p += 1) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'roadmap-context-subitem roadmap-context-subitem-prio';
+    const prioStyle = roadmapPriorityStyle(p);
+    item.style.setProperty('--prio-bg', prioStyle.background);
+    item.style.setProperty('--prio-fg', prioStyle.textColor);
+    item.textContent = String(p);
+    item.addEventListener('click', () => {
+      queuePiStoryPriority(storyKey, p);
+      hidePiStoryContextMenu();
+    });
+    prioMenu.appendChild(item);
+  }
+  prioWrap.appendChild(prioMenu);
+  prioWrap.addEventListener('mouseenter', () => prioWrap.classList.add('open'));
+  prioWrap.addEventListener('mouseleave', () => prioWrap.classList.remove('open'));
+  menu.appendChild(prioWrap);
+
+  addSep();
+
+  const estBtn = document.createElement('button');
+  estBtn.type = 'button';
+  estBtn.className = 'roadmap-context-item';
+  estBtn.textContent = 'Set story points';
+  estBtn.addEventListener('click', () => {
+    const raw = window.prompt(`Set story points for ${storyKey}:`, String(Number.parseInt(String(storyRow?.storyPoints || 0), 10)));
+    if (raw == null) return;
+    if (!/^[-+]?\d+$/.test(String(raw).trim())) return;
+    queuePiStoryEstimation(storyKey, Number.parseInt(String(raw).trim(), 10));
+    hidePiStoryContextMenu();
+  });
+  menu.appendChild(estBtn);
+
+  addSep();
+
+  const reassignWrap = document.createElement('div');
+  reassignWrap.className = 'roadmap-context-submenu-wrap';
+  const reassignBtn = document.createElement('button');
+  reassignBtn.type = 'button';
+  reassignBtn.className = 'roadmap-context-item';
+  reassignBtn.textContent = 'Reassign to ▸';
+  reassignWrap.appendChild(reassignBtn);
+  const reassignMenu = document.createElement('div');
+  reassignMenu.className = 'roadmap-context-submenu roadmap-context-submenu-reassign';
+  const loading = document.createElement('div');
+  loading.className = 'roadmap-context-loading';
+  loading.textContent = 'Loading teammates...';
+  reassignMenu.appendChild(loading);
+  reassignWrap.appendChild(reassignMenu);
+  reassignWrap.addEventListener('mouseenter', () => reassignWrap.classList.add('open'));
+  reassignWrap.addEventListener('mouseleave', () => reassignWrap.classList.remove('open'));
+  menu.appendChild(reassignWrap);
+
+  menu.classList.remove('hidden');
+  const rect = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - rect.width - 8))}px`;
+  menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - rect.height - 8))}px`;
+  adjustPiStoryContextMenuSubmenus(menu);
+
+  const teammates = await getRoadmapTeammates(false);
+  reassignMenu.innerHTML = '';
+  if (!Array.isArray(teammates) || !teammates.length) {
+    const empty = document.createElement('div');
+    empty.className = 'roadmap-context-loading';
+    empty.textContent = 'No teammates in Team Capacity';
+    reassignMenu.appendChild(empty);
+    adjustPiStoryContextMenuSubmenus(menu);
+    return;
+  }
+  teammates.forEach((mate) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'roadmap-context-subitem roadmap-context-subitem-user';
+    item.textContent = String(mate?.displayName || '').trim() || 'Unknown';
+    item.title = String(mate?.emailAddress || '').trim() || item.textContent;
+    item.addEventListener('click', () => {
+      queuePiStoryAssignee(storyKey, mate);
+      hidePiStoryContextMenu();
+    });
+    reassignMenu.appendChild(item);
+  });
+  adjustPiStoryContextMenuSubmenus(menu);
+}
+
+async function renderPiStoryPlanningTable(committedFeatures, sprints) {
+  const host = document.getElementById('pi-story-table');
+  if (!host) return;
+  const sprintOrder = Array.isArray(sprints) ? sprints : ['Sprint 1', 'Sprint 2', 'Sprint 3', 'Sprint 4', 'Sprint 5', 'No Sprint'];
+  host._sprints = [...sprintOrder];
+  host.style.setProperty('--pi-story-sprint-cols', String(sprintOrder.length));
+
+  const sourceRows = buildPiStoryRows(committedFeatures, sprintOrder);
+  const pending = piStoryPendingMap();
+  const effectiveRows = sourceRows.map((row) => {
+    const p = pending.get(row.storyKey) || {};
+    const next = { ...row };
+    if (p.sprintDirty && p.targetSprint) next.sprint = canonicalStorySprintName(p.targetSprint, sprintOrder);
+    if (p.priorityDirty && Number.isInteger(p.targetPriority)) next.priority = String(p.targetPriority);
+    if (p.estimationDirty && Number.isInteger(p.targetEstimation)) next.storyPoints = Number(p.targetEstimation);
+    if (p.assigneeDirty && p.targetAssigneeName) next.assignee = String(p.targetAssigneeName);
+    next._isPending = piStoryHasDirty(p);
+    return next;
+  });
+
+  const rowsByKey = new Map();
+  sourceRows.forEach((row) => rowsByKey.set(row.storyKey, row));
+  host._rowsByKey = rowsByKey;
+
+  const members = await fetchPlanningTeamCapacity(getSelectedWorkGroup(), getSelectedFixVersion());
+  const sprintCapacity = {};
+  sprintOrder.forEach((s) => {
+    if (s === 'No Sprint') {
+      sprintCapacity[s] = { planned: 0, full: 0 };
+      return;
+    }
+    let total = 0;
+    (Array.isArray(members) ? members : []).forEach((member) => {
+      total += Number(teamCapacitySprintTotal(member, s) || 0);
+    });
+    sprintCapacity[s] = {
+      planned: teamCapacityRoundInteger(total * 0.6),
+      full: teamCapacityRoundInteger(total * 0.8),
+    };
+  });
+
+  const sprintLoad = {};
+  sprintOrder.forEach((s) => { sprintLoad[s] = 0; });
+  effectiveRows.forEach((row) => {
+    const key = sprintOrder.includes(row.sprint) ? row.sprint : 'No Sprint';
+    sprintLoad[key] = Number(sprintLoad[key] || 0) + Number(row.storyPoints || 0);
+  });
+
+  const metaHost = document.getElementById('pi-story-planning-meta');
+  if (metaHost) {
+    metaHost.textContent = '';
+  }
+  const grouped = new Map();
+  effectiveRows.forEach((row) => {
+    const key = String(row.featureId || '').trim() || 'Unknown Feature';
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        featureId: key,
+        featureSummary: String(row.featureSummary || '').trim(),
+        featurePriority: String(row.featurePriority || '').trim(),
+        stories: [],
+      });
+    }
+    grouped.get(key).stories.push(row);
+  });
+
+  const orderMode = getPlanningCapabilityOrderMode();
+  const featureGroups = Array.from(grouped.values()).sort((a, b) => {
+    if (orderMode === 'priority') {
+      const ap = roadmapPriorityNumber(a.featurePriority);
+      const bp = roadmapPriorityNumber(b.featurePriority);
+      if (ap !== bp) return ap - bp;
+    }
+    return String(a.featureId || '').localeCompare(String(b.featureId || ''));
+  });
+  const collapsedFeatures = getPiStoryCollapsedFeatures();
+
+  const makeSprintHeaderCell = (sprintName) => {
+    const load = Number(sprintLoad[sprintName] || 0);
+    const cap = sprintCapacity[sprintName] || { planned: 0, full: 0 };
+    const className = (sprintName !== 'No Sprint' && load > Number(cap.full || 0))
+      ? 'pi-story-sprint-head overloaded'
+      : ((sprintName !== 'No Sprint' && load > Number(cap.planned || 0)) ? 'pi-story-sprint-head near-full' : 'pi-story-sprint-head');
+    const capacityLabel = sprintName === 'No Sprint'
+      ? `Load ${formatEstimationValue(load)}`
+      : `Load ${formatEstimationValue(load)} / Cap ${formatCapacityValue(cap.planned)}(${formatCapacityValue(cap.full)})`;
+    return `<div class="roadmap-header roadmap-qs-header roadmap-qs-band ${className}" data-sprint-target="${escapeHtml(sprintName)}"><span>${escapeHtml(sprintName)}</span><span class="pi-story-sprint-head-meta">${escapeHtml(capacityLabel)}</span></div>`;
+  };
+
+  let html = '<div class="pi-story-board">';
+  html += '<div class="pi-story-header-grid">';
+  html += '<div class="roadmap-header roadmap-feature-head pi-story-feature-head">Feature / Stories</div>';
+  sprintOrder.forEach((sprintName) => {
+    html += makeSprintHeaderCell(sprintName);
+  });
+  html += '</div>';
+
+  html += '<div class="pi-story-body">';
+  let storyIndex = 1;
+  featureGroups.forEach((group) => {
+    const featureKey = String(group.featureId || group.featureSummary || '').trim() || 'Feature';
+    const isCollapsed = collapsedFeatures.has(featureKey);
+    const prioStyle = roadmapPriorityStyle(group.featurePriority || 'Not Set');
+    const prioLabel = roadmapPriorityNumber(group.featurePriority || 'Not Set');
+    const featureLabel = group.featureId
+      ? `<a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(group.featureId)}" target="_blank" rel="noopener noreferrer">${escapeHtml(group.featureId)}</a> ${escapeHtml(group.featureSummary || '')}`
+      : escapeHtml(group.featureSummary || 'Feature');
+    html += `<div class="roadmap-capability roadmap-capability-toggle pi-story-feature-group" data-feature-group-key="${escapeHtml(featureKey)}"><span class="roadmap-capability-arrow">${isCollapsed ? '▶' : '▼'}</span><span>${featureLabel}</span><span class="roadmap-capability-prio-chip" style="--cap-prio-bg:${prioStyle.background}; --cap-prio-fg:${prioStyle.textColor};">P${prioLabel}</span><span class="roadmap-capability-count">(${group.stories.length})</span></div>`;
+
+    if (isCollapsed) {
+      return;
+    }
+
+    group.stories
+      .sort((a, b) => {
+        const bySprint = sprintOrder.indexOf(a.sprint) - sprintOrder.indexOf(b.sprint);
+        if (bySprint !== 0) return bySprint;
+        const byPrio = roadmapPriorityNumber(a.priority) - roadmapPriorityNumber(b.priority);
+        if (byPrio !== 0) return byPrio;
+        return String(a.storyKey || '').localeCompare(String(b.storyKey || ''));
+      })
+      .forEach((row) => {
+        const pendingClass = row._isPending ? ' pi-story-row-pending' : '';
+        const prio = roadmapPriorityStyle(row.priority);
+        const storyLabel = `<span class="roadmap-feature-index">${storyIndex}.</span> <a href="https://jira-vira.volvocars.biz/browse/${escapeHtml(row.storyKey)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.storyKey)}</a> <span class="pi-story-inline-meta">${escapeHtml(row.assignee || 'Unassigned')}</span>`;
+        html += `<div class="pi-story-row-grid${pendingClass}" data-story-key="${escapeHtml(row.storyKey)}">`;
+        html += `<div class="roadmap-feature-col pi-story-row-label">${storyLabel}</div>`;
+
+        sprintOrder.forEach((sprintName) => {
+          const isAssigned = row.sprint === sprintName;
+          const dropClass = isAssigned ? 'roadmap-cell pi-story-drop-cell assigned' : 'roadmap-cell pi-story-drop-cell';
+          html += `<div class="${dropClass}" data-story-key="${escapeHtml(row.storyKey)}" data-target-sprint="${escapeHtml(sprintName)}" data-story-row="${escapeHtml(row.storyKey)}">`;
+          if (isAssigned) {
+            const assigneeFull = String(row.assignee || 'Unassigned').trim() || 'Unassigned';
+            const assigneeLabel = escapeHtml(roadmapAssigneeShortName(assigneeFull) || assigneeFull);
+            const titleText = `${row.storyKey}: ${sprintName} | Priority ${prio.priority} | Assignee ${assigneeFull} | SP ${formatEstimationValue(row.storyPoints || 0)} | Status ${row.status || ''}`;
+            html += `<div class="roadmap-bar roadmap-bar-feature roadmap-bar-draggable pi-story-story-bar" data-story-key="${escapeHtml(row.storyKey)}" data-current-sprint="${escapeHtml(sprintName)}" style="--bar-color: ${prio.background}; color: ${prio.textColor};" title="${escapeHtml(titleText)}"><span class="roadmap-bar-priority">P${prio.priority}</span><span class="roadmap-bar-assignee">${assigneeLabel}</span><span class="roadmap-bar-estimate">SP ${escapeHtml(formatEstimationValue(row.storyPoints || 0))}</span></div>`;
+          }
+          html += '</div>';
+        });
+
+        html += '</div>';
+        storyIndex += 1;
+      });
+  });
+  html += '</div></div>';
+  host.innerHTML = html;
+
+  host.querySelectorAll('.pi-story-drop-cell[data-story-key][data-target-sprint]').forEach((cell) => {
+    cell.addEventListener('click', (ev) => {
+      const target = ev.target instanceof Element ? ev.target : null;
+      if (target && target.closest('.pi-story-story-bar[data-story-key]')) return;
+      const storyKey = String(cell.getAttribute('data-story-key') || '').trim();
+      const sprintName = String(cell.getAttribute('data-target-sprint') || '').trim();
+      if (!storyKey || !sprintName) return;
+      queuePiStorySprint(storyKey, sprintName);
+    });
+  });
+
+  host.querySelectorAll('.pi-story-row-grid[data-story-key], .pi-story-story-bar[data-story-key]').forEach((el) => {
+    el.addEventListener('contextmenu', (ev) => {
+      ev.preventDefault();
+      const node = ev.currentTarget instanceof Element ? ev.currentTarget : null;
+      const storyKey = String(node?.getAttribute('data-story-key') || '').trim();
+      if (!storyKey) return;
+      const row = sourceRows.find((x) => x.storyKey === storyKey);
+      if (!row) return;
+      showPiStoryContextMenu(row, ev.clientX, ev.clientY);
+    });
+  });
+
+  host.querySelectorAll('.pi-story-feature-group[data-feature-group-key]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const key = String(el.getAttribute('data-feature-group-key') || '').trim();
+      if (!key) return;
+      const next = getPiStoryCollapsedFeatures();
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      setPiStoryCollapsedFeatures(next);
+      renderPiStoryPlanningTable(window._piCommittedFeatures || [], window._piPlanningSprints || []);
+    });
+  });
+
+  bindPiStoryDragAndDrop(host);
+  updatePiStoryPendingUi();
+}
+
+function bindPiStoryDragAndDrop(host) {
+  if (!(host instanceof HTMLElement)) return;
+  const bars = Array.from(host.querySelectorAll('.pi-story-story-bar[data-story-key]'));
+  const dropCells = Array.from(host.querySelectorAll('.pi-story-drop-cell[data-story-key][data-target-sprint]'));
+  if (!bars.length || !dropCells.length) return;
+
+  const clearPreview = () => {
+    dropCells.forEach((cell) => cell.classList.remove('roadmap-drop-preview-cell'));
+  };
+
+  bars.forEach((bar) => {
+    bar.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      const storyKey = String(bar.getAttribute('data-story-key') || '').trim();
+      if (!storyKey) return;
+
+      const rowCells = dropCells.filter((cell) => String(cell.getAttribute('data-story-key') || '').trim() === storyKey);
+      if (!rowCells.length) return;
+
+      const dragGhost = bar.cloneNode(true);
+      dragGhost.classList.add('roadmap-drag-ghost');
+      dragGhost.classList.remove('roadmap-bar-grabbed', 'roadmap-bar-drag-origin');
+      document.body.appendChild(dragGhost);
+
+      const moveGhost = (x, y) => {
+        dragGhost.style.left = `${x + 14}px`;
+        dragGhost.style.top = `${y + 14}px`;
+      };
+
+      let activeCell = null;
+      bar.classList.add('roadmap-bar-grabbed', 'roadmap-bar-drag-origin');
+      moveGhost(ev.clientX, ev.clientY);
+
+      const setActiveFromPoint = (x, y) => {
+        const direct = document.elementFromPoint(x, y);
+        const hit = direct instanceof Element
+          ? direct.closest('.pi-story-drop-cell[data-story-key][data-target-sprint]')
+          : null;
+        if (!(hit instanceof HTMLElement)) return;
+        const hitStory = String(hit.getAttribute('data-story-key') || '').trim();
+        if (hitStory !== storyKey) return;
+        if (activeCell === hit) return;
+        clearPreview();
+        activeCell = hit;
+        activeCell.classList.add('roadmap-drop-preview-cell');
+      };
+
+      const onMove = (moveEv) => {
+        setActiveFromPoint(moveEv.clientX, moveEv.clientY);
+        moveGhost(moveEv.clientX, moveEv.clientY);
+      };
+
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+
+        bar.classList.remove('roadmap-bar-grabbed', 'roadmap-bar-drag-origin');
+        dragGhost.remove();
+
+        const targetSprint = String(activeCell?.getAttribute('data-target-sprint') || '').trim();
+        clearPreview();
+        if (!targetSprint) return;
+        queuePiStorySprint(storyKey, targetSprint);
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+      ev.preventDefault();
+    });
+  });
+}
+
+async function pushPiStoryChangesToJira() {
+  const pending = piStoryPendingMap();
+  if (!pending.size) {
+    updatePiStoryPendingUi();
+    return;
+  }
+
+  showLoading();
+  try {
+    const workGroup = getSelectedWorkGroup();
+    const fixVersion = getSelectedFixVersion();
+    const details = [];
+    let anySuccess = false;
+    let anyFailure = false;
+
+    for (const [storyKey, change] of Array.from(pending.entries())) {
+      const next = { ...(change || {}) };
+      const messages = [];
+
+      if (next.sprintDirty === true && next.targetSprint) {
+        const resp = await fetch('/update_story_sprint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            issueKey: storyKey,
+            targetSprint: next.targetSprint,
+            workGroup,
+            fixVersion,
+            dryRun: false,
+          }),
+        });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok || !json?.ok) {
+          messages.push(`Sprint: Failed - ${String(json?.error || `HTTP ${resp.status}`)}`);
+          anyFailure = true;
+        } else {
+          next.sprintDirty = false;
+          delete next.targetSprint;
+          messages.push('Sprint: Success');
+          anySuccess = true;
+        }
+      }
+
+      if (next.priorityDirty === true && Number.isInteger(next.targetPriority)) {
+        const resp = await fetch('/update_priority', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ issueKey: storyKey, priority: next.targetPriority, dryRun: false }),
+        });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok || !json?.ok) {
+          messages.push(`Priority: Failed - ${String(json?.error || `HTTP ${resp.status}`)}`);
+          anyFailure = true;
+        } else {
+          next.priorityDirty = false;
+          delete next.targetPriority;
+          messages.push('Priority: Success');
+          anySuccess = true;
+        }
+      }
+
+      if (next.estimationDirty === true && Number.isInteger(next.targetEstimation)) {
+        const resp = await fetch('/update_estimation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ issueKey: storyKey, estimation: next.targetEstimation, dryRun: false }),
+        });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok || !json?.ok) {
+          messages.push(`Story points: Failed - ${String(json?.error || `HTTP ${resp.status}`)}`);
+          anyFailure = true;
+        } else {
+          next.estimationDirty = false;
+          delete next.targetEstimation;
+          messages.push('Story points: Success');
+          anySuccess = true;
+        }
+      }
+
+      if (next.assigneeDirty === true && next.targetAssigneeName) {
+        const resp = await fetch('/update_assignee', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            issueKey: storyKey,
+            accountId: String(next.targetAssigneeAccountId || ''),
+            displayName: String(next.targetAssigneeName || ''),
+            emailAddress: String(next.targetAssigneeEmail || ''),
+            dryRun: false,
+          }),
+        });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok || !json?.ok) {
+          messages.push(`Assignee: Failed - ${String(json?.error || `HTTP ${resp.status}`)}`);
+          anyFailure = true;
+        } else {
+          next.assigneeDirty = false;
+          delete next.targetAssigneeAccountId;
+          delete next.targetAssigneeName;
+          delete next.targetAssigneeEmail;
+          messages.push('Assignee: Success');
+          anySuccess = true;
+        }
+      }
+
+      if (piStoryHasDirty(next)) pending.set(storyKey, next);
+      else pending.delete(storyKey);
+
+      if (messages.length) {
+        details.push(`${storyKey}:\n  - ${messages.join('\n  - ')}`);
+      }
+    }
+
+    updatePiStoryPendingUi();
+    if (details.length) {
+      const noticeType = anyFailure && !anySuccess ? 'error' : (anyFailure ? 'warning' : 'success');
+      showRoadmapNotice('', noticeType, details.slice(0, 8));
+    }
+
+    if (anySuccess) {
+      await loadPIPlanningData(true);
+    } else {
+      renderPiStoryPlanningTable(window._piCommittedFeatures || [], window._piPlanningSprints || []);
+    }
+  } finally {
+    hideLoading();
+  }
+}
+
 /* ===============
    Page bootstrap
    =============== */
@@ -5764,6 +6567,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const tableHost = document.getElementById("committed-table");
       const sprints = Array.isArray(tableHost?._treeSprints) ? tableHost._treeSprints : [];
       window._rerenderFeatureTable("committed-table", sprints);
+      renderPiStoryPlanningTable(window._piCommittedFeatures || [], window._piPlanningSprints || sprints);
       applyFilter();
     });
     document.getElementById("pi-collapse-all-stories")?.addEventListener("click", collapseAllCommittedStories);
@@ -5780,6 +6584,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     document.getElementById("planning-refresh")?.addEventListener("click", () => {
       loadPIPlanningData(true);
+    });
+    document.getElementById('pi-story-push-jira')?.addEventListener('click', () => {
+      pushPiStoryChangesToJira();
+    });
+    document.addEventListener('click', (ev) => {
+      const menu = document.getElementById('pi-story-context-menu');
+      if (!menu || menu.classList.contains('hidden')) return;
+      if (!menu.contains(ev.target)) hidePiStoryContextMenu();
+    });
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') hidePiStoryContextMenu();
     });
   }
 
